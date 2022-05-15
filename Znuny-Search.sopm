@@ -13,6 +13,7 @@
 
     <Filelist>
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
+        <File Permission="770" Location="var/scripts/znuny-package.sh"/>
     </Filelist>
 
     <CodeInstall Type="post"><![CDATA[
