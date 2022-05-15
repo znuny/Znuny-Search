@@ -9,13 +9,15 @@
 # copy this script outside /opt/otrs folder! (/opt/ is fine)
 BASE_PATH="/opt/GIT/Znuny" # <- (!) path to znuny git repos - change it for your environment(!)
 
+group="apache"
+permissions="660"
+
 cd /opt/otrs
 TYPE=$1
 
 if [[ $TYPE != '' ]]; then
   PCKG_NAME=$2
   PCKG_SOPM=$3
-  echo PCKG_NAME
   if [[ $PCKG_NAME != '' ]]; then
       # example ./znuny-package.sh link Znuny-Search
       if [[ $TYPE == 'link' ]]; then
@@ -46,19 +48,21 @@ if [[ $TYPE != '' ]]; then
         if [ $? -eq 0 ]; then
             echo "OK - folder $BASE_PATH/$PCKG_NAME/ found"
             echo "Setting permissions.."
-            find . -type f -name *.js -exec chown otrs:apache {} \;
-            find . -type f -name *.pm -exec chown otrs:apache {} \;
-            find . -type f -name *.css -exec chown otrs:apache {} \;
-            find . -type f -name *.tt -exec chown otrs:apache {} \;
-            find . -type f -name *.sopm -exec chown otrs:apache {} \;
-            find . -type f -name *.gif -exec chown otrs:apache {} \;
+            find . -type f -name *.js -exec chown otrs:$group {} \;
+            find . -type f -name *.pm -exec chown otrs:$group {} \;
+            find . -type f -name *.css -exec chown otrs:$group {} \;
+            find . -type f -name *.tt -exec chown otrs:$group {} \;
+            find . -type f -name *.sopm -exec chown otrs:$group {} \;
+            find . -type f -name *.gif -exec chown otrs:$group {} \;
+            find . -type f -name *.xml -exec chown otrs:$group {} \;
 
-            find . -type f -name *.js -exec chmod 660 {} \;
-            find . -type f -name *.pm -exec chmod 660 {} \;
-            find . -type f -name *.css -exec chmod 660 {} \;
-            find . -type f -name *.tt -exec chmod 660 {} \;
-            find . -type f -name *.sopm -exec chmod 660 {} \;
-            find . -type f -name *.gif -exec chmod 660 {} \;
+            find . -type f -name *.js -exec chmod $permissions {} \;
+            find . -type f -name *.pm -exec chmod $permissions {} \;
+            find . -type f -name *.css -exec chmod $permissions {} \;
+            find . -type f -name *.tt -exec chmod $permissions {} \;
+            find . -type f -name *.sopm -exec chmod $permissions {} \;
+            find . -type f -name *.gif -exec chmod $permissions {} \;
+            find . -type f -name *.xml -exec chmod $permissions {} \;
         else
             echo FAIL
         fi
