@@ -12,6 +12,12 @@
     <Description Lang="en">todo</Description>
 
     <Filelist>
+        <File Permission="660" Location="Kernel/System/AdvancedSearch.pm"/>
+        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object.pm"/>
+        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object/Ticket/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object/Ticket/TicketHistory.pm"/>
+        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object/Ticket/TicketType.pm"/>
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
         <File Permission="770" Location="var/scripts/znuny-package.sh"/>
     </Filelist>
