@@ -12,6 +12,8 @@
     <Description Lang="en">todo</Description>
 
     <Filelist>
+        <File Permission="660" Location="Kernel/System/AdvancedSearch/Mapping.pm"/>
+        <File Permission="660" Location="Kernel/System/AdvancedSearch/Mapping/ES.pm"/>
         <File Permission="660" Location="Kernel/System/AdvancedSearch.pm"/>
         <File Permission="660" Location="Kernel/System/AdvancedSearch/Object.pm"/>
         <File Permission="660" Location="Kernel/System/AdvancedSearch/Object/Ticket.pm"/>
