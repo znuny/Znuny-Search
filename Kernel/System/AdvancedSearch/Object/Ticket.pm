@@ -11,7 +11,7 @@ package Kernel::System::AdvancedSearch::Object::Ticket;
 use strict;
 use warnings;
 
-use parent qw( Kernel::System::Object );
+use parent qw( Kernel::System::AdvancedSearch::Object );
 
 our @ObjectDependencies = (
 
