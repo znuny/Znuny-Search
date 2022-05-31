@@ -47,29 +47,27 @@ if [[ $TYPE != '' ]]; then
       if [[ $TYPE == 'setpermissions' ]]; then
         cd "$BASE_PATH/$PCKG_NAME/"
         if [ $? -eq 0 ]; then
-            echo "OK - folder $BASE_PATH/$PCKG_NAME/ found"
-            echo "Setting file permissions.."
-            echo "group:$group"
-            echo "permissions:$file_permissions"
-            find . -type f -name *.js -o \
-            -type f -name *.pm -o \
-            -type f -name *.css -o \
-            -type f -name *.tt -o \
-            -type f -name *.sopm -o \
-            -type f -name *.gif -o \
-            -type f -name *.xml -o \
-            -type f -name *.tmpl \
-            -exec chown otrs:$group {} \;
+            echo "OK - folder $BASE_PATH/$PCKG_NAME/ found";
+            echo "Setting file permissions..";
+            echo "group:$group";
+            echo "permissions:$file_permissions";
+            find . -type f -name *.js -exec chown otrs:$group {} \;
+            find . -type f -name *.pm -exec chown otrs:$group {} \;
+            find . -type f -name *.css -exec chown otrs:$group {} \;
+            find . -type f -name *.tt -exec chown otrs:$group {} \;
+            find . -type f -name *.sopm -exec chown otrs:$group {} \;
+            find . -type f -name *.gif -exec chown otrs:$group {} \;
+            find . -type f -name *.xml -exec chown otrs:$group {} \;
+            find . -type f -name *.tmpl -exec chown otrs:$group {} \;
 
-            find . -type f -name *.js -o \
-            -type f -name *.pm -o \
-            -type f -name *.css -o \
-            -type f -name *.tt -o \
-            -type f -name *.sopm -o \
-            -type f -name *.gif -o \
-            -type f -name *.xml -o \
-            -type f -name *.tmpl \
-            -exec chmod $file_permissions {} \;
+            find . -type f -name *.js -exec chmod $file_permissions {} \;
+            find . -type f -name *.pm -exec chmod $file_permissions {} \;
+            find . -type f -name *.css -exec chmod $file_permissions {} \;
+            find . -type f -name *.tt -exec chmod $file_permissions {} \;
+            find . -type f -name *.sopm -exec chmod $file_permissions {} \;
+            find . -type f -name *.gif -exec chmod $file_permissions {} \;
+            find . -type f -name *.xml -exec chmod $file_permissions {} \;
+            find . -type f -name *.tmpl -exec chmod $file_permissions {} \;
 
             echo "Setting folder permissions.."
             echo "group:$group"
