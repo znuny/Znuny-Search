@@ -43,4 +43,16 @@ sub new {
     return $Self;
 }
 
+=head2 Search()
+
+TO-DO
+
+=cut
+
+sub Search {
+    my ( $Self, %Param ) = @_;
+
+    return ['Ticket/Ticket Query1 GET'];    # MOCK-UP
+}
+
 1;

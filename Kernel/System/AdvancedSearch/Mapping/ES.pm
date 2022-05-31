@@ -43,4 +43,39 @@ sub new {
     return $Self;
 }
 
+=head2 ResultFormat()
+
+TO-DO
+
+=cut
+
+sub ResultFormat {
+    my ( $Self, %Param ) = @_;
+
+    return [
+        {
+            ObjectID   => 1,
+            ObjectName => 'ES SomeObject1',
+            ObjectType => 'ES SomeType1',
+        },
+        {
+            ObjectID   => 2,
+            ObjectName => 'ES SomeObject2',
+            ObjectType => 'ES SomeType2',
+        }
+    ];
+}
+
+=head2 Search()
+
+TO-DO
+
+=cut
+
+sub Search {
+    my ( $Self, %Param ) = @_;
+
+    return "Some Search(GET) Query for ES";
+}
+
 1;

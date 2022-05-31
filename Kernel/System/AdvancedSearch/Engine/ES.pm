@@ -43,4 +43,46 @@ sub new {
     return $Self;
 }
 
+=head2 QueryExecute()
+
+TO-DO
+
+=cut
+
+sub QueryExecute {
+    my ( $Self, %Param ) = @_;
+
+    return {
+        Code     => '200',
+        Response => {
+            Describe => 'Response from ES Engine',
+            Values   => {
+                Objects => [
+                    {
+                        String => "Sneaky Rabbit"
+                    },
+                    {
+                        String => "Howling Dog"
+                    },
+                    {
+                        String => "Sleeping Owl"
+                    },
+                ],
+            },
+        },
+    };
+}
+
+=head2 QueryMerge()
+
+TO-DO
+
+=cut
+
+sub QueryMerge {
+    my ( $Self, %Param ) = @_;
+
+    return "Merged Query for ES";
+}
+
 1;
