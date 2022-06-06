@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<otrs_config version="2.0" init="Application">
+    <Setting Name="AdvancedSearch::Mapping" Required="0" Valid="1">
+        <Description Translatable="1">Register advanced search "Ticket" index.</Description>
+        <Navigation>Core::AdvancedSearch::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="ticket">Ticket</Item>
+                <Item Key="ticket_type">TicketType</Item>
+                <Item Key="ticket_history">TicketHistory</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="AdvancedSearch::Mapping###Ticket" Required="0" Valid="1">
+        <Description Translatable="1">Register advanced search "Ticket" index.</Description>
+        <Navigation>Core::AdvancedSearch::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::AdvancedSearch::Object::Ticket::Ticket</Item>
+                <Item Key="Index">Ticket</Item>
+                <Item Key="ObjectType">Ticket</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="AdvancedSearch::Mapping###TicketType" Required="0" Valid="1">
+        <Description Translatable="1">Register advanced search "TicketType" index.</Description>
+        <Navigation>Core::AdvancedSearch::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::AdvancedSearch::Object::Ticket::TicketType</Item>
+                <Item Key="Index">TicketType</Item>
+                <Item Key="ObjectType">Ticket</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="AdvancedSearch::Mapping###TicketHistory" Required="0" Valid="1">
+        <Description Translatable="1">Register advanced search "TicketHistory" index.</Description>
+        <Navigation>Core::AdvancedSearch::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::AdvancedSearch::Object::Ticket::TicketHistory</Item>
+                <Item Key="Index">TicketHistory</Item>
+                <Item Key="ObjectType">Ticket</Item>
+            </Hash>
+        </Value>
+    </Setting>
+</otrs_config>
