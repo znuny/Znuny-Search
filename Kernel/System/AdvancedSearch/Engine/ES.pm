@@ -10,11 +10,13 @@ package Kernel::System::AdvancedSearch::Engine::ES;
 
 use strict;
 use warnings;
+use Search::Elasticsearch;
 
 use parent qw( Kernel::System::AdvancedSearch::Engine );
 
 our @ObjectDependencies = (
-
+    'Kernel::System::Log',
+    'Kernel::System::AdvancedSearch::Mapping::ES',
 );
 
 =head1 NAME
@@ -40,6 +42,20 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
+    $Self->{ConnectObject} = Search::Elasticsearch->new(
+        nodes => [
+            '172.17.0.1:9200',    # MOCK-UP
+        ]
+    );
+
+    # try to receive information about cluster after connection.
+    eval {
+        $Self->{ConnectObject}->cluster()->health();
+    };
+    if ($@) {
+        $Self->{ConnectionError} = 1;
+    }
+
     return $Self;
 }
 
@@ -52,37 +68,42 @@ TO-DO
 sub QueryExecute {
     my ( $Self, %Param ) = @_;
 
-    return {
-        Code     => '200',
-        Response => {
-            Describe => 'Response from ES Engine',
-            Values   => {
-                Objects => [
-                    {
-                        String => "Sneaky Rabbit"
-                    },
-                    {
-                        String => "Howling Dog"
-                    },
-                    {
-                        String => "Sleeping Owl"
-                    },
-                ],
-            },
-        },
-    };
-}
+    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
+    my $MappingObject = $Kernel::OM->Get('Kernel::System::AdvancedSearch::Mapping::ES');
 
-=head2 QueryMerge()
+    if ( !$Param{Query} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing query body."
+        );
+    }
 
-TO-DO
+    if ( $Self->{ConnectionError} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "A connection error has occurred",
+        );
 
-=cut
+        return {
+            ConnectionError => 1
+        };
+    }
 
-sub QueryMerge {
-    my ( $Self, %Param ) = @_;
+    my $QueryType = $Param{QueryType} || 'search';
 
-    return "Merged Query for ES";
+    my $Result = $Self->{ConnectObject}->$QueryType(
+        index => $Param{Index},
+        body  => {
+            %{ $Param{Query} }
+        }
+    );
+
+    # Globaly standarize format to understandable by search engine.
+    $Result = $MappingObject->ResultFormat(
+        Result => $Result
+    );
+
+    return $Result;
 }
 
 1;

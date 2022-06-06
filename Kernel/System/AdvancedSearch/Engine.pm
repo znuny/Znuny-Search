@@ -12,7 +12,7 @@ use strict;
 use warnings;
 
 our @ObjectDependencies = (
-
+    'Kernel::System::Log'
 );
 
 =head1 NAME
@@ -50,19 +50,16 @@ TO-DO
 sub QueryExecute {
     my ( $Self, %Param ) = @_;
 
-    return 1;
-}
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-=head2 QueryMerge()
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "QueryExecute function was not properly overriden.",
+    );
 
-TO-DO
-
-=cut
-
-sub QueryMerge {
-    my ( $Self, %Param ) = @_;
-
-    return 1;
+    return {
+        ConnectionError => 1
+    };
 }
 
 1;
