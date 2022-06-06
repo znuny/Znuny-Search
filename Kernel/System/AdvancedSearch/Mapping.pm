@@ -12,7 +12,7 @@ use strict;
 use warnings;
 
 our @ObjectDependencies = (
-
+    'Kernel::System::Log',
 );
 
 =head1 NAME
@@ -50,7 +50,16 @@ TO-DO
 sub ResultFormat {
     my ( $Self, %Param ) = @_;
 
-    return 1;
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "ResultFormat function was not properly overriden.",
+    );
+
+    return {
+        Error => 1
+    };
 }
 
 =head2 ObjectIndexAdd()
@@ -98,7 +107,17 @@ TO-DO
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    return 1;
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "Search function was not properly overriden.",
+    );
+
+    return {
+        Error => 1
+    };
+
 }
 
 1;

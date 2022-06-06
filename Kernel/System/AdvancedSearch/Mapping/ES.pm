@@ -14,7 +14,7 @@ use warnings;
 use parent qw( Kernel::System::AdvancedSearch::Mapping );
 
 our @ObjectDependencies = (
-
+    'Kernel::Config',
 );
 
 =head1 NAME
@@ -52,18 +52,24 @@ TO-DO
 sub ResultFormat {
     my ( $Self, %Param ) = @_;
 
-    return [
-        {
-            ObjectID   => 1,
-            ObjectName => 'ES SomeObject1',
-            ObjectType => 'ES SomeType1',
-        },
-        {
-            ObjectID   => 2,
-            ObjectName => 'ES SomeObject2',
-            ObjectType => 'ES SomeType2',
-        }
-    ];
+    my $Result = $Param{Result};
+
+    return {
+        Reason => $Result->{reason},
+        Status => $Result->{status},
+        Type   => $Result->{type}
+    } if $Result->{status};
+
+    my $Objects = $Self->_PreProcessObjectTypes(
+        Hits => $Result->{hits}->{hits}
+    );
+
+    return {
+        Objects      => $Objects,
+        Shards       => $Result->{_shards},
+        ResponseTime => $Result->{took},
+    };
+
 }
 
 =head2 Search()
@@ -75,7 +81,67 @@ TO-DO
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    return "Some Search(GET) Query for ES";
+    # Empty query template.
+    my %Query = (
+        query => {
+            bool => {}
+        }
+    );
+
+    for my $Param ( sort keys %{ $Param{ObjectParams} } ) {
+        my $Must = {
+            match => {
+                $Param => {
+                    query => $Param{ObjectParams}->{$Param}
+                }
+            }
+        };
+
+        push @{ $Query{query}{bool}{must} }, $Must;
+    }
+
+    # $Query{query} = { # E.Q. initial Query
+    #     query=>{
+    #         bool => {
+    #             must => [
+    #                 {
+    #                     match => {
+    #                         Owner =>{
+    #                             query => "Kamil Furtek"
+    #                         }
+    #                     }
+    #                 },
+    #                 {
+    #                     match => {
+    #                         Responsible =>{
+    #                             query => "Kamil Furtek"
+    #                         }
+    #                     }
+    #                 }
+    #             ]
+    #         }
+    #     }
+    # }
+
+    return \%Query;
+}
+
+sub _PreProcessObjectTypes {
+    my ( $Self, %Param ) = @_;
+
+    my $Hits         = $Param{Hits} || ();
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
+    my $AdvancedSearchIndexMapping = $ConfigObject->Get("AdvancedSearch::Mapping");
+
+    my %Objects;
+    for my $Hit ( @{$Hits} ) {
+        my $Object       = $AdvancedSearchIndexMapping->{ $Hit->{_index} };
+        my $ObjectConfig = $AdvancedSearchIndexMapping->{$Object};
+        push @{ $Objects{ $ObjectConfig->{ObjectType} }{ $ObjectConfig->{Index} } }, $Hit->{_source};
+    }
+
+    return \%Objects;
 }
 
 1;
