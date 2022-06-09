@@ -42,21 +42,50 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
-    $Self->{ConnectObject} = Search::Elasticsearch->new(
+    return $Self;
+}
+
+=head2 Connect()
+
+TO-DO
+
+=cut
+
+sub Connect {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !$Param{Config} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need Config!"
+        );
+        return;
+    }
+
+    # try to receive information about cluster after connection.
+    my $ConnectObject = Search::Elasticsearch->new(
         nodes => [
             '172.17.0.1:9200',    # MOCK-UP
         ]
     );
 
-    # try to receive information about cluster after connection.
     eval {
-        $Self->{ConnectObject}->cluster()->health();
+        $ConnectObject->cluster()->health();
     };
+
+    # If engine was not reachable than treat it like an error for further fallbacks.
     if ($@) {
-        $Self->{ConnectionError} = 1;
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Connection failed for engine: $Self->{Config}->{ActiveEngine}. Message: $@",
+        );
+        $Self->{Error} = 1;
+        return;
     }
 
-    return $Self;
+    return $ConnectObject;
 }
 
 =head2 QueryExecute()
@@ -70,6 +99,7 @@ sub QueryExecute {
 
     my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
     my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
+    my $ConnectObject = $Param{ConnectObject};
 
     if ( !$Param{Query} ) {
         $LogObject->Log(
@@ -91,8 +121,8 @@ sub QueryExecute {
 
     my $QueryType = $Param{QueryType} || 'search';
 
-    my $Result = $Self->{ConnectObject}->$QueryType(
-        index => $Param{Index},
+    my $Result = $ConnectObject->$QueryType(
+        index => $Param{Index} || 'ticket',
         body  => {
             %{ $Param{Query} }
         }

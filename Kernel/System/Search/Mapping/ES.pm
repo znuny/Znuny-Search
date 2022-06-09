@@ -88,12 +88,12 @@ sub Search {
         }
     );
 
-    for my $Param ( sort keys %{ $Param{SearchParams} } ) {
+    for my $Param ( sort keys %{ $Param{QueryParams} } ) {
 
         my $Must = {
             match => {
                 $Param => {
-                    query => $Param{SearchParams}->{$Param}
+                    query => $Param{QueryParams}->{$Param}
                 }
             }
         };

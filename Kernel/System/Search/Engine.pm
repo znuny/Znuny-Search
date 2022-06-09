@@ -8,6 +8,8 @@
 
 package Kernel::System::Search::Engine;
 
+use Search::Elasticsearch;
+
 use strict;
 use warnings;
 
@@ -39,6 +41,27 @@ sub new {
     bless( $Self, $Type );
 
     return $Self;
+}
+
+=head2 Connect()
+
+TO-DO
+
+=cut
+
+sub Connect {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "QueryExecute function was not properly overriden.",
+    );
+
+    return {
+        ConnectionError => 1
+    };
 }
 
 =head2 QueryExecute()

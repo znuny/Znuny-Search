@@ -8,13 +8,15 @@
 
 package Kernel::System::Search;
 
-use Search::Elasticsearch;
 use strict;
 use warnings;
 
+use Kernel::System::VariableCheck qw(IsHashRefWithData);
+
 our @ObjectDependencies = (
     'Kernel::System::Log',
-    'Kernel::System::Search::Object'
+    'Kernel::System::Search::Object',
+    'Kernel::System::Main',
 );
 
 =head1 NAME
@@ -40,28 +42,38 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
-    $Self->{ElasticSearch}->{Enabled} = 1;    # MOCK-UP
-
-    # Check if ElasticSearch feature is enabled.
-    if ( !$Self->{ElasticSearch}->{Enabled} ) {
-        $Self->{ElasticSearch}->{Error} = 1;
-    }
-
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    $Self->{Config}->{ActiveEngine} = 'ES';    # MOCK-UP
+    $Self->{Config} = $Self->ConfigGet();    
+
+    # Check if ElasticSearch feature is enabled.
+    if ( !$Self->{Config}->{Enabled} ) {
+        $Self->{Error} = 1;
+    }
+
+    my $ModulesCheckOk;
 
     # Check if there is choosen active engine of the search.
-    if ( !$Self->{Config}->{ActiveEngine} ) {
-        $Self->{ElasticSearch}->{Error} = 1;
+    if ( !$Self->{Config}->{ActiveEngine} && !$Self->{Error} ) {
+        $Self->{Error} = 1;
         $LogObject->Log(
             Priority => 'error',
-            Message  => "Missing Search Engine.",
+            Message  => "Search configuration does not specify a valid active engine!",
+        );
+    } else {
+        $ModulesCheckOk = $Self->BaseModulesCheck(
+            Config => $Self->{Config},
         );
     }
 
+    if(!$ModulesCheckOk){
+        $Self->{Error} = 1;
+    }
+
     # If there were no errors before, try connecting.
-    $Self->Connect() if !$Self->{ElasticSearch}->{Error};
+    $Self->{ConnectObject} = $Self->Connect(
+        Config => $Self->{Config},
+    ) if !$Self->{Error};
 
     return $Self;
 }
@@ -76,15 +88,9 @@ sub Search {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    # If there was an critical error, fallback all of the objects with given search parameters.
-    if ( $Self->{ElasticSearch}->{Error} ) {
-        my $Response = $Self->Fallback(%Param);
-        return $Response;
-    }
-
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     NEEDED:
-    for my $Needed (qw(Objects SearchParams)) {
+    for my $Needed (qw(Objects QueryParams)) {
         next NEEDED if $Param{$Needed};
 
         $LogObject->Log(
@@ -94,40 +100,35 @@ sub Search {
         return;
     }
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-
-    my $StructureMapping = {
-        "Mapping" => "Kernel::System::Search::Mapping::$Self->{Config}->{ActiveEngine}",
-        "Engine"  => "Kernel::System::Search::Engine::$Self->{Config}->{ActiveEngine}",
-    };
+    # If there was an critical error, fallback all of the objects with given search parameters.
+    if ( $Self->{Error} ) {
+        my $Response = $SearchObject->Fallback(%Param);
+        return $Response;
+    }
 
     my $Result = $SearchObject->QueryPrepare(
         %Param,
-        Engine => $Self->{Config}->{ActiveEngine}
+        Operation => "Search",
     );
 
     if ( $Result->{Error} ) {
         $Result->{Fallback} = $Self->Fallback(%Param);
     }
 
-    return $Result if !$Result->{Fallback}->{Continue};
+#     return $Result if !$Result->{Fallback}->{Continue};
 
     my @Queries = $Result->{Queries} || ();
-
-    my %SearchModules;
-    for my $SearchStructureItem (qw ( Mapping Engine )) {
-        $SearchModules{$SearchStructureItem} = $Kernel::OM->Get( $StructureMapping->{$SearchStructureItem} );
-    }
 
     my $QueriesToExecute = $Queries[0];
 
     my @Result;
     for my $Query ( @{$QueriesToExecute} ) {
 
-        my $ResultQuery = $SearchModules{Engine}->QueryExecute(
+        my $ResultQuery = $Self->{EngineObject}->QueryExecute(
             Query     => $Query,
             Index     => 'ticket',
-            QueryType => 'search'
+            QueryType => 'search',
+            ConnectObject => $Self->{ConnectObject},
         );
 
         push @Result, $ResultQuery;
@@ -151,39 +152,22 @@ sub Connect {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-    my $Connect;
 
-    # try to receive information about cluster after connection.
-
-    # Connection process...
-
-    $Self->{ConnectObject} = Search::Elasticsearch->new(
-        nodes => [
-            '172.17.0.1:9200',    # MOCK-UP
-        ]
-    );
-
-    # *Successfully*
-    $Connect = 1;                 # MOCK-UP
-
-    eval {
-        $Self->{ConnectObject}->cluster()->health();
-    };
-    if ($@) {
-        $Connect = 0;
-    }
-
-    # If engine was not reachable than treat it like an error for further fallbacks.
-    if ( !$Connect ) {
-        $LogObject->Log(
+    if ( !IsHashRefWithData $Param{Config} ) {
+        $Kernel::OM->Get('Kernel::System::Log')->Log(
             Priority => 'error',
-            Message  => "Connection failed for engine: $Self->{Config}->{ActiveEngine}",
+            Message  => "Need Config!"
         );
-        $Self->{ElasticSearch}->{Error} = 1;
         return;
     }
 
-    return 1;
+    return if !$Self->{EngineObject}->can('Connect');
+    my $ConnectObject = $Self->{EngineObject}->Connect(%Param);
+
+    if(!$ConnectObject || $ConnectObject->{Failed}){
+        $Self->{Error} = 1;
+    }
+    return $ConnectObject;
 }
 
 =head2 Disconnect()
@@ -218,6 +202,63 @@ TO-DO
 
 sub IndexDrop {
     my ( $Self, %Param ) = @_;
+
+    return 1;
+}
+
+=head2 ConfigGet()
+
+TO-DO
+
+=cut
+
+sub ConfigGet {
+    my ( $Self, %Param ) = @_;
+
+    # MOCK-UP
+    my %Config = (
+        ActiveEngine => "ES",
+        Enabled => 1,
+    );
+
+    return \%Config;
+}
+
+=head2 BaseModulesCheck()
+
+TO-DO
+
+=cut
+
+sub BaseModulesCheck {
+    my ( $Self, %Param ) = @_;
+
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    return if !$Param{Config}->{ActiveEngine};
+    # define base modules
+    my %Modules = (
+        "Mapping" => "Kernel::System::Search::Mapping::$Param{Config}->{ActiveEngine}",
+        "Engine"  => "Kernel::System::Search::Engine::$Param{Config}->{ActiveEngine}",
+    );
+    
+    # check if base modules exists and add them to $Self
+    for my $Module(keys %Modules){
+        my $Location = $Modules{$Module};
+        my $Loaded = $MainObject->Require(
+            $Location,
+            Silent => 1,                # optional, no log entry if module was not found
+        );
+        if(!$Loaded){
+            $Kernel::OM->Get('Kernel::System::Log')->Log(
+                Priority => 'error',
+                Message  => "Module $Location is not valid!"
+            );
+            return;
+        } else {
+            $Self->{$Module . "Object"} = $Kernel::OM->Get($Location);
+        }
+    }
 
     return 1;
 }
