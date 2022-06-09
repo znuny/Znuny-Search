@@ -92,7 +92,7 @@ sub QueryExecute {
     my $QueryType = $Param{QueryType} || 'search';
 
     my $Result = $Self->{ConnectObject}->$QueryType(
-        index => $Param{Index} || 'ticket',
+        index => $Param{Index},
         body  => {
             %{ $Param{Query} }
         }
