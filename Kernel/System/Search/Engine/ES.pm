@@ -6,22 +6,22 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::AdvancedSearch::Engine::ES;
+package Kernel::System::Search::Engine::ES;
 
 use strict;
 use warnings;
 use Search::Elasticsearch;
 
-use parent qw( Kernel::System::AdvancedSearch::Engine );
+use parent qw( Kernel::System::Search::Engine );
 
 our @ObjectDependencies = (
     'Kernel::System::Log',
-    'Kernel::System::AdvancedSearch::Mapping::ES',
+    'Kernel::System::Search::Mapping::ES',
 );
 
 =head1 NAME
 
-Kernel::System::AdvancedSearch::Engine::ES - TO-DO
+Kernel::System::Search::Engine::ES - TO-DO
 
 =head1 DESCRIPTION
 
@@ -69,7 +69,7 @@ sub QueryExecute {
     my ( $Self, %Param ) = @_;
 
     my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
-    my $MappingObject = $Kernel::OM->Get('Kernel::System::AdvancedSearch::Mapping::ES');
+    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
 
     if ( !$Param{Query} ) {
         $LogObject->Log(
@@ -92,7 +92,7 @@ sub QueryExecute {
     my $QueryType = $Param{QueryType} || 'search';
 
     my $Result = $Self->{ConnectObject}->$QueryType(
-        index => $Param{Index},
+        index => $Param{Index} || 'ticket',
         body  => {
             %{ $Param{Query} }
         }

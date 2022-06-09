@@ -13,16 +13,18 @@
 
     <Filelist>
         <File Permission="660" Location="Kernel/Config/Files/XML/AdvancedSearch.xml"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch/Engine.pm"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch/Engine/ES.pm"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch/Mapping.pm"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch/Mapping/ES.pm"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch.pm"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object.pm"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object/Ticket.pm"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object/Ticket/Ticket.pm"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object/Ticket/TicketHistory.pm"/>
-        <File Permission="660" Location="Kernel/System/AdvancedSearch/Object/Ticket/TicketType.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Engine.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Engine/ES.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Mapping.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Mapping/ES.pm"/>
+        <File Permission="660" Location="Kernel/System/Search.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Base.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Query.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Base/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Base/TicketHistory.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
         <File Permission="770" Location="var/scripts/znuny-package.sh"/>
     </Filelist>

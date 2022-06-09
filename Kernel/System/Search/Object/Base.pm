@@ -6,18 +6,18 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::AdvancedSearch::Engine;
+package Kernel::System::Search::Object::Base;
 
 use strict;
 use warnings;
 
 our @ObjectDependencies = (
-    'Kernel::System::Log'
+    'Kernel::System::Log',
 );
 
 =head1 NAME
 
-Kernel::System::AdvancedSearch::Engine - TO-DO
+Kernel::System::Search::Object::Base - TO-DO
 
 =head1 DESCRIPTION
 
@@ -41,20 +41,34 @@ sub new {
     return $Self;
 }
 
-=head2 QueryExecute()
+=head2 Fallback()
 
 TO-DO
 
 =cut
 
-sub QueryExecute {
+sub Fallback {
+    my ( $Self, %Param ) = @_;
+
+    return {
+        ConnectionError => 1
+    };
+}
+
+=head2 ResultFormat()
+
+TO-DO
+
+=cut
+
+sub ResultFormat {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     $LogObject->Log(
         Priority => 'error',
-        Message  => "QueryExecute function was not properly overriden.",
+        Message  => "ResultFormat function was not properly overriden.",
     );
 
     return {
