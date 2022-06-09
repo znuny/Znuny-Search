@@ -6,12 +6,12 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::AdvancedSearch::Mapping::ES;
+package Kernel::System::Search::Mapping::ES;
 
 use strict;
 use warnings;
 
-use parent qw( Kernel::System::AdvancedSearch::Mapping );
+use parent qw( Kernel::System::Search::Mapping );
 
 our @ObjectDependencies = (
     'Kernel::Config',
@@ -19,7 +19,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::AdvancedSearch::Mapping::ES - TO-DO
+Kernel::System::Search::Mapping::ES - TO-DO
 
 =head1 DESCRIPTION
 
@@ -88,11 +88,12 @@ sub Search {
         }
     );
 
-    for my $Param ( sort keys %{ $Param{ObjectParams} } ) {
+    for my $Param ( sort keys %{ $Param{SearchParams} } ) {
+
         my $Must = {
             match => {
                 $Param => {
-                    query => $Param{ObjectParams}->{$Param}
+                    query => $Param{SearchParams}->{$Param}
                 }
             }
         };
@@ -132,12 +133,12 @@ sub _PreProcessObjectTypes {
     my $Hits         = $Param{Hits} || ();
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
-    my $AdvancedSearchIndexMapping = $ConfigObject->Get("AdvancedSearch::Mapping");
+    my $IndexMapping = $ConfigObject->Get("Search::Mapping");
 
     my %Objects;
     for my $Hit ( @{$Hits} ) {
-        my $Object       = $AdvancedSearchIndexMapping->{ $Hit->{_index} };
-        my $ObjectConfig = $AdvancedSearchIndexMapping->{$Object};
+        my $Object       = $IndexMapping->{ $Hit->{_index} };
+        my $ObjectConfig = $IndexMapping->{$Object};
         push @{ $Objects{ $ObjectConfig->{ObjectType} }{ $ObjectConfig->{Index} } }, $Hit->{_source};
     }
 

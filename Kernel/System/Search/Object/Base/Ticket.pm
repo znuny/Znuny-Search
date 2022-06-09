@@ -6,20 +6,20 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::AdvancedSearch::Object::Ticket::TicketType;
+package Kernel::System::Search::Object::Base::Ticket;
 
 use strict;
 use warnings;
 
-use parent qw( Kernel::System::AdvancedSearch::Object::Ticket );
+use parent qw( Kernel::System::Search::Object::Base );
 
 our @ObjectDependencies = (
-
+    'Kernel::System::Log',
 );
 
 =head1 NAME
 
-Kernel::System::AdvancedSearch::Object::Ticket::TicketType - TO-DO
+Kernel::System::Search::Object::Base::Ticket - TO-DO
 
 =head1 DESCRIPTION
 
@@ -43,16 +43,12 @@ sub new {
     return $Self;
 }
 
-=head2 Search()
+sub ResultFormat {
+    my ( $Type, %Param ) = @_;
 
-TO-DO
+    my $Objects = $Param{Objects};
 
-=cut
-
-sub Search {
-    my ( $Self, %Param ) = @_;
-
-    return ['Ticket/TicketType Query1 GET'];    # MOCK-UP
+    return $Objects;
 }
 
 1;

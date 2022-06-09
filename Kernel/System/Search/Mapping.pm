@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::AdvancedSearch::Mapping;
+package Kernel::System::Search::Mapping;
 
 use strict;
 use warnings;
@@ -17,7 +17,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::AdvancedSearch::Mapping - TO-DO
+Kernel::System::Search::Mapping - TO-DO
 
 =head1 DESCRIPTION
 

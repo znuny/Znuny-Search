@@ -6,20 +6,18 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::AdvancedSearch::Object::Ticket::TicketHistory;
+package Kernel::System::Search::Engine;
 
 use strict;
 use warnings;
 
-use parent qw( Kernel::System::AdvancedSearch::Object::Ticket );
-
 our @ObjectDependencies = (
-
+    'Kernel::System::Log'
 );
 
 =head1 NAME
 
-Kernel::System::AdvancedSearch::Object::Ticket::TicketHistory - TO-DO
+Kernel::System::Search::Engine - TO-DO
 
 =head1 DESCRIPTION
 
@@ -43,16 +41,25 @@ sub new {
     return $Self;
 }
 
-=head2 Search()
+=head2 QueryExecute()
 
 TO-DO
 
 =cut
 
-sub Search {
+sub QueryExecute {
     my ( $Self, %Param ) = @_;
 
-    return ['Ticket/TicketType Query1 GET'];    # MOCK-UP
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "QueryExecute function was not properly overriden.",
+    );
+
+    return {
+        ConnectionError => 1
+    };
 }
 
 1;

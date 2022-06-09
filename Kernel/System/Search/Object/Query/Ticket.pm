@@ -6,20 +6,20 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::AdvancedSearch::Object::Ticket;
+package Kernel::System::Search::Object::Query::Ticket;
 
 use strict;
 use warnings;
 
-use parent qw( Kernel::System::AdvancedSearch::Object );
+use parent qw( Kernel::System::Search::Object::Query );
 
 our @ObjectDependencies = (
-
+    'Kernel::System::Log',
 );
 
 =head1 NAME
 
-Kernel::System::AdvancedSearch::Object::Ticket - TO-DO
+Kernel::System::Search::Object::Query::Ticket - TO-DO
 
 =head1 DESCRIPTION
 
