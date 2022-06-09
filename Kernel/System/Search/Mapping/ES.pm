@@ -133,12 +133,12 @@ sub _PreProcessObjectTypes {
     my $Hits         = $Param{Hits} || ();
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
-    my $IndexMapping = $ConfigObject->Get("Search::Mapping");
+    my $SearchIndexMapping = $ConfigObject->Get("Search::Mapping");
 
     my %Objects;
     for my $Hit ( @{$Hits} ) {
-        my $Object       = $IndexMapping->{ $Hit->{_index} };
-        my $ObjectConfig = $IndexMapping->{$Object};
+        my $Object       = $SearchIndexMapping->{ $Hit->{_index} };
+        my $ObjectConfig = $SearchIndexMapping->{$Object};
         push @{ $Objects{ $ObjectConfig->{ObjectType} }{ $ObjectConfig->{Index} } }, $Hit->{_source};
     }
 
