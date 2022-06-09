@@ -12,6 +12,7 @@ use strict;
 use warnings;
 
 our @ObjectDependencies = (
+    'Kernel::System::Log',
 );
 
 =head1 NAME
@@ -97,18 +98,30 @@ TO-DO
 sub QueryPrepare {
     my ( $Self, %Param ) = @_;
 
-    my %Result;
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
+    for my $Name (qw( Objects QueryParams Operation )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my %Result;
     my @Queries;
+
+    my $FunctionName = $Param{Operation};
 
     OBJECT:
     for my $Object ( @{ $Param{Objects} } ) {
 
         my $ObjectModule = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Object}");
 
-        my $Data = $ObjectModule->Search(
-            %Param,
-            IndexName => $Object,
+        my $Data = $ObjectModule->$FunctionName(
+            QueryParams => $Param{QueryParams},
         );
 
         # my $Data = {    # MOCK-UP
@@ -119,8 +132,9 @@ sub QueryPrepare {
         #     Query => 'Queries 1'
         # };
 
-        $Result{Error}    = $Data->{Error};
-        $Result{Fallback} = $Data->{Fallback};    # THIS POSSIBLE SHOULD SLICE RESPONSE PER OBJECT MODULE.
+        #         TODO Add information about possible errors in each query
+        #         $Result{Error}    = $Data->{Error};
+        #         $Result{Fallback} = $Data->{Fallback};    # THIS POSSIBLE SHOULD SLICE RESPONSE PER OBJECT MODULE.
 
         # TODO: Check for possibility of handling fallbacks mixed with engine requests.
 
