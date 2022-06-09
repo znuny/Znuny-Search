@@ -6,6 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
+## nofilter(TidyAll::Plugin::OTRS::Perl::SyntaxCheck)
 package Kernel::System::Search;
 
 use strict;
@@ -44,7 +45,7 @@ sub new {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    $Self->{Config} = $Self->ConfigGet();    
+    $Self->{Config} = $Self->ConfigGet();
 
     # Check if ElasticSearch feature is enabled.
     if ( !$Self->{Config}->{Enabled} ) {
@@ -60,13 +61,14 @@ sub new {
             Priority => 'error',
             Message  => "Search configuration does not specify a valid active engine!",
         );
-    } else {
+    }
+    else {
         $ModulesCheckOk = $Self->BaseModulesCheck(
             Config => $Self->{Config},
         );
     }
 
-    if(!$ModulesCheckOk){
+    if ( !$ModulesCheckOk ) {
         $Self->{Error} = 1;
     }
 
@@ -87,7 +89,7 @@ TO-DO
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     NEEDED:
     for my $Needed (qw(Objects QueryParams)) {
@@ -115,7 +117,7 @@ sub Search {
         $Result->{Fallback} = $Self->Fallback(%Param);
     }
 
-#     return $Result if !$Result->{Fallback}->{Continue};
+    #     return $Result if !$Result->{Fallback}->{Continue};
 
     my @Queries = $Result->{Queries} || ();
 
@@ -125,9 +127,9 @@ sub Search {
     for my $Query ( @{$QueriesToExecute} ) {
 
         my $ResultQuery = $Self->{EngineObject}->QueryExecute(
-            Query     => $Query,
-            Index     => 'ticket',
-            QueryType => 'search',
+            Query         => $Query,
+            Index         => 'ticket',
+            QueryType     => 'search',
             ConnectObject => $Self->{ConnectObject},
         );
 
@@ -139,7 +141,6 @@ sub Search {
     # # TODO: Standarization of specific object response after claryfication of response from query execute.
 
     return \@Result;
-
 }
 
 =head2 Connect()
@@ -154,7 +155,7 @@ sub Connect {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     if ( !IsHashRefWithData $Param{Config} ) {
-        $Kernel::OM->Get('Kernel::System::Log')->Log(
+        $LogObject->Log(
             Priority => 'error',
             Message  => "Need Config!"
         );
@@ -164,7 +165,7 @@ sub Connect {
     return if !$Self->{EngineObject}->can('Connect');
     my $ConnectObject = $Self->{EngineObject}->Connect(%Param);
 
-    if(!$ConnectObject || $ConnectObject->{Failed}){
+    if ( !$ConnectObject || $ConnectObject->{Failed} ) {
         $Self->{Error} = 1;
     }
     return $ConnectObject;
@@ -218,7 +219,7 @@ sub ConfigGet {
     # MOCK-UP
     my %Config = (
         ActiveEngine => "ES",
-        Enabled => 1,
+        Enabled      => 1,
     );
 
     return \%Config;
@@ -233,30 +234,33 @@ TO-DO
 sub BaseModulesCheck {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
     return if !$Param{Config}->{ActiveEngine};
+
     # define base modules
     my %Modules = (
         "Mapping" => "Kernel::System::Search::Mapping::$Param{Config}->{ActiveEngine}",
         "Engine"  => "Kernel::System::Search::Engine::$Param{Config}->{ActiveEngine}",
     );
-    
+
     # check if base modules exists and add them to $Self
-    for my $Module(keys %Modules){
+    for my $Module ( sort keys %Modules ) {
         my $Location = $Modules{$Module};
-        my $Loaded = $MainObject->Require(
+        my $Loaded   = $MainObject->Require(
             $Location,
-            Silent => 1,                # optional, no log entry if module was not found
+            Silent => 1,    # optional, no log entry if module was not found
         );
-        if(!$Loaded){
-            $Kernel::OM->Get('Kernel::System::Log')->Log(
+        if ( !$Loaded ) {
+            $LogObject->Log(
                 Priority => 'error',
                 Message  => "Module $Location is not valid!"
             );
             return;
-        } else {
-            $Self->{$Module . "Object"} = $Kernel::OM->Get($Location);
+        }
+        else {
+            $Self->{ $Module . "Object" } = $Kernel::OM->Get($Location);
         }
     }
 
