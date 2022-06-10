@@ -46,6 +46,20 @@ sub new {
 sub ResultFormat {
     my ( $Type, %Param ) = @_;
 
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Name (qw(Result Config Operation)) {
+        if ( $Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    # TODO further data standarization here and in Kernel::System::Search::Object::Base
+    # Fallback response need to be same as reponse from this function!
     my $Objects = $Param{Objects};
 
     return $Objects;

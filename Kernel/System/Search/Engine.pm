@@ -60,7 +60,7 @@ sub Connect {
     );
 
     return {
-        ConnectionError => 1
+        Error => 1,
     };
 }
 
@@ -81,7 +81,9 @@ sub QueryExecute {
     );
 
     return {
-        ConnectionError => 1
+        Fallback => {
+            Enable => 1,
+        }
     };
 }
 

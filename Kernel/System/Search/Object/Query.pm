@@ -11,6 +11,8 @@ package Kernel::System::Search::Object::Query;
 use strict;
 use warnings;
 
+use Kernel::System::VariableCheck qw(IsHashRefWithData);
+
 our @ObjectDependencies = (
     'Kernel::System::Search::Mapping::ES'
 );
@@ -86,9 +88,14 @@ TO-DO
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    my $Engine = $Param{Engine} || 'ES';
+    return {
+        Error    => 1,
+        Fallback => {
+            Enable => 1
+        },
+    } if !$Param{MappingObject};
 
-    my $MappingObject = $Kernel::OM->Get("Kernel::System::Search::Mapping::ES");
+    my $MappingObject = $Param{MappingObject};
 
     # Returns the query
     my $Query = $MappingObject->Search(
@@ -99,7 +106,7 @@ sub Search {
         return {
             Error    => 1,
             Fallback => {
-                Continue => 0
+                Enable => 1
             },
         };
     }
@@ -108,7 +115,7 @@ sub Search {
         Error    => 0,
         Query    => $Query,
         Fallback => {
-            Continue => 1
+            Enable => 0
         },
     };
 }

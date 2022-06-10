@@ -13,6 +13,7 @@ use warnings;
 
 our @ObjectDependencies = (
     'Kernel::System::Log',
+    'Kernel::System::Main',
 );
 
 =head1 NAME
@@ -98,9 +99,10 @@ TO-DO
 sub QueryPrepare {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Objects QueryParams Operation )) {
+    for my $Name (qw( Objects QueryParams Operation MappingObject Config)) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -110,7 +112,7 @@ sub QueryPrepare {
         }
     }
 
-    my %Result;
+    my %Result = ();
     my @Queries;
 
     my $FunctionName = $Param{Operation};
@@ -118,25 +120,29 @@ sub QueryPrepare {
     OBJECT:
     for my $Object ( @{ $Param{Objects} } ) {
 
+        my $Loaded = $MainObject->Require(
+            "Kernel::System::Search::Object::Query::${Object}",
+            Silent => 0,
+        );
+        if ( !$Loaded ) {
+            return;
+        }
         my $ObjectModule = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Object}");
 
-        my $Data = $ObjectModule->$FunctionName(
-            QueryParams => $Param{QueryParams},
-        );
-
-        # my $Data = {    # MOCK-UP
+        # my $Data = { # Response example
         #     Error    => 0,
         #     Fallback => {
-        #         Continue => 1
+        #         Enable => 1
         #     },
         #     Query => 'Queries 1'
         # };
-
-        #         TODO Add information about possible errors in each query
-        #         $Result{Error}    = $Data->{Error};
-        #         $Result{Fallback} = $Data->{Fallback};    # THIS POSSIBLE SHOULD SLICE RESPONSE PER OBJECT MODULE.
-
-        # TODO: Check for possibility of handling fallbacks mixed with engine requests.
+        my $Data = $ObjectModule->$FunctionName(
+            QueryParams   => $Param{QueryParams},
+            MappingObject => $Param{MappingObject},
+            ActiveEngine  => $Param{ActiveEngine},
+            Config        => $Param{Config},
+            Object        => $Object,
+        );
         $Data->{Object} = $Object;
         push @Queries, $Data;
     }
