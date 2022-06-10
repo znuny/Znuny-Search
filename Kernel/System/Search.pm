@@ -11,7 +11,7 @@ package Kernel::System::Search;
 use strict;
 use warnings;
 
-use Kernel::System::VariableCheck qw(IsHashRefWithData);
+use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
 
 our @ObjectDependencies = (
     'Kernel::System::Log',
@@ -73,9 +73,17 @@ sub new {
     }
 
     # If there were no errors before, try connecting.
-    $Self->{ConnectObject} = $Self->Connect(
+    my $ConnectObject;
+    $ConnectObject = $Self->Connect(
         Config => $Self->{Config},
     ) if !$Self->{Error};
+
+    if ( !$ConnectObject || $ConnectObject->{Error} ) {
+        $Self->{Error} = 1;
+    }
+    else {
+        $Self->{ConnectObject} = $ConnectObject;
+    }
 
     return $Self;
 }
@@ -110,35 +118,65 @@ sub Search {
         return $Response;
     }
 
-    my $Result = $SearchObject->QueryPrepare(
+    my $QueryData = $SearchObject->QueryPrepare(
         %Param,
-        Operation => "Search",
+        Operation     => "Search",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
     );
 
-    if ( $Result->{Error} ) {
-        $Result->{Fallback} = $Self->Fallback(%Param);
+    my $Fallback;
+    my @ValidQueries = ();
+    if ( !defined $QueryData ) {
+        $Fallback = 1;
+    }
+    elsif ( IsArrayRefWithData( $QueryData->{Queries} ) ) {
+        if ( grep { $_->{Fallback}->{Enable} } @{ $QueryData->{Queries} } ) {
+            $Fallback = 1;
+        }
+        else {
+            @ValidQueries = grep { !$_->{Error} } @{ $QueryData->{Queries} };
+        }
+    }
+    if ($Fallback) {
+        return $SearchObject->Fallback(%Param);
     }
 
-    #     return $Result if !$Result->{Fallback}->{Continue};
-
-    my @Queries = $Result->{Queries} || ();
-
-    my $QueriesToExecute = $Queries[0];
-
     my @Result;
-    for my $Query ( @{$QueriesToExecute} ) {
+    QUERY:
+    for my $Query (@ValidQueries) {
         my $Index       = $ConfigObject->Get('Search::Mapping')->{ $Query->{Object} }->{EngineIndex};
         my $ResultQuery = $Self->{EngineObject}->QueryExecute(
             Query         => $Query->{Query},
             Index         => $Index,
             QueryType     => 'search',
             ConnectObject => $Self->{ConnectObject},
+            Config        => $Self->{Config},
         );
 
-        push @Result, $ResultQuery;
-    }
+        next QUERY if !$ResultQuery;
 
-    # my $Response = {};
+        if ( $ResultQuery->{Fallback}->{Enable} ) {
+            return $SearchObject->Fallback(%Param);
+        }
+        elsif (
+            $ResultQuery->{Error}
+            )
+        {
+            next QUERY;
+        }
+
+        # Globaly standarize format to understandable by search engine.
+        my $FormattedResult = $Self->{MappingObject}->ResultFormat(
+            Result    => $ResultQuery,
+            Config    => $Self->{Config},
+            Operation => "Search",
+        );
+
+        if ( defined $FormattedResult ) {
+            push @Result, $FormattedResult;
+        }
+    }
 
     # # TODO: Standarization of specific object response after claryfication of response from query execute.
 
@@ -167,9 +205,6 @@ sub Connect {
     return if !$Self->{EngineObject}->can('Connect');
     my $ConnectObject = $Self->{EngineObject}->Connect(%Param);
 
-    if ( !$ConnectObject || $ConnectObject->{Failed} ) {
-        $Self->{Error} = 1;
-    }
     return $ConnectObject;
 }
 
@@ -252,7 +287,7 @@ sub BaseModulesCheck {
         my $Location = $Modules{$Module};
         my $Loaded   = $MainObject->Require(
             $Location,
-            Silent => 1,    # optional, no log entry if module was not found
+            Silent => 0,
         );
         if ( !$Loaded ) {
             $LogObject->Log(

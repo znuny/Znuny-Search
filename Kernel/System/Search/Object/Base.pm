@@ -51,7 +51,7 @@ sub Fallback {
     my ( $Self, %Param ) = @_;
 
     return {
-        ConnectionError => 1
+        Error => 1
     };
 }
 
@@ -72,7 +72,7 @@ sub ResultFormat {
     );
 
     return {
-        ConnectionError => 1
+        Error => 1
     };
 }
 

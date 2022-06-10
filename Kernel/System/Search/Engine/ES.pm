@@ -61,7 +61,9 @@ sub Connect {
             Priority => 'error',
             Message  => "Need Config!"
         );
-        return;
+        return {
+            Error => 1
+        };
     }
 
     # try to receive information about cluster after connection.
@@ -81,8 +83,9 @@ sub Connect {
             Priority => 'error',
             Message  => "Connection failed for engine: $Self->{Config}->{ActiveEngine}. Message: $@",
         );
-        $Self->{Error} = 1;
-        return;
+        return {
+            Error => 1
+        };
     }
 
     return $ConnectObject;
@@ -101,37 +104,40 @@ sub QueryExecute {
     my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
     my $ConnectObject = $Param{ConnectObject};
 
-    if ( !$Param{Query} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Missing query body."
-        );
+    for my $Name (qw(Query Index QueryType ConnectObject)) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return {
+                Error => 1,
+            };
+        }
     }
 
-    if ( $Self->{ConnectionError} ) {
+    my $QueryType = $Param{QueryType};
+    my $Result;
+
+    eval {
+        $Result = $ConnectObject->$QueryType(
+            index => $Param{Index} || 'ticket',
+            body  => {
+                %{ $Param{Query} }
+            }
+        );
+    };
+    if ($@) {
+        my $Engine = "Kernel::System::Search::Engine::ES";
+
         $LogObject->Log(
             Priority => 'error',
-            Message  => "A connection error has occurred",
+            Message  => "Query failed for engine: $Engine. Message: $@",
         );
-
         return {
-            ConnectionError => 1
+            Error => 1,
         };
     }
-
-    my $QueryType = $Param{QueryType} || 'search';
-
-    my $Result = $ConnectObject->$QueryType(
-        index => $Param{Index} || 'ticket',
-        body  => {
-            %{ $Param{Query} }
-        }
-    );
-
-    # Globaly standarize format to understandable by search engine.
-    $Result = $MappingObject->ResultFormat(
-        Result => $Result
-    );
 
     return $Result;
 }
