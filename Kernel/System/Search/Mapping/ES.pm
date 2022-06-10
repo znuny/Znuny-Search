@@ -139,7 +139,7 @@ sub _PreProcessObjectTypes {
     for my $Hit ( @{$Hits} ) {
         my $Object       = $SearchIndexMapping->{ $Hit->{_index} };
         my $ObjectConfig = $SearchIndexMapping->{$Object};
-        push @{ $Objects{ $ObjectConfig->{ObjectType} }{ $ObjectConfig->{Index} } }, $Hit->{_source};
+        push @{ $Objects{ $ObjectConfig->{Index} } }, $Hit->{_source};
     }
 
     return \%Objects;

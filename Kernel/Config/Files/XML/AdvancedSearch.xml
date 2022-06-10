@@ -18,6 +18,7 @@
             <Hash>
                 <Item Key="Module">Kernel::System::AdvancedSearch::Object::Ticket::Ticket</Item>
                 <Item Key="Index">Ticket</Item>
+                <Item Key="EngineIndex">ticket</Item>
                 <Item Key="ObjectType">Ticket</Item>
             </Hash>
         </Value>
@@ -29,6 +30,7 @@
             <Hash>
                 <Item Key="Module">Kernel::System::AdvancedSearch::Object::Ticket::TicketType</Item>
                 <Item Key="Index">TicketType</Item>
+                <Item Key="EngineIndex">ticket_type</Item>
                 <Item Key="ObjectType">Ticket</Item>
             </Hash>
         </Value>
@@ -40,6 +42,7 @@
             <Hash>
                 <Item Key="Module">Kernel::System::AdvancedSearch::Object::Ticket::TicketHistory</Item>
                 <Item Key="Index">TicketHistory</Item>
+                <Item Key="EngineIndex">ticket_history</Item>
                 <Item Key="ObjectType">Ticket</Item>
             </Hash>
         </Value>
