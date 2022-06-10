@@ -6,7 +6,6 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-## nofilter(TidyAll::Plugin::OTRS::Perl::SyntaxCheck)
 package Kernel::System::Search;
 
 use strict;
@@ -18,6 +17,7 @@ our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search::Object',
     'Kernel::System::Main',
+    'Kernel::Config',
 );
 
 =head1 NAME
@@ -91,6 +91,8 @@ sub Search {
 
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
     NEEDED:
     for my $Needed (qw(Objects QueryParams)) {
         next NEEDED if $Param{$Needed};
@@ -125,10 +127,10 @@ sub Search {
 
     my @Result;
     for my $Query ( @{$QueriesToExecute} ) {
-
+        my $Index       = $ConfigObject->Get('Search::Mapping')->{ $Query->{Object} }->{EngineIndex};
         my $ResultQuery = $Self->{EngineObject}->QueryExecute(
-            Query         => $Query,
-            Index         => 'ticket',
+            Query         => $Query->{Query},
+            Index         => $Index,
             QueryType     => 'search',
             ConnectObject => $Self->{ConnectObject},
         );
@@ -154,7 +156,7 @@ sub Connect {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    if ( !IsHashRefWithData $Param{Config} ) {
+    if ( !IsHashRefWithData( $Param{Config} ) ) {
         $LogObject->Log(
             Priority => 'error',
             Message  => "Need Config!"

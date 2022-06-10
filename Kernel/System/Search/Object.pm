@@ -137,8 +137,8 @@ sub QueryPrepare {
         #         $Result{Fallback} = $Data->{Fallback};    # THIS POSSIBLE SHOULD SLICE RESPONSE PER OBJECT MODULE.
 
         # TODO: Check for possibility of handling fallbacks mixed with engine requests.
-
-        push @Queries, $Data->{Query};
+        $Data->{Object} = $Object;
+        push @Queries, $Data;
     }
 
     $Result{Queries} = \@Queries;
