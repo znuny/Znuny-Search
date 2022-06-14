@@ -13,8 +13,10 @@ use warnings;
 
 use parent qw( Kernel::System::Search::Mapping );
 
+use Kernel::System::VariableCheck qw(IsArrayRefWithData);
+
 our @ObjectDependencies = (
-    'Kernel::Config',
+    'Kernel::System::Log'
 );
 
 =head1 NAME
@@ -52,7 +54,20 @@ TO-DO
 sub ResultFormat {
     my ( $Self, %Param ) = @_;
 
-    my $Result = $Param{Result};
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    NEEDED:
+    for my $Needed (qw(Result Config IndexName)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing param: $Needed",
+        );
+        return;
+    }
+
+    my $IndexName = $Param{IndexName};
+    my $Result    = $Param{Result};
 
     return {
         Reason => $Result->{reason},
@@ -60,16 +75,19 @@ sub ResultFormat {
         Type   => $Result->{type}
     } if $Result->{status};
 
-    my $Objects = $Self->_PreProcessObjectTypes(
+    my $GloballyFormattedObjData = $Self->ResponseDataFormat(
         Hits => $Result->{hits}->{hits}
     );
 
     return {
-        Objects      => $Objects,
-        Shards       => $Result->{_shards},
-        ResponseTime => $Result->{took},
+        "$IndexName" => {
+            ObjectData => $GloballyFormattedObjData,
+            EngineData => {
+                Shards       => $Result->{_shards},
+                ResponseTime => $Result->{took},
+            }
+        }
     };
-
 }
 
 =head2 Search()
@@ -127,22 +145,27 @@ sub Search {
     return \%Query;
 }
 
-sub _PreProcessObjectTypes {
+=head2 ResponseDataFormat()
+
+globally formats response data from engine
+
+=cut
+
+sub ResponseDataFormat {
     my ( $Self, %Param ) = @_;
 
-    my $Hits         = $Param{Hits} || ();
-    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+    return [] if !IsArrayRefWithData( $Param{Hits} );
 
-    my $SearchIndexMapping = $ConfigObject->Get("Search::Mapping");
+    my $Hits = $Param{Hits};
 
-    my %Objects;
+    my @Objects;
+
+    # ES engine response stores objects inside _source key
     for my $Hit ( @{$Hits} ) {
-        my $Object       = $SearchIndexMapping->{ $Hit->{_index} };
-        my $ObjectConfig = $SearchIndexMapping->{$Object};
-        push @{ $Objects{ $ObjectConfig->{Index} } }, $Hit->{_source};
+        push @Objects, $Hit->{_source};
     }
 
-    return \%Objects;
+    return \@Objects;
 }
 
 1;
