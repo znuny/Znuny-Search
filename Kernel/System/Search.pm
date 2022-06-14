@@ -170,7 +170,7 @@ sub Search {
         my $FormattedResult = $Self->{MappingObject}->ResultFormat(
             Result    => $ResultQuery,
             Config    => $Self->{Config},
-            Operation => "Search",
+            IndexName => $Query->{Object},
         );
 
         if ( defined $FormattedResult ) {
