@@ -12,7 +12,7 @@
     <Description Lang="en">todo</Description>
 
     <Filelist>
-        <File Permission="660" Location="Kernel/Config/Files/XML/AdvancedSearch.xml"/>
+        <File Permission="660" Location="Kernel/Config/Files/XML/Search.xml"/>
         <File Permission="660" Location="Kernel/System/Search/Engine.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping.pm"/>
@@ -21,8 +21,8 @@
         <File Permission="660" Location="Kernel/System/Search/Object.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Base/Ticket.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Base/TicketHistory.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
