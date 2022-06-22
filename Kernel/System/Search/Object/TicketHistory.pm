@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::Base::TicketHistory;
+package Kernel::System::Search::Object::TicketHistory;
 
 use strict;
 use warnings;
@@ -19,7 +19,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::Base::TicketHistory - TO-DO
+Kernel::System::Search::Object::TicketHistory - TO-DO
 
 =head1 DESCRIPTION
 
