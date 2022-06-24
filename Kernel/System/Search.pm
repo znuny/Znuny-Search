@@ -142,13 +142,18 @@ sub Search {
         return $SearchObject->Fallback(%Param);
     }
 
+    my $SearchConfig = $ConfigObject->Get("Loader::Search");
+
+    # Receive highest priority configuration of SearchConfig.
+    my @SearchConfigKeys = reverse sort keys %{ $ConfigObject->Get("Loader::Search") };
+
     my @Result;
     QUERY:
     for my $Query (@ValidQueries) {
-        my $Index       = $ConfigObject->Get('Search::Mapping')->{ $Query->{Object} }->{EngineIndex};
+
         my $ResultQuery = $Self->{EngineObject}->QueryExecute(
             Query         => $Query->{Query},
-            Index         => $Index,
+            Index         => $SearchConfig->{ $SearchConfigKeys[0] }->{ $Query->{Object} },
             QueryType     => 'search',
             ConnectObject => $Self->{ConnectObject},
             Config        => $Self->{Config},
@@ -178,7 +183,7 @@ sub Search {
         }
     }
 
-    # # TODO: Standarization of specific object response after claryfication of response from query execute.
+    # TODO: Standarization of specific object response after claryfication of response from query execute.
 
     return \@Result;
 }
