@@ -251,17 +251,31 @@ sub IndexDrop {
 
 =head2 ConfigGet()
 
-TO-DO
+get basic config for search
 
 =cut
 
 sub ConfigGet {
     my ( $Self, %Param ) = @_;
 
-    # MOCK-UP
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
+    my $SearchLoaderConfig = $ConfigObject->Get("Loader::Search");
+    my @SearchConfigKeys   = sort keys %{$SearchLoaderConfig};
+
+    my %SearchLoader = ();
+    for my $Key (@SearchConfigKeys) {
+        for my $InnerKey ( sort keys %{ $SearchLoaderConfig->{$Key} } ) {
+            $SearchLoader{$InnerKey} = $SearchLoaderConfig->{$Key}->{$InnerKey};
+        }
+    }
+
     my %Config = (
-        ActiveEngine => "ES",
-        Enabled      => 1,
+        ActiveEngine      => "ES",    # MOCK-UP
+        Enabled           => 1,       # MOCK-UP
+        RegisteredIndexes => {        # key: friendly name for calls, value: name in search engine structure
+            %SearchLoader
+        }
     );
 
     return \%Config;
