@@ -19,7 +19,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::Ticket - TO-DO
+Kernel::System::Search::Object::Ticket - common base backend functions for "Ticket" index
 
 =head1 DESCRIPTION
 
@@ -27,10 +27,11 @@ TO-DO
 
 =head1 PUBLIC INTERFACE
 
-
 =head2 new()
 
-TO-DO
+Don't use the constructor directly, use the ObjectManager instead:
+
+    my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Ticket ');
 
 =cut
 

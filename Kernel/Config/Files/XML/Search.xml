@@ -10,19 +10,58 @@
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Search::Mapping::Ticket###000-Framework" Required="0" Valid="1">
-        <Description Translatable="1">Register search "Ticket" index.</Description>
+    <Setting Name="Search::Fields::Ticket###000-Framework" Required="0" Valid="1">
+        <Description Translatable="1">Register fields of specified search index.</Description>
         <Navigation>Core::Search::Ticket</Navigation>
         <Value>
             <Hash>
+                <Item Key="TicketID">1</Item>
+                <Item Key="TicketNumber">1</Item>
+                <Item Key="Title">1</Item>
+                <Item Key="QueueID">1</Item>
+                <Item Key="LockID">1</Item>
+                <Item Key="TypeID">1</Item>
+                <Item Key="ServiceID">1</Item>
+                <Item Key="SLAID">1</Item>
+                <Item Key="OwnerID">1</Item>
+                <Item Key="ResponsibleID">1</Item>
+                <Item Key="PriorityID">1</Item>
+                <Item Key="StateID">1</Item>
+                <Item Key="CustomerID">1</Item>
+                <Item Key="CustomerUserID">1</Item>
+                <Item Key="UnlockTimeout">1</Item>
+                <Item Key="UntilTime">1</Item>
+                <Item Key="EscalationTime">1</Item>
+                <Item Key="EscalationUpdateTime">1</Item>
+                <Item Key="EscalationResponseTime">1</Item>
+                <Item Key="EscalationSolutionTime">1</Item>
+                <Item Key="ArchiveFlag">1</Item>
+                <Item Key="Created">1</Item>
+                <Item Key="CreateBy">1</Item>
+                <Item Key="Changed">1</Item>
+                <Item Key="ChangeBy">1</Item>
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Search::Mapping::TicketHistory###000-Framework" Required="0" Valid="1">
-        <Description Translatable="1">Register search "TicketHistory" index.</Description>
+    <Setting Name="Search::Fields::TicketHistory###000-Framework" Required="0" Valid="1">
+        <Description Translatable="1">Register fields of specified search index.</Description>
         <Navigation>Core::Search::Ticket</Navigation>
         <Value>
             <Hash>
+                <Item Key="TicketHistoryID">1</Item>
+                <Item Key="Name">1</Item>
+                <Item Key="HistoryTypeID">1</Item>
+                <Item Key="TicketID">1</Item>
+                <Item Key="ArticleID">1</Item>
+                <Item Key="TypeID">1</Item>
+                <Item Key="QueueID">1</Item>
+                <Item Key="OwnerID">1</Item>
+                <Item Key="PriorityID">1</Item>
+                <Item Key="StateID">1</Item>
+                <Item Key="Created">1</Item>
+                <Item Key="CreateBy">1</Item>
+                <Item Key="Changed">1</Item>
+                <Item Key="ChangeBy">1</Item>
             </Hash>
         </Value>
     </Setting>
