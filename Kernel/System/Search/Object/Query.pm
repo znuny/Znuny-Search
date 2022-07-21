@@ -19,7 +19,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::Query - TO-DO
+Kernel::System::Search::Object::Query - common query backend functions
 
 =head1 DESCRIPTION
 
@@ -27,10 +27,11 @@ TO-DO
 
 =head1 PUBLIC INTERFACE
 
-
 =head2 new()
 
-TO-DO
+Don't use the constructor directly, use the ObjectManager instead:
+
+    my $QueryObject = $Kernel::OM->Get('Kernel::System::Search::Object::Query');
 
 =cut
 
@@ -45,7 +46,7 @@ sub new {
 
 =head2 ObjectIndexAdd()
 
-TO-DO
+create query for specified operation
 
 =cut
 
@@ -55,9 +56,21 @@ sub ObjectIndexAdd {
     return 1;
 }
 
+=head2 ObjectIndexUpdate()
+
+create query for specified operation
+
+=cut
+
+sub ObjectIndexUpdate {
+    my ( $Type, %Param ) = @_;
+
+    return 1;
+}
+
 =head2 ObjectIndexGet()
 
-TO-DO
+create query for specified operation
 
 =cut
 
@@ -69,19 +82,57 @@ sub ObjectIndexGet {
 
 =head2 ObjectIndexRemove()
 
-TO-DO
+create query for specified operation
+
+    my $Result = $QueryObject->ObjectIndexRemove(
+        MappingObject   => $Config,
+        ObjectID        => $ObjectID,
+        Config          => $Config,
+        Index           => $Index,
+        Body            => $Body,
+    );
 
 =cut
 
 sub ObjectIndexRemove {
     my ( $Type, %Param ) = @_;
 
-    return 1;
+    return {
+        Error    => 1,
+        Fallback => {
+            Enable => 0
+        },
+    } if !$Param{MappingObject};
+
+    my $MappingObject = $Param{MappingObject};
+
+    # Returns the query
+    my $Query = $MappingObject->ObjectIndexRemove(
+        %Param
+    );
+
+    if ( !$Query ) {
+
+        # TO-DO
+    }
+
+    return {
+        Error    => 0,
+        Query    => $Query,
+        Fallback => {
+            Enable => 0
+        },
+    };
 }
 
 =head2 Search()
 
-TO-DO
+create query for specified operation
+
+    my $Result = $QueryObject->Search(
+        MappingObject   => $Config,
+        QueryParams     => $QueryParams,
+    );
 
 =cut
 

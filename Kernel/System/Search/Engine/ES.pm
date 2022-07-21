@@ -21,18 +21,19 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Engine::ES - TO-DO
+Kernel::System::Search::Engine::ES - Functions engine related
 
-=head1 DESCRIPTION
+=head1 SYNOPSIS
 
 TO-DO
 
 =head1 PUBLIC INTERFACE
 
-
 =head2 new()
 
-TO-DO
+Don't use the constructor directly, use the ObjectManager instead:
+
+    my $EngineESObject = $Kernel::OM->Get('Kernel::System::Search::Engine::ES');
 
 =cut
 
@@ -47,7 +48,11 @@ sub new {
 
 =head2 Connect()
 
-TO-DO
+connect to specified search engine
+
+    my $ConnectObject = $EngineESObject->Connect(
+        Config => $Config,
+    );
 
 =cut
 
@@ -66,6 +71,7 @@ sub Connect {
         };
     }
 
+    # TODO - connect from config param
     # try to receive information about cluster after connection.
     my $ConnectObject = Search::Elasticsearch->new(
         nodes => [
@@ -93,7 +99,14 @@ sub Connect {
 
 =head2 QueryExecute()
 
-TO-DO
+executes query for active engine with specified operation
+
+    my $Result = $EngineESObject->QueryExecute(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+        Index           => $Index,
+        Operation       => $Operation,
+    );
 
 =cut
 
@@ -104,7 +117,7 @@ sub QueryExecute {
     my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
     my $ConnectObject = $Param{ConnectObject};
 
-    for my $Name (qw(Query Index QueryType ConnectObject)) {
+    for my $Name (qw(Query Index Operation ConnectObject)) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -116,15 +129,12 @@ sub QueryExecute {
         }
     }
 
-    my $QueryType = $Param{QueryType};
+    my $FunctionName = '_QueryExecute' . $Param{Operation};
     my $Result;
 
     eval {
-        $Result = $ConnectObject->$QueryType(
-            index => $Param{Index} || 'ticket',
-            body  => {
-                %{ $Param{Query} }
-            }
+        $Result = $Self->$FunctionName(
+            %Param
         );
     };
     if ($@) {
@@ -138,6 +148,125 @@ sub QueryExecute {
             Error => 1,
         };
     }
+
+    return $Result;
+}
+
+=head2 _QueryExecuteSearch()
+
+executes query for active engine with specified object "Search" operation
+
+    my $Result = $EngineESObject->_QueryExecuteSearch(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+        Index           => $Index,
+    );
+
+=cut
+
+sub _QueryExecuteSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
+    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->search(
+        index => $Param{Index},
+        body  => {
+            %{ $Param{Query} }
+        }
+    );
+
+    return $Result;
+}
+
+=head2 _QueryExecuteObjectIndexAdd()
+
+executes query for active engine with specified object "Add" operation
+
+    my $Result = $EngineESObject->_QueryExecuteObjectIndexAdd(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+        ObjectID        => $ObjectID,
+    );
+
+=cut
+
+sub _QueryExecuteObjectIndexAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
+    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'POST',
+        path   => "/$Param{Query}->{index}/_create/$Param{ObjectID}",
+        body   => {
+            %{ $Param{Query}->{body} }
+        }
+    );
+
+    return $Result;
+}
+
+=head2 _QueryExecuteObjectIndexUpdate()
+
+executes query for active engine with specified "Update" operation
+
+    my $Result = $EngineESObject->_QueryExecuteObjectIndexUpdate(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+        ObjectID        => $ObjectID,
+    );
+
+=cut
+
+sub _QueryExecuteObjectIndexUpdate {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
+    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
+    my $ConnectObject = $Param{ConnectObject};
+
+    #  TODO: Need to check integration og Age attribute
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'POST',
+        path   => "/$Param{Query}->{index}/_update/$Param{ObjectID}",
+        body   => {
+            doc => {
+                %{ $Param{Query}->{body} }
+            }
+        }
+    );
+
+    return $Result;
+}
+
+=head2 _QueryExecuteObjectIndexRemove()
+
+executes query for active engine with specified "Remove" operation
+
+    my $Result = $EngineESObject->_QueryExecuteObjectIndexRemove(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+        ObjectID        => $ObjectID,
+    );
+
+=cut
+
+sub _QueryExecuteObjectIndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
+    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'DELETE',
+        path   => "/$Param{Query}->{index}/_doc/$Param{ObjectID}",
+    );
 
     return $Result;
 }

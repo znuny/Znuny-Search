@@ -16,7 +16,7 @@ use parent qw( Kernel::System::Search::Mapping );
 use Kernel::System::VariableCheck qw(IsArrayRefWithData);
 
 our @ObjectDependencies = (
-    'Kernel::System::Log'
+    'Kernel::System::Log',
 );
 
 =head1 NAME
@@ -29,10 +29,11 @@ TO-DO
 
 =head1 PUBLIC INTERFACE
 
-
 =head2 new()
 
-TO-DO
+Don't use the constructor directly, use the ObjectManager instead:
+
+    my $MappingESObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
 
 =cut
 
@@ -47,7 +48,13 @@ sub new {
 
 =head2 ResultFormat()
 
-TO-DO
+globally formats result of specified engine
+
+    my $FormatResult = $MappingESObject->ResultFormat(
+        Result      => $ResponseResult,
+        Config      => $Config,
+        IndexName   => $IndexName,
+    );
 
 =cut
 
@@ -92,7 +99,11 @@ sub ResultFormat {
 
 =head2 Search()
 
-TO-DO
+process query data to structure that will be used to execute query
+
+    my $Result = $MappingESObject->Search(
+        QueryParams   => $QueryParams,
+    );
 
 =cut
 
@@ -143,6 +154,140 @@ sub Search {
     # }
 
     return \%Query;
+}
+
+=head2 ObjectIndexAdd()
+
+process query data to structure that will be used to execute query
+
+    my $Result = $MappingESObject->ObjectIndexAdd(
+        Config   => $Config,
+        Index    => $Index,
+        ObjectID => $ObjectID,
+        Body     => $Body,
+    );
+
+=cut
+
+sub ObjectIndexAdd {
+    my ( $Type, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Config Index ObjectID Body)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $RegisteredIndexes = $Param{Config}->{RegisteredIndexes};
+    my $Index             = $RegisteredIndexes->{ $Param{Index} };
+
+    my $Result = {
+        index => $Index,
+        id    => $Param{ObjectID},
+        body  => $Param{Body}
+    };
+
+    return $Result;
+}
+
+=head2 ObjectIndexUpdate()
+
+process query data to structure that will be used to execute query
+
+    my $Result = $MappingESObject->ObjectIndexUpdate(
+        Config   => $Config,
+        Index    => $Index,
+        ObjectID => $ObjectID,
+        Body     => $Body,
+    );
+
+=cut
+
+sub ObjectIndexUpdate {
+    my ( $Type, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    NEEDED:
+    for my $Needed (qw(Config Index ObjectID Body)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $RegisteredIndexes = $Param{Config}->{RegisteredIndexes};
+    my $Index             = $RegisteredIndexes->{ $Param{Index} };
+
+    my $Result = {
+        index => $Index,
+        id    => $Param{ObjectID},
+        body  => $Param{Body}
+    };
+
+    return $Result;
+}
+
+=head2 ObjectIndexGet()
+
+process query data to structure that will be used to execute query
+
+=cut
+
+sub ObjectIndexGet {
+    my ( $Type, %Param ) = @_;
+
+    return 1;
+}
+
+=head2 ObjectIndexRemove()
+
+process query data to structure that will be used to execute query
+
+    my $Result = $MappingESObject->ObjectIndexRemove(
+        Config   => $Config,
+        Index    => $Index,
+        ObjectID => $ObjectID,
+    );
+
+=cut
+
+sub ObjectIndexRemove {
+    my ( $Type, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    NEEDED:
+    for my $Needed (qw(Config Index ObjectID)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $RegisteredIndexes = $Param{Config}->{RegisteredIndexes};
+    my $Index             = $RegisteredIndexes->{ $Param{Index} };
+
+    my $Result = {
+        index => $Index,
+        id    => $Param{ObjectID},
+    };
+
+    return $Result;    # Need to use perform_request()
 }
 
 =head2 ResponseDataFormat()

@@ -18,7 +18,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object - TO-DO
+Kernel::System::Search::Object - Functions index related
 
 =head1 DESCRIPTION
 
@@ -26,10 +26,11 @@ TO-DO
 
 =head1 PUBLIC INTERFACE
 
-
 =head2 new()
 
-TO-DO
+Don't use the constructor directly, use the ObjectManager instead:
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
 =cut
 
@@ -40,42 +41,6 @@ sub new {
     bless( $Self, $Type );
 
     return $Self;
-}
-
-=head2 ObjectIndexAdd()
-
-TO-DO
-
-=cut
-
-sub ObjectIndexAdd {
-    my ( $Self, %Param ) = @_;
-
-    return 1;
-}
-
-=head2 ObjectIndexGet()
-
-TO-DO
-
-=cut
-
-sub ObjectIndexGet {
-    my ( $Self, %Param ) = @_;
-
-    return 1;
-}
-
-=head2 ObjectIndexRemove()
-
-TO-DO
-
-=cut
-
-sub ObjectIndexRemove {
-    my ( $Self, %Param ) = @_;
-
-    return 1;
 }
 
 =head2 Fallback()
@@ -92,7 +57,13 @@ sub Fallback {
 
 =head2 QueryPrepare()
 
-TO-DO
+prepare query for active engine with specified operation
+
+    my $Result = $SearchObject->QueryPrepare(
+        Config          => $Config,
+        MappingObject   => $MappingObject,
+        Operation       => $Operation,
+    );
 
 =cut
 
@@ -102,7 +73,7 @@ sub QueryPrepare {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Objects QueryParams Operation MappingObject Config)) {
+    for my $Name (qw( Operation MappingObject Config )) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -112,22 +83,58 @@ sub QueryPrepare {
         }
     }
 
-    my %Result = ();
+    my $FunctionName = '_QueryPrepare' . $Param{Operation};
+
+    my $Result = $Self->$FunctionName(
+        %Param
+    );
+
+    return $Result;
+}
+
+=head2 _QueryPrepareSearch()
+
+prepares query for active engine with specified object "Search" operation
+
+    my $Result = $SearchObject->_QueryPrepareSearch(
+        MappingObject     => $MappingObject,
+        Objects           => $Objects,
+        QueryParams       => $QueryParams,
+        Config            => $Config
+    );
+
+=cut
+
+sub _QueryPrepareSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    my $Result = {};
     my @Queries;
 
-    my $FunctionName = $Param{Operation};
-
-    OBJECT:
-    for my $Object ( @{ $Param{Objects} } ) {
-
-        my $Loaded = $MainObject->Require(
-            "Kernel::System::Search::Object::Query::${Object}",
-            Silent => 0,
-        );
-        if ( !$Loaded ) {
+    for my $Name (qw( QueryParams Objects MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
             return;
         }
-        my $ObjectModule = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Object}");
+    }
+
+    OBJECT:
+    for my $Index ( @{ $Param{Objects} } ) {
+
+        my $Loaded = $Self->_LoadModule(
+            Module => "Kernel::System::Search::Object::Query::${Index}"
+        );
+
+        # TODO support for not loaded module
+        next OBJECT if !$Loaded;
+
+        my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
 
         # my $Data = { # Response example
         #     Error    => 0,
@@ -136,20 +143,230 @@ sub QueryPrepare {
         #     },
         #     Query => 'Queries 1'
         # };
-        my $Data = $ObjectModule->$FunctionName(
+        my $Data = $IndexQueryObject->Search(
             QueryParams   => $Param{QueryParams},
             MappingObject => $Param{MappingObject},
-            ActiveEngine  => $Param{ActiveEngine},
             Config        => $Param{Config},
-            Object        => $Object,
+            Object        => $Index,
         );
-        $Data->{Object} = $Object;
+
+        $Data->{Object} = $Index;
         push @Queries, $Data;
     }
 
-    $Result{Queries} = \@Queries;
+    $Result->{Queries} = \@Queries;
 
-    return \%Result;
+    return $Result;
+}
+
+=head2 _QueryPrepareObjectIndexAdd()
+
+prepares query for active engine with specified object "Add" operation
+
+    my $Result = $SearchObject->_QueryPrepareObjectIndexAdd(
+        MappingObject   => $MappingObject,
+        ObjectID        => $ObjectID,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareObjectIndexAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index ObjectID MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    # TODO support for not loaded module
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->ObjectIndexAdd(
+        %Param,
+        MappingObject => $Param{MappingObject},
+        Config        => $Param{Config},
+        ObjectID      => $Param{ObjectID},
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareObjectIndexUpdate()
+
+prepares query for active engine with specified object "Update" operation
+
+    my $Result = $SearchObject->_QueryPrepareObjectIndexUpdate(
+        MappingObject   => $MappingObject,
+        ObjectID        => $ObjectID,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareObjectIndexUpdate {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index ObjectID MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    # TODO support for not loaded module
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->ObjectIndexUpdate(
+        %Param,
+        MappingObject => $Param{MappingObject},
+        Config        => $Param{Config},
+        ObjectID      => $Param{ObjectID},
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareObjectIndexGet()
+
+TO-DO
+
+=cut
+
+sub _QueryPrepareObjectIndexGet {
+    my ( $Self, %Param ) = @_;
+
+    return 1;
+}
+
+=head2 _QueryPrepareObjectIndexRemove()
+
+prepare query for index object removal
+
+    my $Query = $SearchObject->_QueryPrepareObjectIndexRemove(
+        Index         => 'Ticket',
+        ObjectID      => 1,
+        MappingObject => $MappingObject,
+        Config        => $Config
+    );
+
+=cut
+
+sub _QueryPrepareObjectIndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index ObjectID MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    # TODO support for not loaded module
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->ObjectIndexRemove(
+        %Param,
+        MappingObject => $Param{MappingObject},
+        Config        => $Param{Config},
+        ObjectID      => $Param{ObjectID},
+    );
+
+    return $Data;
+}
+
+=head2 _LoadModule()
+
+loads/check module
+
+    my $Loaded = $SearchObject->_LoadModule(
+        Module => 'Kernel::System::Search::Object::Query::SomeModuleName',
+    );
+
+=cut
+
+sub _LoadModule {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    NEEDED:
+    for my $Needed (qw(Module)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $Module = $Param{Module};
+
+    if ( !$Self->{LoadedModules}->{$Module} ) {
+        my $Loaded = $MainObject->Require(
+            $Module,
+            Silent => 0,
+        );
+        if ( !$Loaded ) {
+
+            # TO-DO support not loaded object
+            # for now ignore them
+            return;
+        }
+        else {
+            $Self->{LoadedModules}->{$Module} = $Loaded;
+        }
+    }
+    return 1;
 }
 
 1;

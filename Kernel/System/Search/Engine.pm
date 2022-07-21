@@ -19,7 +19,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Engine - TO-DO
+Kernel::System::Search::Engine - Engine related functions
 
 =head1 DESCRIPTION
 
@@ -27,10 +27,11 @@ TO-DO
 
 =head1 PUBLIC INTERFACE
 
-
 =head2 new()
 
-TO-DO
+Don't use the constructor directly, use the ObjectManager instead:
+
+    my $TicketObject = $Kernel::OM->Get('Kernel::System::Search::Engine');
 
 =cut
 
@@ -45,7 +46,7 @@ sub new {
 
 =head2 Connect()
 
-TO-DO
+connect to specified search engine
 
 =cut
 
@@ -66,7 +67,7 @@ sub Connect {
 
 =head2 QueryExecute()
 
-TO-DO
+executes query for active engine with specified operation
 
 =cut
 
