@@ -41,6 +41,9 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
+    # Engine site "ticket" index unique key.
+    $Self->{ResultFormat}->{Identifier} = 'TicketID';
+
     return $Self;
 }
 

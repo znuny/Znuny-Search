@@ -56,25 +56,77 @@ sub Fallback {
     };
 }
 
-=head2 ResultFormat()
+=head2 SearchFormat()
 
-TO-DO
+format result specifically for index
+
+    my $FormattedResult = $SearchBaseObject->SearchFormat(
+        ResultType => 'ARRAY|HASH|COUNT' (optional, default: 'ARRAY')
+        IndexName  => "Ticket",
+        GloballyFormattedResult => $GloballyFormattedResult,
+    )
 
 =cut
 
-sub ResultFormat {
+sub SearchFormat {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    $LogObject->Log(
-        Priority => 'error',
-        Message  => "ResultFormat function was not properly overriden.",
-    );
+    # Return array ref as default.
+    $Param{ResultType} ||= 'ARRAY';
 
-    return {
-        Error => 1
-    };
+    my $IndexName               = $Param{IndexName};
+    my $GloballyFormattedResult = $Param{GloballyFormattedResult};
+
+    my $IndexResponse;
+
+    if ( $Param{ResultType} eq "COUNT" ) {
+        $IndexResponse->{$IndexName} = scalar @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} };
+    }
+    elsif ( $Param{ResultType} eq "ARRAY" ) {
+        $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData};
+    }
+    elsif ( $Param{ResultType} eq "HASH" ) {
+        my $Identifier = $Self->{ResultFormat}->{Identifier};
+        if ( !$Identifier ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Missing '\$Self->{ResultFormat}->{Identifier} for $IndexName index.'",
+            );
+            return;
+        }
+
+        DATA:
+        for my $Data ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
+            if ( !$Data->{$Identifier} ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Could not get object identifier: $Identifier for index: $IndexName in the response!",
+                );
+                next DATA;
+            }
+
+            $IndexResponse->{$IndexName}->{ $Data->{$Identifier} } = $Data;
+        }
+    }
+
+    return $IndexResponse;
+}
+
+sub IndexObjectGetFormat {
+    my ( $Self, %Param ) = @_;
+    return {};
+}
+
+sub IndexObjectAddFormat {
+    my ( $Self, %Param ) = @_;
+    return {};
+}
+
+sub IndexObjectRemoveFormat {
+    my ( $Self, %Param ) = @_;
+    return {};
 }
 
 1;
