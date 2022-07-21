@@ -41,6 +41,10 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
+    # Engine site "ticket_history" index unique key.
+    $Self->{ResultFormat}->{Identifier}
+        = 'TicketHistoryID';    # TODO Specify after implementation for TicketHistory ObjectIndexAdd
+
     return $Self;
 }
 
