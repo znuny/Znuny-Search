@@ -25,6 +25,8 @@
         <File Permission="660" Location="Kernel/System/Search/Object/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
+        <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/Reindex.pm"/>
+        <File Permission="660" Location="Kernel/System/Ticket/Event/Search/IndexEvent/Ticket.pm"/>
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
         <File Permission="770" Location="var/scripts/znuny-package.sh"/>
     </Filelist>

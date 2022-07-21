@@ -14,7 +14,7 @@ use warnings;
 use parent qw( Kernel::System::Search::Object::Base );
 
 our @ObjectDependencies = (
-    'Kernel::System::Log',
+    'Kernel::System::DB',
 );
 
 =head1 NAME
@@ -46,6 +46,23 @@ sub new {
         = 'TicketHistoryID';    # TODO Specify after implementation for TicketHistory ObjectIndexAdd
 
     return $Self;
+}
+
+sub ObjectListIDs {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
+
+    $DBObject->Prepare(
+        SQL => "SELECT id FROM ticket_history ORDER BY change_time DESC",
+    );
+
+    my @TicketHistoryIDs;
+    while ( my @Row = $DBObject->FetchrowArray() ) {
+        push @TicketHistoryIDs, $Row[0];
+    }
+
+    return @TicketHistoryIDs;
 }
 
 1;

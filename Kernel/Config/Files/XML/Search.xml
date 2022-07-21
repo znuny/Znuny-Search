@@ -65,4 +65,38 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="Ticket::EventModulePost###000-Ticket-ObjectIndexAdd" Required="0" Valid="1">
+        <Description Translatable="1">Adds object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Ticket::Event::Search::IndexEvent::Ticket</Item>
+                <Item Key="Event">TicketCreate</Item>
+                <Item Key="FunctionName">ObjectIndexAdd</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###000-Ticket-ObjectIndexRemove" Required="0" Valid="1">
+        <Description Translatable="1">Removes object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Ticket::Event::Search::IndexEvent::Ticket</Item>
+                <Item Key="Event">TicketDelete</Item>
+                <Item Key="FunctionName">ObjectIndexRemove</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###000-Ticket-ObjectIndexUpdate" Required="0" Valid="1">
+        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Ticket::Event::Search::IndexEvent::Ticket</Item>
+                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketCustomerUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime</Item>
+                <Item Key="FunctionName">ObjectIndexUpdate</Item>
+            </Hash>
+        </Value>
+    </Setting>
+
 </otrs_config>
