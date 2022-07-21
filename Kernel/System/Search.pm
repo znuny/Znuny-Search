@@ -22,14 +22,13 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search - TO-DO
+Kernel::System::Search - Search backend functions
 
 =head1 DESCRIPTION
 
 TO-DO
 
 =head1 PUBLIC INTERFACE
-
 
 =head2 new()
 
@@ -90,7 +89,14 @@ sub new {
 
 =head2 Search()
 
-TO-DO
+search for specified index
+
+    $TicketSearch = $SearchObject->Search(
+        Objects => ["Ticket"],
+        QueryParams => {
+            TicketID => 1,
+        }
+    );
 
 =cut
 
@@ -154,7 +160,7 @@ sub Search {
         my $ResultQuery = $Self->{EngineObject}->QueryExecute(
             Query         => $Query->{Query},
             Index         => $SearchConfig->{ $SearchConfigKeys[0] }->{ $Query->{Object} },
-            QueryType     => 'search',
+            Operation     => 'Search',
             ConnectObject => $Self->{ConnectObject},
             Config        => $Self->{Config},
         );
@@ -188,9 +194,208 @@ sub Search {
     return \@Result;
 }
 
+=head2 ObjectIndexAdd()
+
+add object for specified index
+
+    my $Success = $SearchObject->ObjectIndexAdd(
+        Index => "Ticket",
+        ObjectID => 1,
+    );
+
+=cut
+
+sub ObjectIndexAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
+    NEEDED:
+    for my $Needed (qw(Index ObjectID)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing param: $Needed",
+        );
+    }
+
+    if ( $Self->{Error} ) {
+
+        #  TO-DO
+    }
+
+    my $QueryData = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "ObjectIndexAdd",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    if ( !defined $QueryData->{Query} ) {
+
+        # TO-DO
+    }
+
+    my $ResultQuery = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Operation     => "ObjectIndexAdd",
+        Query         => $QueryData->{Query},
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    if ( $ResultQuery->{Error} )
+    {
+        # TO-DO
+    }
+
+    return 1;
+}
+
+=head2 ObjectIndexUpdate()
+
+update object for specified index
+
+    my $Success = $SearchObject->ObjectIndexUpdate(
+        Index => "Ticket",
+        ObjectID => 1,
+    );
+
+=cut
+
+sub ObjectIndexUpdate {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
+    NEEDED:
+    for my $Needed (qw(Index ObjectID)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing param: $Needed",
+        );
+    }
+
+    if ( $Self->{Error} ) {
+
+        #  TO-DO
+    }
+
+    my $QueryData = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "ObjectIndexUpdate",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    if ( !defined $QueryData->{Query} ) {
+
+        # TO-DO
+    }
+
+    my $ResultQuery = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $QueryData->{Query},
+        Operation     => "ObjectIndexUpdate",
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    if ( $ResultQuery->{Error} )
+    {
+        # TO-DO
+    }
+
+    return 1;
+}
+
+=head2 ObjectIndexGet()
+
+get object for specified index
+
+=cut
+
+sub ObjectIndexGet {
+    my ( $Self, %Param ) = @_;
+
+    return 1;
+}
+
+=head2 ObjectIndexRemove()
+
+remove object for specified index
+
+    my $Success = $SearchObject->ObjectIndexRemove(
+        Index => "Ticket",
+        ObjectID => 1,
+    );
+
+=cut
+
+sub ObjectIndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
+    NEEDED:
+    for my $Needed (qw(Index ObjectID)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing param: $Needed",
+        );
+    }
+
+    if ( $Self->{Error} ) {
+
+        #  TO-DO
+    }
+
+    my $QueryData = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "ObjectIndexRemove",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    if ( !defined $QueryData->{Query} ) {
+
+        # TO-DO
+    }
+
+    my $ResultQuery = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $QueryData->{Query},
+        Operation     => "ObjectIndexRemove",
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    if ( $ResultQuery->{Error} )
+    {
+        # TO-DO
+    }
+
+    return 1;
+}
+
 =head2 Connect()
 
-TO-DO
+connect for active search engine
+
+    my $ConnectObject = $SearchObject->Connect(
+        Config => $Self->{Config},
+    );
 
 =cut
 
@@ -253,6 +458,8 @@ sub IndexDrop {
 
 get basic config for search
 
+    $Config = $SearchObject->ConfigGet();
+
 =cut
 
 sub ConfigGet {
@@ -283,7 +490,11 @@ sub ConfigGet {
 
 =head2 BaseModulesCheck()
 
-TO-DO
+check for base modules validity
+
+    my $ModulesCheckOk = $SearchObject->BaseModulesCheck(
+        Config => $Self->{Config},
+    );
 
 =cut
 

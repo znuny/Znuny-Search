@@ -17,18 +17,15 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Mapping - TO-DO
-
-=head1 DESCRIPTION
-
-TO-DO
+Kernel::System::Search::Mapping - common mapping backend functions
 
 =head1 PUBLIC INTERFACE
 
-
 =head2 new()
 
-TO-DO
+Don't use the constructor directly, use the ObjectManager instead:
+
+    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping');
 
 =cut
 
@@ -43,7 +40,7 @@ sub new {
 
 =head2 ResultFormat()
 
-TO-DO
+format result from engine response
 
 =cut
 
@@ -62,45 +59,9 @@ sub ResultFormat {
     };
 }
 
-=head2 ObjectIndexAdd()
-
-TO-DO
-
-=cut
-
-sub ObjectIndexAdd {
-    my ( $Self, %Param ) = @_;
-
-    return 1;
-}
-
-=head2 ObjectIndexGet()
-
-TO-DO
-
-=cut
-
-sub ObjectIndexGet {
-    my ( $Self, %Param ) = @_;
-
-    return 1;
-}
-
-=head2 ObjectIndexRemove()
-
-TO-DO
-
-=cut
-
-sub ObjectIndexRemove {
-    my ( $Self, %Param ) = @_;
-
-    return 1;
-}
-
 =head2 Search()
 
-TO-DO
+process query data to structure that will be used to execute query
 
 =cut
 
@@ -118,6 +79,70 @@ sub Search {
         Error => 1
     };
 
+}
+
+=head2 ObjectIndexAdd()
+
+process query data to structure that will be used to execute query
+
+=cut
+
+sub ObjectIndexAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "ObjectIndexAdd function was not properly overriden.",
+    );
+
+    return {
+        Error => 1
+    };
+
+}
+
+=head2 ObjectIndexGet()
+
+process query data to structure that will be used to execute query
+
+=cut
+
+sub ObjectIndexGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "ObjectIndexGet function was not properly overriden.",
+    );
+
+    return {
+        Error => 1
+    };
+}
+
+=head2 ObjectIndexRemove()
+
+process query data to structure that will be used to execute query
+
+=cut
+
+sub ObjectIndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "ObjectIndexRemove function was not properly overriden.",
+    );
+
+    return {
+        Error => 1
+    };
 }
 
 1;
