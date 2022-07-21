@@ -96,6 +96,7 @@ search for specified index
         QueryParams => {
             TicketID => 1,
         }
+        ResultType => 'ARRAY|HASH|COUNT' (optional, default: 'ARRAY')
     );
 
 =cut
@@ -133,6 +134,7 @@ sub Search {
 
     my $Fallback;
     my @ValidQueries = ();
+
     if ( !defined $QueryData ) {
         $Fallback = 1;
     }
@@ -148,18 +150,16 @@ sub Search {
         return $SearchObject->Fallback(%Param);
     }
 
-    my $SearchConfig = $ConfigObject->Get("Loader::Search");
+    my %Result;
+    my $RegisteredIndexes = $Self->{Config}->{RegisteredIndexes};
 
-    # Receive highest priority configuration of SearchConfig.
-    my @SearchConfigKeys = reverse sort keys %{ $ConfigObject->Get("Loader::Search") };
-
-    my @Result;
     QUERY:
     for my $Query (@ValidQueries) {
+        my $Index = $RegisteredIndexes->{ $Query->{Object} };
 
         my $ResultQuery = $Self->{EngineObject}->QueryExecute(
             Query         => $Query->{Query},
-            Index         => $SearchConfig->{ $SearchConfigKeys[0] }->{ $Query->{Object} },
+            Index         => $Index,
             Operation     => 'Search',
             ConnectObject => $Self->{ConnectObject},
             Config        => $Self->{Config},
@@ -177,21 +177,20 @@ sub Search {
             next QUERY;
         }
 
-        # Globaly standarize format to understandable by search engine.
-        my $FormattedResult = $Self->{MappingObject}->ResultFormat(
-            Result    => $ResultQuery,
-            Config    => $Self->{Config},
-            IndexName => $Query->{Object},
+        my $FormattedResult = $Self->_ResultFormat(
+            Result     => $ResultQuery,
+            Config     => $Self->{Config},
+            IndexName  => $Query->{Object},
+            Operation  => "Search",
+            ResultType => $Param{ResultType} // ''
         );
 
         if ( defined $FormattedResult ) {
-            push @Result, $FormattedResult;
+            %Result = ( %Result, %{$FormattedResult} );
         }
     }
 
-    # TODO: Standarization of specific object response after claryfication of response from query execute.
-
-    return \@Result;
+    return \%Result;
 }
 
 =head2 ObjectIndexAdd()
@@ -532,6 +531,56 @@ sub BaseModulesCheck {
     }
 
     return 1;
+}
+
+=head2 _ResultFormat()
+
+format response data globally, then index specifically
+
+    my $ModulesCheckOk = $SearchObject->BaseModulesCheck(
+        Config => $Self->{Config},
+    );
+
+=cut
+
+sub _ResultFormat {
+    my ( $Self, %Param ) = @_;
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
+    my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Operation Result Config IndexName)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing param: $Needed",
+        );
+        return;
+    }
+
+    my %OperationMapping = (
+        Search            => 'SearchFormat',
+        ObjectIndexAdd    => 'ObjectIndexAddFormat',
+        ObjectIndexGet    => 'ObjectIndexGetFormat',
+        ObjectIndexRemove => 'ObjectIndexRemoveFormat',
+    );
+
+    # Globaly standarize format to understandable by search engine.
+    my $GloballyFormattedResult = $Self->{MappingObject}->ResultFormat(
+        Result    => $Param{Result},
+        Config    => $Param{Config},
+        IndexName => $Param{IndexName},
+    );
+
+    my $OperationFormatFunction = $OperationMapping{ $Param{Operation} };
+    my $IndexFormattedResult    = $IndexObject->$OperationFormatFunction(
+        GloballyFormattedResult => $GloballyFormattedResult,
+        %Param
+    );
+
+    return $IndexFormattedResult;
 }
 
 1;
