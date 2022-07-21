@@ -129,4 +129,27 @@ sub IndexObjectRemoveFormat {
     return {};
 }
 
+=head2 ObjectListIDs()
+
+    Receive list of ObjectIDs stored by otrs system database site.
+
+    my @Result = $Object->ObjectListIDs();
+
+=cut
+
+sub ObjectListIDs {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "ObjectListIDs() function was not properly overriden.",
+    );
+
+    return {
+        Error => 1
+    };
+}
+
 1;

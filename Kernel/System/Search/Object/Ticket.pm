@@ -15,6 +15,7 @@ use parent qw( Kernel::System::Search::Object::Base );
 
 our @ObjectDependencies = (
     'Kernel::System::Log',
+    'Kernel::System::Ticket',
 );
 
 =head1 NAME
@@ -67,6 +68,22 @@ sub ResultFormat {
     my $Objects = $Param{Objects};
 
     return $Objects;
+}
+
+sub ObjectListIDs {
+    my ( $Self, %Param ) = @_;
+
+    my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
+
+    my @TicketIDs = $TicketObject->TicketSearch(
+        Result => "ARRAY",
+        %Param,
+        SortBy  => 'Age',
+        OrderBy => 'Down',
+
+    );
+
+    return @TicketIDs;
 }
 
 1;

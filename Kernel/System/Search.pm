@@ -219,11 +219,12 @@ sub ObjectIndexAdd {
             Priority => 'error',
             Message  => "Missing param: $Needed",
         );
+
+        return;
     }
 
     if ( $Self->{Error} ) {
-
-        #  TO-DO
+        return;
     }
 
     my $QueryData = $SearchObject->QueryPrepare(
@@ -234,8 +235,7 @@ sub ObjectIndexAdd {
     );
 
     if ( !defined $QueryData->{Query} ) {
-
-        # TO-DO
+        return;
     }
 
     my $ResultQuery = $Self->{EngineObject}->QueryExecute(
@@ -248,7 +248,7 @@ sub ObjectIndexAdd {
 
     if ( $ResultQuery->{Error} )
     {
-        # TO-DO
+        return;
     }
 
     return 1;
@@ -283,8 +283,7 @@ sub ObjectIndexUpdate {
     }
 
     if ( $Self->{Error} ) {
-
-        #  TO-DO
+        return;
     }
 
     my $QueryData = $SearchObject->QueryPrepare(
@@ -295,8 +294,7 @@ sub ObjectIndexUpdate {
     );
 
     if ( !defined $QueryData->{Query} ) {
-
-        # TO-DO
+        return;
     }
 
     my $ResultQuery = $Self->{EngineObject}->QueryExecute(
@@ -309,7 +307,7 @@ sub ObjectIndexUpdate {
 
     if ( $ResultQuery->{Error} )
     {
-        # TO-DO
+        return;
     }
 
     return 1;
@@ -356,8 +354,7 @@ sub ObjectIndexRemove {
     }
 
     if ( $Self->{Error} ) {
-
-        #  TO-DO
+        return;
     }
 
     my $QueryData = $SearchObject->QueryPrepare(
@@ -368,8 +365,7 @@ sub ObjectIndexRemove {
     );
 
     if ( !defined $QueryData->{Query} ) {
-
-        # TO-DO
+        return;
     }
 
     my $ResultQuery = $Self->{EngineObject}->QueryExecute(
@@ -382,7 +378,7 @@ sub ObjectIndexRemove {
 
     if ( $ResultQuery->{Error} )
     {
-        # TO-DO
+        return;
     }
 
     return 1;
