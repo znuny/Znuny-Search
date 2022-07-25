@@ -369,4 +369,51 @@ sub _LoadModule {
     return 1;
 }
 
+=head2 _QueryPrepareIndexClear()
+
+prepares query for index clear operation
+
+    my $Result = $SearchObject->_QueryPrepareIndexClear(
+        MappingObject   => $MappingObject,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareIndexClear {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->IndexClear(
+        %Param,
+        MappingObject => $Param{MappingObject},
+        Config        => $Param{Config},
+    );
+
+    return $Data;
+}
+
 1;

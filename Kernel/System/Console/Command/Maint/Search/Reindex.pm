@@ -42,6 +42,18 @@ sub PreRun {
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
     $Self->{SearchObject} = $Kernel::OM->Get('Kernel::System::Search');
 
+    if ( !$Self->{SearchObject} || $Self->{SearchObject}->{Error} ) {
+        my $Message;
+        if ( !$Self->{SearchObject}->{ConnectObject} ) {
+            $Message = "Could not connect to the cluster. Exiting..";
+        }
+        else {
+            $Message = "Errors occured. Exiting..";
+        }
+        $Self->Print("<red>$Message\n</red>");
+        return $Self->ExitCodeError();
+    }
+
     my $ObjectOption = $Self->GetOption('Object') // [];
 
     my @Objects;
