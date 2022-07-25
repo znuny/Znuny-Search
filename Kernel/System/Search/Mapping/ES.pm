@@ -190,9 +190,8 @@ sub ObjectIndexAdd {
     my $Index             = $RegisteredIndexes->{ $Param{Index} };
 
     my $Result = {
-        index => $Index,
-        id    => $Param{ObjectID},
-        body  => $Param{Body}
+        Index => $Index,
+        Body  => $Param{Body}
     };
 
     return $Result;
@@ -231,9 +230,8 @@ sub ObjectIndexUpdate {
     my $Index             = $RegisteredIndexes->{ $Param{Index} };
 
     my $Result = {
-        index => $Index,
-        id    => $Param{ObjectID},
-        body  => $Param{Body}
+        Index => $Index,
+        Body  => $Param{Body}
     };
 
     return $Result;
@@ -283,8 +281,7 @@ sub ObjectIndexRemove {
     my $Index             = $RegisteredIndexes->{ $Param{Index} };
 
     my $Result = {
-        index => $Index,
-        id    => $Param{ObjectID},
+        Index => $Index,
     };
 
     return $Result;    # Need to use perform_request()
@@ -311,6 +308,35 @@ sub ResponseDataFormat {
     }
 
     return \@Objects;
+}
+
+=head2 IndexClear()
+
+returns query for engine to clear whole index from objects
+
+    my $Result = $MappingESObject->IndexClear(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexClear {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchConfig = $Param{Config}->{RegisteredIndexes};
+
+    my $Index = $SearchConfig->{ $Param{Index} };
+
+    my $Query = {
+        Index => $Index,
+        Body  => {
+            query => {
+                match_all => {}
+            }
+        }
+    };
+
+    return $Query;
 }
 
 1;

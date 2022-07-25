@@ -167,8 +167,6 @@ executes query for active engine with specified object "Search" operation
 sub _QueryExecuteSearch {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
-    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
     my $ConnectObject = $Param{ConnectObject};
 
     my $Result = $ConnectObject->search(
@@ -196,15 +194,40 @@ executes query for active engine with specified object "Add" operation
 sub _QueryExecuteObjectIndexAdd {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
-    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
     my $ConnectObject = $Param{ConnectObject};
 
     my $Result = $ConnectObject->transport()->perform_request(
         method => 'POST',
-        path   => "/$Param{Query}->{index}/_create/$Param{ObjectID}",
+        path   => "/$Param{Query}->{Index}/_create/$Param{ObjectID}",
         body   => {
-            %{ $Param{Query}->{body} }
+            %{ $Param{Query}->{Body} }
+        }
+    );
+
+    return $Result;
+}
+
+=head2 _QueryExecuteIndexClear()
+
+executes query for active engine with specified "IndexClear" operation
+
+    my $Result = $EngineESObject->_QueryExecuteIndexClear(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexClear {
+    my ( $Self, %Param ) = @_;
+
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'POST',
+        path   => "/$Param{Query}->{Index}/_delete_by_query",
+        body   => {
+            %{ $Param{Query}->{Body} }
         }
     );
 
@@ -226,17 +249,15 @@ executes query for active engine with specified "Update" operation
 sub _QueryExecuteObjectIndexUpdate {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
-    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
     my $ConnectObject = $Param{ConnectObject};
 
     #  TODO: Need to check integration og Age attribute
     my $Result = $ConnectObject->transport()->perform_request(
         method => 'POST',
-        path   => "/$Param{Query}->{index}/_update/$Param{ObjectID}",
+        path   => "/$Param{Query}->{Index}/_update/$Param{ObjectID}",
         body   => {
             doc => {
-                %{ $Param{Query}->{body} }
+                %{ $Param{Query}->{Body} }
             }
         }
     );
@@ -259,13 +280,11 @@ executes query for active engine with specified "Remove" operation
 sub _QueryExecuteObjectIndexRemove {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
-    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
     my $ConnectObject = $Param{ConnectObject};
 
     my $Result = $ConnectObject->transport()->perform_request(
         method => 'DELETE',
-        path   => "/$Param{Query}->{index}/_doc/$Param{ObjectID}",
+        path   => "/$Param{Query}->{Index}/_doc/$Param{ObjectID}",
     );
 
     return $Result;
