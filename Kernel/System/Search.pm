@@ -449,6 +449,53 @@ sub IndexDrop {
     return 1;
 }
 
+=head2 IndexClear()
+
+deletes the entire contents of the index
+
+    my $Result = $SearchObject->IndexClear(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexClear {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    return if !$Param{Index};
+
+    # check if any data exists
+    my $Search = $Self->Search(
+        Objects     => [ $Param{Index} ],
+        QueryParams => {},
+    );
+
+    # no data exists
+    if ( $Search->{ $Param{Index} } && !( IsArrayRefWithData( $Search->{ $Param{Index} } ) ) ) {
+        return 1;
+    }
+
+    my $QueryData = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexClear",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $QueryData->{Query},
+        Operation     => "IndexClear",
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    return if $Response->{Error};
+    return 1;
+}
+
 =head2 ConfigGet()
 
 get basic config for search

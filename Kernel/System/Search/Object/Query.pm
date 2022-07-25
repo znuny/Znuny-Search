@@ -171,4 +171,48 @@ sub Search {
     };
 }
 
+=head2 IndexClear()
+
+create query for index clearing operation
+
+    my $Result = $QueryObject->IndexClear(
+        MappingObject   => $MappingObject,
+        QueryParams     => $QueryParams,
+    );
+
+=cut
+
+sub IndexClear {
+    my ( $Type, %Param ) = @_;
+
+    return {
+        Error    => 1,
+        Fallback => {
+            Enable => 0
+        },
+    } if !$Param{MappingObject};
+
+    my $MappingObject = $Param{MappingObject};
+
+    # Returns the query
+    my $Query = $MappingObject->IndexClear(
+        %Param
+    );
+
+    return {
+        Error    => 1,
+        Fallback => {
+            Enable => 0
+        },
+    } if !$Query->{Body};
+
+    return {
+        Error    => 0,
+        Query    => $Query,
+        Fallback => {
+            Enable => 0
+        },
+    };
+}
+
 1;
