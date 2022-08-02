@@ -85,33 +85,4 @@ sub new {
     return $Self;
 }
 
-=head2 ObjectListIDs()
-
-return all sql data of object ids
-
-    my $ResultIDs = $SearchTicketObject->ObjectListIDs(
-        UserID => 1,
-    );
-
-    my $ResultIDs = $SearchTicketObject->ObjectListIDs(
-        CustomerUserID => $CustomerUserID,
-    );
-
-=cut
-
-sub ObjectListIDs {
-    my ( $Self, %Param ) = @_;
-
-    my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
-
-    my @TicketIDs = $TicketObject->TicketSearch(
-        Result => "ARRAY",
-        %Param,
-        SortBy  => 'Age',
-        OrderBy => 'Down',
-    );
-
-    return \@TicketIDs;
-}
-
 1;

@@ -85,10 +85,61 @@ sub Fallback {
         }
     }
 
+    my $SQLSearchResult = $Self->SQLObjectSearch(
+        QueryParams => $Param{QueryParams},
+    );
+
+    my $Result = {
+        EngineData => {},
+        ObjectData => $SQLSearchResult,
+    };
+
+    return $Result;
+}
+
+=head2 SQLObjectSearch()
+
+search in sql database for objects index related
+
+    my $Result = $SearchBaseObject->SQLObjectSearch(
+        QueryParams => {
+            TicketID => 1,
+        },
+        Fields => ['id', 'sla_id'] # optional, returns all
+                                   # fields if not specified
+        OrderBy => $IdentifierSQL,
+        OrderDirection => "Down",  # possible: "DESC", "ASC"
+    );
+
+=cut
+
+sub SQLObjectSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Needed (qw( QueryParams )) {
+        if ( !$Param{$Needed} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Needed!"
+            );
+            return;
+        }
+    }
+
     my $IndexRealName = $Self->{Config}->{IndexRealName};
     my $Fields        = $Self->{Fields};
 
-    my @TableColumns = values %{$Fields};
+    my @TableColumns;
+
+    if ( IsArrayRefWithData( $Param{Fields} ) ) {
+        @TableColumns = @{ $Param{Fields} };
+    }
+    else {
+        @TableColumns = values %{$Fields};
+    }
 
     # prepare sql statement
     my $SQL = 'SELECT ' . join( ',', @TableColumns ) . ' FROM ' . $IndexRealName;
@@ -112,6 +163,13 @@ sub Fallback {
         $SQL .= ' WHERE ' . join( ' AND ', @QueryConditions );
     }
 
+    if ( $Param{OrderBy} ) {
+        $SQL .= " ORDER BY $Param{OrderBy}";
+        if ( $Param{OrderDirection} ) {
+            $SQL .= " $Param{OrderDirection}";
+        }
+    }
+
     return if !$DBObject->Prepare(
         SQL => $SQL,
     );
@@ -129,12 +187,7 @@ sub Fallback {
         push @Result, \%Data;
     }
 
-    my $Result = {
-        EngineData => {},
-        ObjectData => \@Result,
-    };
-
-    return $Result;
+    return \@Result;
 }
 
 =head2 SearchFormat()
@@ -244,28 +297,37 @@ sub IndexObjectRemoveFormat {
 
 =head2 ObjectListIDs()
 
-receive list of ObjectIDs stored by otrs system database site
+return all sql data of object ids
 
-    my $Result = $Object->ObjectListIDs();
+    my $ResultIDs = $SearchTicketObject->ObjectListIDs();
 
 =cut
 
 sub ObjectListIDs {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $IndexObject   = $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Config}->{IndexName}");
+    my $Identifier    = $IndexObject->{Config}->{Identifier};
+    my $IdentifierSQL = $IndexObject->{Fields}->{$Identifier};
 
-    my $Message = "ObjectListIDs() function was not properly overriden.";
-
-    $LogObject->Log(
-        Priority => 'error',
-        Message  => $Message,
+    # search for all objects from newest, order it by id
+    my $SQLSearchResult = $IndexObject->SQLObjectSearch(
+        QueryParams    => {},
+        Fields         => [$IdentifierSQL],
+        OrderDirection => "DESC",
+        OrderBy        => $IdentifierSQL,
     );
 
-    return {
-        Error   => 1,
-        Message => $Message,
-    };
+    my @Result = ();
+
+    # push hash data into array
+    if ( IsArrayRefWithData($SQLSearchResult) ) {
+        for my $SQLData ( @{$SQLSearchResult} ) {
+            push @Result, $SQLData->{$IdentifierSQL};
+        }
+    }
+
+    return \@Result;
 }
 
 =head2 CustomFieldsConfig()
