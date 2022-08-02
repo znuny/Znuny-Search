@@ -31,7 +31,7 @@ TO-DO
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchTicketHistoryObject = $Kernel::OM->Get('Kernel::System::Search::Object::TicketHistory ');
+    my $SearchTicketHistoryObject = $Kernel::OM->Get('Kernel::System::Search::Object::TicketHistory');
 
 =cut
 
@@ -41,12 +41,46 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
-    # Engine site "ticket_history" index unique key.
-    $Self->{ResultFormat}->{Identifier}
-        = 'TicketHistoryID';    # TODO Specify after implementation for TicketHistory ObjectIndexAdd
+    # specify base config for index
+    $Self->{Config} = {
+        IndexRealName => 'ticket_history',     # engine-wise index name
+        IndexName     => 'TicketHistory',      # backend-wise index name
+        Identifier    => 'TicketHistoryID',    # column name that represents index object id in the field mapping
+    };
+
+    # define schema for data
+    my $FieldMapping = {
+        TicketHistoryID => 'id',
+        Name            => 'name',
+        HistoryTypeID   => 'history_type_id',
+        TicketID        => 'ticket_id',
+        ArticleID       => 'article_id',
+        TypeID          => 'type_id',
+        QueueID         => 'queue_id',
+        OwnerID         => 'owner_id',
+        PriorityID      => 'priority_id',
+        StateID         => 'state_id',
+        Created         => 'create_time',
+        CreateBy        => 'create_by',
+        Changed         => 'change_time',
+        ChangeBy        => 'change_by',
+    };
+
+    # load custom field mapping
+    %{$FieldMapping} = ( %{$FieldMapping}, %{ $Self->CustomFieldsConfig() } );
+
+    $Self->{Fields} = $FieldMapping;
 
     return $Self;
 }
+
+=head2 ObjectListIDs()
+
+return all sql data of object ids
+
+    my $ResultIDs = $SearchTicketHistoryObject->ObjectListIDs();
+
+=cut
 
 sub ObjectListIDs {
     my ( $Self, %Param ) = @_;
@@ -62,7 +96,7 @@ sub ObjectListIDs {
         push @TicketHistoryIDs, $Row[0];
     }
 
-    return @TicketHistoryIDs;
+    return \@TicketHistoryIDs;
 }
 
 1;

@@ -62,6 +62,7 @@ sub ResultFormat {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
     NEEDED:
     for my $Needed (qw(Result Config IndexName)) {
         next NEEDED if $Param{$Needed};
@@ -186,11 +187,10 @@ sub ObjectIndexAdd {
         return;
     }
 
-    my $RegisteredIndexes = $Param{Config}->{RegisteredIndexes};
-    my $Index             = $RegisteredIndexes->{ $Param{Index} };
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
     my $Result = {
-        Index => $Index,
+        Index => $IndexObject->{Config}->{IndexRealName},
         Body  => $Param{Body}
     };
 
@@ -214,6 +214,7 @@ sub ObjectIndexUpdate {
     my ( $Type, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
     NEEDED:
     for my $Needed (qw(Config Index ObjectID Body)) {
 
@@ -226,11 +227,10 @@ sub ObjectIndexUpdate {
         return;
     }
 
-    my $RegisteredIndexes = $Param{Config}->{RegisteredIndexes};
-    my $Index             = $RegisteredIndexes->{ $Param{Index} };
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
     my $Result = {
-        Index => $Index,
+        Index => $IndexObject->{Config}->{IndexRealName},
         Body  => $Param{Body}
     };
 
@@ -265,6 +265,7 @@ sub ObjectIndexRemove {
     my ( $Type, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
     NEEDED:
     for my $Needed (qw(Config Index ObjectID)) {
 
@@ -277,11 +278,10 @@ sub ObjectIndexRemove {
         return;
     }
 
-    my $RegisteredIndexes = $Param{Config}->{RegisteredIndexes};
-    my $Index             = $RegisteredIndexes->{ $Param{Index} };
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
     my $Result = {
-        Index => $Index,
+        Index => $IndexObject->{Config}->{IndexRealName},
     };
 
     return $Result;    # Need to use perform_request()
@@ -323,12 +323,10 @@ returns query for engine to clear whole index from objects
 sub IndexClear {
     my ( $Self, %Param ) = @_;
 
-    my $SearchConfig = $Param{Config}->{RegisteredIndexes};
-
-    my $Index = $SearchConfig->{ $Param{Index} };
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
     my $Query = {
-        Index => $Index,
+        Index => $IndexObject->{Config}->{IndexRealName},
         Body  => {
             query => {
                 match_all => {}
