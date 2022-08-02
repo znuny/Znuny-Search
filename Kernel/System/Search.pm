@@ -227,7 +227,7 @@ sub ObjectIndexAdd {
         return;
     }
 
-    if ( $Self->{Error} ) {
+    if ( $Self->{Fallback} ) {
         return;
     }
 
@@ -286,7 +286,7 @@ sub ObjectIndexUpdate {
         );
     }
 
-    if ( $Self->{Error} ) {
+    if ( $Self->{Fallback} ) {
         return;
     }
 
@@ -357,7 +357,7 @@ sub ObjectIndexRemove {
         );
     }
 
-    if ( $Self->{Error} ) {
+    if ( $Self->{Fallback} ) {
         return;
     }
 
