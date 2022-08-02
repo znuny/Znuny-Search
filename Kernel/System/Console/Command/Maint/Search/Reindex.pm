@@ -76,14 +76,14 @@ sub PreRun {
     }
 
     else {
-        my $SearchConfig = $Self->{SearchObject}->{Config}->{RegisteredIndexes} // {};
+        my $SearchConfig = $Self->{SearchObject}->{Config}->{RegisteredIndexes} // [];
 
-        if ( !IsHashRefWithData($SearchConfig) ) {
+        if ( !IsArrayRefWithData($SearchConfig) ) {
             $Self->Print("No index found in Loader::Search config.\n");
             return $Self->ExitCodeError();
         }
 
-        for my $Object ( sort keys %{$SearchConfig} ) {
+        for my $Object ( @{$SearchConfig} ) {
             eval {
                 my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Object");
                 $IndexObject->{Index} = $Object;
@@ -112,19 +112,18 @@ sub Run {
         $Self->Print("<yellow>Reindexing: $Object->{Index}</yellow>\n");
 
         eval {
-            my @ObjectIDs = $Object->ObjectListIDs(
+            my $ObjectIDs = $Object->ObjectListIDs(
                 UserID => 1,
             );
 
-            # Check for error hash return when function is not properly overriden.
-            next OBJECT if IsHashRefWithData( $ObjectIDs[0] );
+            next OBJECT if !( IsArrayRefWithData($ObjectIDs) );
 
-            # Clear whole index to reindex it correctly.
+            # clear whole index to reindex it correctly
             $Self->{SearchObject}->IndexClear(
                 Index => $Object->{Index}
             );
 
-            for my $ObjectID (@ObjectIDs) {
+            for my $ObjectID ( @{$ObjectIDs} ) {
                 my $Result = $Self->{SearchObject}->ObjectIndexAdd(
                     Index    => $Object->{Index},
                     ObjectID => $ObjectID,

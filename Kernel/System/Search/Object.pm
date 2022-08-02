@@ -45,14 +45,48 @@ sub new {
 
 =head2 Fallback()
 
-TO-DO
+fallback from using advanced search
+
+    my $Result = $SearchObject->Fallback(
+        IndexName    => $IndexName,
+        QueryParams  => $QueryParams
+    );
 
 =cut
 
 sub Fallback {
     my ( $Self, %Param ) = @_;
 
-    return 1;
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(IndexName QueryParams)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $Result;
+    my $IndexName = $Param{IndexName};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::${IndexName}",
+    );
+
+    # TODO support for not loaded module
+    return if !$Loaded;
+    my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::${IndexName}");
+
+    $Result->{$IndexName} = $SearchIndexObject->Fallback(
+        QueryParams => $Param{QueryParams}
+    );
+
+    return $Result;
 }
 
 =head2 QueryPrepare()
@@ -70,8 +104,7 @@ prepare query for active engine with specified operation
 sub QueryPrepare {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
-    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     for my $Name (qw( Operation MappingObject Config )) {
         if ( !$Param{$Name} ) {
@@ -197,7 +230,7 @@ sub _QueryPrepareObjectIndexAdd {
     # TODO support for not loaded module
     return if !$Loaded;
 
-    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
 
     my $Data = $IndexQueryObject->ObjectIndexAdd(
         %Param,

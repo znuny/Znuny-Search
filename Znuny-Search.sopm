@@ -22,6 +22,7 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Ticket/CustomPackage.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>

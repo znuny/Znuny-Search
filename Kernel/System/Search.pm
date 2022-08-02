@@ -32,7 +32,9 @@ TO-DO
 
 =head2 new()
 
-TO-DO
+Don't use the constructor directly, use the ObjectManager instead:
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
 =cut
 
@@ -46,42 +48,39 @@ sub new {
 
     $Self->{Config} = $Self->ConfigGet();
 
-    # Check if ElasticSearch feature is enabled.
-    if ( !$Self->{Config}->{Enabled} ) {
-        $Self->{Error} = 1;
-    }
-
-    my $ModulesCheckOk;
-
-    # Check if there is choosen active engine of the search.
-    if ( !$Self->{Config}->{ActiveEngine} && !$Self->{Error} ) {
-        $Self->{Error} = 1;
+    # check if engine feature is enabled
+    if ( !$Self->{Config}->{Enabled} || !IsArrayRefWithData( $Self->{Config}->{RegisteredIndexes} ) ) {
+        $Self->{Fallback} = 1;
+    }    # check if there is choosen active engine of the search
+    elsif ( !$Self->{Config}->{ActiveEngine} ) {
+        $Self->{Fallback} = 1;
         $LogObject->Log(
             Priority => 'error',
             Message  => "Search configuration does not specify a valid active engine!",
         );
     }
     else {
-        $ModulesCheckOk = $Self->BaseModulesCheck(
+        # check base modules (mapping/engine) for selected engine
+        my $ModulesCheckOk = $Self->BaseModulesCheck(
             Config => $Self->{Config},
         );
-    }
 
-    if ( !$ModulesCheckOk ) {
-        $Self->{Error} = 1;
-    }
+        if ( !$ModulesCheckOk ) {
+            $Self->{Fallback} = 1;
+        }
+        else {
+            # if there were no errors before, try connecting
+            my $ConnectObject = $Self->Connect(
+                Config => $Self->{Config},
+            );
 
-    # If there were no errors before, try connecting.
-    my $ConnectObject;
-    $ConnectObject = $Self->Connect(
-        Config => $Self->{Config},
-    ) if !$Self->{Error};
-
-    if ( !$ConnectObject || $ConnectObject->{Error} ) {
-        $Self->{Error} = 1;
-    }
-    else {
-        $Self->{ConnectObject} = $ConnectObject;
+            if ( !$ConnectObject || $ConnectObject->{Error} ) {
+                $Self->{Fallback} = 1;
+            }
+            else {
+                $Self->{ConnectObject} = $ConnectObject;
+            }
+        }
     }
 
     return $Self;
@@ -91,12 +90,12 @@ sub new {
 
 search for specified index
 
-    $TicketSearch = $SearchObject->Search(
+    my $TicketSearch = $SearchObject->Search(
         Objects => ["Ticket"],
         QueryParams => {
             TicketID => 1,
-        }
-        ResultType => 'ARRAY|HASH|COUNT' (optional, default: 'ARRAY')
+        },
+        ResultType => $ResultType # (optional, default: 'ARRAY', possible: ARRAY,HASH,COUNT),
     );
 
 =cut
@@ -104,9 +103,7 @@ search for specified index
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
     for my $Needed (qw(Objects QueryParams)) {
@@ -119,12 +116,13 @@ sub Search {
         return;
     }
 
-    # If there was an critical error, fallback all of the objects with given search parameters.
-    if ( $Self->{Error} ) {
-        my $Response = $SearchObject->Fallback(%Param);
-        return $Response;
-    }
+    # if there was an critical error, fallback all of the objects with given search parameters
+    return $Self->Fallback(%Param) if $Self->{Fallback};
 
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
+    # prepare query for engine
     my $QueryData = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "Search",
@@ -146,20 +144,21 @@ sub Search {
             @ValidQueries = grep { !$_->{Error} } @{ $QueryData->{Queries} };
         }
     }
+
+    # if any error during query building occured, use fallback instead
     if ($Fallback) {
-        return $SearchObject->Fallback(%Param);
+        return $Self->_Fallback(%Param);
     }
 
     my %Result;
-    my $RegisteredIndexes = $Self->{Config}->{RegisteredIndexes};
 
     QUERY:
     for my $Query (@ValidQueries) {
-        my $Index = $RegisteredIndexes->{ $Query->{Object} };
+        my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Query->{Object}");
 
         my $ResultQuery = $Self->{EngineObject}->QueryExecute(
             Query         => $Query->{Query},
-            Index         => $Index,
+            Index         => $IndexObject->{Config}->{IndexRealName},
             Operation     => 'Search',
             ConnectObject => $Self->{ConnectObject},
             Config        => $Self->{Config},
@@ -167,8 +166,11 @@ sub Search {
 
         next QUERY if !$ResultQuery;
 
+        # this enables fallback for all indexes
+        # TODO check if this can be re-done for single index instead
+        # then merge fallback with ES response
         if ( $ResultQuery->{Fallback}->{Enable} ) {
-            return $SearchObject->Fallback(%Param);
+            return $Self->_Fallback(%Param);
         }
         elsif (
             $ResultQuery->{Error}
@@ -182,13 +184,15 @@ sub Search {
             Config     => $Self->{Config},
             IndexName  => $Query->{Object},
             Operation  => "Search",
-            ResultType => $Param{ResultType} // ''
+            ResultType => $Param{ResultType} // '',
         );
 
         if ( defined $FormattedResult ) {
             %Result = ( %Result, %{$FormattedResult} );
         }
     }
+
+    $Self->{Fallback} = 0;
 
     return \%Result;
 }
@@ -509,25 +513,26 @@ sub ConfigGet {
 
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
-    my $SearchLoaderConfig = $ConfigObject->Get("Loader::Search");
-    my @SearchConfigKeys   = sort keys %{$SearchLoaderConfig};
+    my $ActiveEngine          = "ES";                                                  # MOCK-UP
+    my $Enabled               = 1;                                                     # MOCK-UP
+    my $RegisteredIndexConfig = $ConfigObject->Get("Loader::Search::$ActiveEngine");
 
-    my %SearchLoader = ();
-    for my $Key (@SearchConfigKeys) {
-        for my $InnerKey ( sort keys %{ $SearchLoaderConfig->{$Key} } ) {
-            $SearchLoader{$InnerKey} = $SearchLoaderConfig->{$Key}->{$InnerKey};
+    my $Config = {
+        ActiveEngine => $ActiveEngine,
+        Enabled      => $Enabled,
+    };
+
+    if ( IsHashRefWithData($RegisteredIndexConfig) ) {
+        my @RegisteredIndex;
+        for my $RegisteredIndexKey ( sort keys %{$RegisteredIndexConfig} ) {
+            for my $RegisteredIndex ( @{ $RegisteredIndexConfig->{$RegisteredIndexKey} } ) {
+                push @RegisteredIndex, $RegisteredIndex if !grep { $_ eq $RegisteredIndex } @RegisteredIndex;
+            }
         }
+        $Config->{RegisteredIndexes} = \@RegisteredIndex;
     }
 
-    my %Config = (
-        ActiveEngine      => "ES",    # MOCK-UP
-        Enabled           => 1,       # MOCK-UP
-        RegisteredIndexes => {        # key: friendly name for calls, value: name in search engine structure
-            %SearchLoader
-        }
-    );
-
-    return \%Config;
+    return $Config;
 }
 
 =head2 BaseModulesCheck()
@@ -578,9 +583,9 @@ sub BaseModulesCheck {
 
 =head2 _ResultFormat()
 
-format response data globally, then index specifically
+format response data globally, then format again for index separately
 
-    my $ModulesCheckOk = $SearchObject->BaseModulesCheck(
+    my $Result = $SearchObject->_ResultFormat(
         Config => $Self->{Config},
     );
 
@@ -603,6 +608,16 @@ sub _ResultFormat {
         return;
     }
 
+    # Globally standarize response.
+    # Do not use it on fallback response
+    # as fallback do not use advanced search engine
+    # and should have response formatted globally already.
+    $Param{Result} = $Self->{MappingObject}->ResultFormat(
+        Result    => $Param{Result},
+        Config    => $Param{Config},
+        IndexName => $Param{IndexName},
+    ) if !$Param{Fallback};
+
     my %OperationMapping = (
         Search            => 'SearchFormat',
         ObjectIndexAdd    => 'ObjectIndexAddFormat',
@@ -610,20 +625,72 @@ sub _ResultFormat {
         ObjectIndexRemove => 'ObjectIndexRemoveFormat',
     );
 
-    # Globaly standarize format to understandable by search engine.
-    my $GloballyFormattedResult = $Self->{MappingObject}->ResultFormat(
-        Result    => $Param{Result},
-        Config    => $Param{Config},
-        IndexName => $Param{IndexName},
-    );
-
     my $OperationFormatFunction = $OperationMapping{ $Param{Operation} };
-    my $IndexFormattedResult    = $IndexObject->$OperationFormatFunction(
-        GloballyFormattedResult => $GloballyFormattedResult,
+
+    # object separately standarize response
+    my $IndexFormattedResult = $IndexObject->$OperationFormatFunction(
+        GloballyFormattedResult => $Param{Result},
         %Param
     );
 
     return $IndexFormattedResult;
+}
+
+=head2 Fallback()
+
+fallback from using advanced search
+
+    my $Result = $SearchObject->Fallback(
+        Objects      => $Objects,
+        QueryParams  => $QueryParams
+    );
+
+=cut
+
+sub Fallback {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Objects QueryParams)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my %Result;
+    for my $IndexName ( @{ $Param{Objects} } ) {
+
+        # get globally formatted fallback response
+        my $Response = $SearchObject->Fallback(
+            IndexName => $IndexName,
+            %Param
+        );
+
+        # format reponse per index
+        my $FormattedResult = $Self->_ResultFormat(
+            Result     => $Response,
+            Config     => $Self->{Config},
+            IndexName  => $IndexName,
+            Operation  => "Search",
+            ResultType => $Param{ResultType} // '',
+            Fallback   => 1,
+        );
+
+        # merge response into return data
+        if ( defined $FormattedResult ) {
+            %Result = ( %Result, %{$FormattedResult} );
+        }
+    }
+
+    return \%Result;
 }
 
 1;
