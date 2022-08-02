@@ -16,7 +16,8 @@ use parent qw( Kernel::System::Search::Object::Query );
 our @ObjectDependencies = (
     'Kernel::System::Ticket',
     'Kernel::Config',
-    'Kernel::System::Log'
+    'Kernel::System::Log',
+    'Kernel::System::Search::Object::Ticket',
 );
 
 =head1 NAME
@@ -44,17 +45,10 @@ sub new {
     my $Self = {};
 
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
-    my $TicketFields = $ConfigObject->Get('Search::Fields::Ticket');
+    my $IndexObject  = $Kernel::OM->Get('Kernel::System::Search::Object::Ticket');
 
     # get index specified fields
-    my $IndexFields;
-    for my $Key ( sort keys %{$TicketFields} ) {
-        for my $InnerKey ( sort keys %{ $TicketFields->{$Key} } ) {
-            $IndexFields->{$InnerKey} = 1;
-        }
-    }
-
-    $Self->{IndexFields} = $IndexFields;
+    $Self->{IndexFields} = $IndexObject->{Fields};
 
     bless( $Self, $Type );
 
@@ -117,17 +111,19 @@ sub ObjectIndexAdd {
 
     }
 
+    my %TicketData;
+
     # set only index specified fields
     for my $Key ( sort keys %Ticket ) {
-        if ( !$Self->{IndexFields}{$Key} ) {
-            delete $Ticket{$Key};
+        if ( $Self->{IndexFields}->{$Key} ) {
+            $TicketData{ $Self->{IndexFields}->{$Key} } = $Ticket{$Key};
         }
     }
 
     # Returns the query
     my $Query = $MappingObject->ObjectIndexAdd(
         %Param,
-        Body => \%Ticket
+        Body => \%TicketData
     );
 
     if ( !$Query ) {
@@ -200,10 +196,12 @@ sub ObjectIndexUpdate {
 
     }
 
+    my %TicketData;
+
     # set only index specified fields
     for my $Key ( sort keys %Ticket ) {
-        if ( !$Self->{IndexFields}{$Key} ) {
-            delete $Ticket{$Key};
+        if ( $Self->{IndexFields}->{$Key} ) {
+            $TicketData{ $Self->{IndexFields}->{$Key} } = $Ticket{$Key};
         }
     }
 

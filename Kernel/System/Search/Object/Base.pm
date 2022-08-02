@@ -11,8 +11,12 @@ package Kernel::System::Search::Object::Base;
 use strict;
 use warnings;
 
+use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
+
 our @ObjectDependencies = (
     'Kernel::System::Log',
+    'Kernel::System::DB',
+    'Kernel::Config',
 );
 
 =head1 NAME
@@ -21,7 +25,8 @@ Kernel::System::Search::Object::Base - common base backend functions
 
 =head1 DESCRIPTION
 
-TO-DO
+Proceed with fallback, format operation response, load custom columns and
+other base related functions.
 
 =head1 PUBLIC INTERFACE
 
@@ -39,21 +44,97 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "Constructor needs to be overriden!",
+    );
+
     return $Self;
 }
 
 =head2 Fallback()
 
-TO-DO
+Fallback from using advanced search for specific index.
+
+Should return same response as advanced search
+engine globally formatted response.
+
+    my $Result = $SearchBaseObject->Fallback(
+        QueryParams => {
+            TicketID => 1,
+        },
+    );
 
 =cut
 
 sub Fallback {
     my ( $Self, %Param ) = @_;
 
-    return {
-        Error => 1
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Needed (qw( QueryParams )) {
+        if ( !$Param{$Needed} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Needed!"
+            );
+            return;
+        }
+    }
+
+    my $IndexRealName = $Self->{Config}->{IndexRealName};
+    my $Fields        = $Self->{Fields};
+
+    my @TableColumns = values %{$Fields};
+
+    # prepare sql statement
+    my $SQL = 'SELECT ' . join( ',', @TableColumns ) . ' FROM ' . $IndexRealName;
+
+    if ( IsHashRefWithData( $Param{QueryParams} ) ) {
+        my @QueryConditions;
+        PARAM:
+        for my $QueryParam ( sort keys %{ $Param{QueryParams} } ) {
+
+            # check if there is existing mapping between query param and database column
+            next PARAM if !$Fields->{$QueryParam};
+
+            if ( $Param{QueryParams}->{$QueryParam} eq '' ) {
+                push @QueryConditions, "$Fields->{$QueryParam} IS NULL";
+                next PARAM;
+            }
+
+            push @QueryConditions, "$Fields->{$QueryParam} = '$Param{QueryParams}->{$QueryParam}'";
+        }
+
+        $SQL .= ' WHERE ' . join( ' AND ', @QueryConditions );
+    }
+
+    return if !$DBObject->Prepare(
+        SQL => $SQL,
+    );
+
+    my @Result;
+
+    # save data in format: sql column name => sql column value
+    while ( my @Row = $DBObject->FetchrowArray() ) {
+        my %Data;
+        my $DataCounter = 0;
+        for my $RealNameColumn (@TableColumns) {
+            $Data{$RealNameColumn} = $Row[$DataCounter];
+            $DataCounter++;
+        }
+        push @Result, \%Data;
+    }
+
+    my $Result = {
+        EngineData => {},
+        ObjectData => \@Result,
     };
+
+    return $Result;
 }
 
 =head2 SearchFormat()
@@ -73,11 +154,43 @@ sub SearchFormat {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # Return array ref as default.
+    # return array ref as default
     $Param{ResultType} ||= 'ARRAY';
 
-    my $IndexName               = $Param{IndexName};
+    # define supported result types
+    my $SupportedResultType = {
+        'ARRAY' => 1,
+        'HASH'  => 1,
+        'COUNT' => 1,
+    };
+
+    if ( !$SupportedResultType->{ $Param{ResultType} } ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message =>
+                "Specified result type: $Param{ResultType} isn't supported! Default value: \"ARRAY\" will be used instead.",
+        );
+
+        # revert to default result type
+        $SupportedResultType = 'ARRAY';
+    }
+
+    my $IndexName               = $Self->{Config}->{IndexName};
     my $GloballyFormattedResult = $Param{GloballyFormattedResult};
+
+    OBJECT:
+    for my $ObjectData ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
+        ATTRIBUTE:
+        for my $ObjectAttribute ( sort keys %{$ObjectData} ) {
+
+            my @AttributeName = grep { $Self->{Fields}->{$_} eq $ObjectAttribute } keys %{ $Self->{Fields} };
+            next ATTRIBUTE if !$AttributeName[0];
+
+            $ObjectData->{ $AttributeName[0] } = $ObjectData->{$ObjectAttribute};
+
+            delete $ObjectData->{$ObjectAttribute};
+        }
+    }
 
     my $IndexResponse;
 
@@ -88,11 +201,11 @@ sub SearchFormat {
         $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData};
     }
     elsif ( $Param{ResultType} eq "HASH" ) {
-        my $Identifier = $Self->{ResultFormat}->{Identifier};
+        my $Identifier = $Self->{Config}->{Identifier};
         if ( !$Identifier ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message  => "Missing '\$Self->{ResultFormat}->{Identifier} for $IndexName index.'",
+                Message  => "Missing '\$Self->{Config}->{Identifier} for $IndexName index.'",
             );
             return;
         }
@@ -131,9 +244,9 @@ sub IndexObjectRemoveFormat {
 
 =head2 ObjectListIDs()
 
-    Receive list of ObjectIDs stored by otrs system database site.
+receive list of ObjectIDs stored by otrs system database site
 
-    my @Result = $Object->ObjectListIDs();
+    my $Result = $Object->ObjectListIDs();
 
 =cut
 
@@ -142,14 +255,54 @@ sub ObjectListIDs {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
+    my $Message = "ObjectListIDs() function was not properly overriden.";
+
     $LogObject->Log(
         Priority => 'error',
-        Message  => "ObjectListIDs() function was not properly overriden.",
+        Message  => $Message,
     );
 
     return {
-        Error => 1
+        Error   => 1,
+        Message => $Message,
     };
+}
+
+=head2 CustomFieldsConfig()
+
+get all registered custom field mapping for parent index module or specified in parameter index
+
+    $Config = $SearchBaseObject->CustomFieldsConfig(
+        Index => $Index # Optional
+    );
+
+=cut
+
+sub CustomFieldsConfig {
+    my ( $Self, %Param ) = @_;
+
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !$Self->{Config}->{IndexName} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need IndexName!",
+        );
+    }
+
+    my $CustomPackageModuleConfigList = $ConfigObject->Get("Search::FieldsLoader::$Self->{Config}->{IndexName}}");
+
+    my %CustomFieldsMapping;
+
+    for my $CustomPackageConfig ( sort keys %{$CustomPackageModuleConfigList} ) {
+        my $Module        = $CustomPackageModuleConfigList->{$CustomPackageConfig};
+        my $PackageModule = $Kernel::OM->Get("$Module->{Module}");
+
+        %CustomFieldsMapping = ( %{ $PackageModule->{Fields} }, %CustomFieldsMapping );
+    }
+
+    return \%CustomFieldsMapping;
 }
 
 1;

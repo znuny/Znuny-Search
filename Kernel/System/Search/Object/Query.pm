@@ -39,6 +39,10 @@ sub new {
     my ( $Type, %Param ) = @_;
 
     my $Self = {};
+
+    #  sub-modules should include an implementation of mapping
+    $Self->{IndexFields} = {};
+
     bless( $Self, $Type );
 
     return $Self;
@@ -148,9 +152,17 @@ sub Search {
 
     my $MappingObject = $Param{MappingObject};
 
-    # Returns the query
+    my %SearchParams;
+
+    # return columns that are supported
+    for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
+        $SearchParams{ $Self->{IndexFields}->{$SearchParam} } = $Param{QueryParams}->{$SearchParam};
+    }
+
+    # returns the query
     my $Query = $MappingObject->Search(
-        %Param
+        %Param,
+        QueryParams => \%SearchParams
     );
 
     if ( !$Query ) {
