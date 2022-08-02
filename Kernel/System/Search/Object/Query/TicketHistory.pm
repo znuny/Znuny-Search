@@ -14,7 +14,7 @@ use warnings;
 use parent qw( Kernel::System::Search::Object::Query );
 
 our @ObjectDependencies = (
-    'Kernel::System::Log',
+    'Kernel::System::Search::Object::TicketHistory',
 );
 
 =head1 NAME
@@ -39,6 +39,12 @@ sub new {
     my ( $Type, %Param ) = @_;
 
     my $Self = {};
+
+    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::TicketHistory');
+
+    # get index specified fields
+    $Self->{IndexFields} = $IndexObject->{Fields};
+
     bless( $Self, $Type );
 
     return $Self;

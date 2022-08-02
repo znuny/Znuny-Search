@@ -14,7 +14,8 @@ use warnings;
 use Kernel::System::VariableCheck qw(IsHashRefWithData);
 
 our @ObjectDependencies = (
-    'Kernel::System::Search::Mapping::ES'
+    'Kernel::System::Log',
+    'Kernel::System::Ticket',
 );
 
 =head1 NAME
@@ -52,24 +53,138 @@ sub new {
 
 create query for specified operation
 
+    my $Result = $QueryTicketObject->ObjectIndexAdd(
+        MappingObject   => $Config,
+        ObjectID        => $ObjectID,
+    );
+
 =cut
 
 sub ObjectIndexAdd {
-    my ( $Type, %Param ) = @_;
+    my ( $Self, %Param ) = @_;
 
-    return 1;
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
+
+    NEEDED:
+    for my $Needed (qw(MappingObject ObjectID)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return {
+            Error    => 1,
+            Fallback => {
+                Enable => 0
+            },
+        };
+    }
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $Identifier  = $IndexObject->{Config}->{Identifier};
+
+    my $SearchParams = {
+        $Identifier => $Param{ObjectID},
+    };
+
+    # search for object with specified id
+    my $SQLSearchResult = $IndexObject->SQLObjectSearch(
+        QueryParams => $SearchParams,
+    );
+
+    # result should contain one object within array
+    my $ObjectData = $SQLSearchResult->[0];
+
+    # build query
+    my $Query = $Param{MappingObject}->ObjectIndexAdd(
+        %Param,
+        Body => $ObjectData,
+    );
+
+    if ( !$Query ) {
+
+        # TO-DO
+    }
+
+    return {
+        Error    => 0,
+        Query    => $Query,
+        Fallback => {
+            Enable => 0
+        },
+    };
 }
 
 =head2 ObjectIndexUpdate()
 
 create query for specified operation
 
+    my $Result = $QueryTicketObject->ObjectIndexUpdate(
+        MappingObject   => $Config,
+        ObjectID        => $ObjectID,
+    );
+
 =cut
 
 sub ObjectIndexUpdate {
-    my ( $Type, %Param ) = @_;
+    my ( $Self, %Param ) = @_;
 
-    return 1;
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
+
+    NEEDED:
+    for my $Needed (qw(MappingObject ObjectID)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return {
+            Error    => 1,
+            Fallback => {
+                Enable => 0
+            },
+        };
+    }
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $Identifier  = $IndexObject->{Config}->{Identifier};
+
+    my $SearchParams = {
+        $Identifier => $Param{ObjectID},
+    };
+
+    # search for object with specified id
+    my $SQLSearchResult = $IndexObject->SQLObjectSearch(
+        QueryParams => $SearchParams,
+    );
+
+    # result should contain one object within array
+    my $ObjectData = $SQLSearchResult->[0];
+
+    # build query
+    my $Query = $Param{MappingObject}->ObjectIndexUpdate(
+        %Param,
+        Body => $ObjectData
+    );
+
+    if ( !$Query ) {
+
+        # TO-DO
+    }
+
+    return {
+        Error    => 0,
+        Query    => $Query,
+        Fallback => {
+            Enable => 0
+        },
+    };
 }
 
 =head2 ObjectIndexGet()
@@ -110,7 +225,7 @@ sub ObjectIndexRemove {
 
     my $MappingObject = $Param{MappingObject};
 
-    # Returns the query
+    # returns the query
     my $Query = $MappingObject->ObjectIndexRemove(
         %Param
     );

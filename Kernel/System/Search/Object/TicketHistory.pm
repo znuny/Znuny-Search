@@ -74,29 +74,4 @@ sub new {
     return $Self;
 }
 
-=head2 ObjectListIDs()
-
-return all sql data of object ids
-
-    my $ResultIDs = $SearchTicketHistoryObject->ObjectListIDs();
-
-=cut
-
-sub ObjectListIDs {
-    my ( $Self, %Param ) = @_;
-
-    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
-
-    $DBObject->Prepare(
-        SQL => "SELECT id FROM ticket_history ORDER BY change_time DESC",
-    );
-
-    my @TicketHistoryIDs;
-    while ( my @Row = $DBObject->FetchrowArray() ) {
-        push @TicketHistoryIDs, $Row[0];
-    }
-
-    return \@TicketHistoryIDs;
-}
-
 1;

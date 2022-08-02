@@ -112,9 +112,7 @@ sub Run {
         $Self->Print("<yellow>Reindexing: $Object->{Index}</yellow>\n");
 
         eval {
-            my $ObjectIDs = $Object->ObjectListIDs(
-                UserID => 1,
-            );
+            my $ObjectIDs = $Object->ObjectListIDs();
 
             next OBJECT if !( IsArrayRefWithData($ObjectIDs) );
 
