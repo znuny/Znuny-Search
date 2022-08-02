@@ -280,17 +280,38 @@ sub SearchFormat {
     return $IndexResponse;
 }
 
-sub IndexObjectGetFormat {
+=head2 ObjectIndexGetFormat()
+
+=cut
+
+sub ObjectIndexGetFormat {
     my ( $Self, %Param ) = @_;
     return {};
 }
 
-sub IndexObjectAddFormat {
+=head2 ObjectIndexAddFormat()
+
+=cut
+
+sub ObjectIndexAddFormat {
     my ( $Self, %Param ) = @_;
     return {};
 }
 
-sub IndexObjectRemoveFormat {
+=head2 ObjectIndexRemoveFormat()
+
+=cut
+
+sub ObjectIndexRemoveFormat {
+    my ( $Self, %Param ) = @_;
+    return {};
+}
+
+=head2 ObjectIndexUpdateFormat()
+
+=cut
+
+sub ObjectIndexUpdateFormat {
     my ( $Self, %Param ) = @_;
     return {};
 }
