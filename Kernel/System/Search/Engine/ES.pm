@@ -76,7 +76,8 @@ sub Connect {
     my $ConnectObject = Search::Elasticsearch->new(
         nodes => [
             '172.17.0.1:9200',    # MOCK-UP
-        ]
+        ],
+        client => '7_0::Direct',
     );
 
     eval {
@@ -204,6 +205,11 @@ sub _QueryExecuteObjectIndexAdd {
         }
     );
 
+    $ConnectObject->transport()->perform_request(
+        method => 'POST',
+        path   => "/$Param{Query}->{Index}/_refresh",
+    );
+
     return $Result;
 }
 
@@ -229,6 +235,11 @@ sub _QueryExecuteIndexClear {
         body   => {
             %{ $Param{Query}->{Body} }
         }
+    );
+
+    $ConnectObject->transport()->perform_request(
+        method => 'POST',
+        path   => "/$Param{Query}->{Index}/_refresh",
     );
 
     return $Result;
@@ -262,6 +273,11 @@ sub _QueryExecuteObjectIndexUpdate {
         }
     );
 
+    $ConnectObject->transport()->perform_request(
+        method => 'POST',
+        path   => "/$Param{Query}->{Index}/_refresh",
+    );
+
     return $Result;
 }
 
@@ -285,6 +301,11 @@ sub _QueryExecuteObjectIndexRemove {
     my $Result = $ConnectObject->transport()->perform_request(
         method => 'DELETE',
         path   => "/$Param{Query}->{Index}/_doc/$Param{ObjectID}",
+    );
+
+    $ConnectObject->transport()->perform_request(
+        method => 'POST',
+        path   => "/$Param{Query}->{Index}/_refresh",
     );
 
     return $Result;
