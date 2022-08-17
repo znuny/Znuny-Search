@@ -11,6 +11,8 @@ package Kernel::System::Search::Object;
 use strict;
 use warnings;
 
+use Kernel::System::VariableCheck qw(:all);
+
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Main',
@@ -60,7 +62,7 @@ sub Fallback {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(IndexName QueryParams)) {
+    for my $Needed (qw(IndexName QueryParams IndexCounter)) {
 
         next NEEDED if defined $Param{$Needed};
 
@@ -82,9 +84,31 @@ sub Fallback {
     return if !$Loaded;
     my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::${IndexName}");
 
-    $Result->{$IndexName} = $SearchIndexObject->Fallback(
-        QueryParams => $Param{QueryParams}
+    my $ValidResultType = $Self->ValidResultType(
+        SupportedResultTypes => $SearchIndexObject->{SupportedResultTypes},
+        ResultType           => $Param{ResultType},
     );
+
+    # when not valid result type
+    # is specified, ignore response
+    return if !$ValidResultType;
+
+    my $Limit = $Param{Limit};
+
+    # check if limit was specified as an array
+    # for each object or as single string
+    if ( $Param{MultipleLimit} ) {
+        $Limit = $Param{Limit}->[ $Param{IndexCounter} ];
+    }
+
+    $Result->{$IndexName} = $SearchIndexObject->Fallback(
+        %Param,
+        QueryParams => $Param{QueryParams},
+        ResultType  => $ValidResultType,
+        Limit       => $Limit,
+    );
+
+    $Result->{ResultType} = $ValidResultType;
 
     return $Result;
 }
@@ -125,6 +149,49 @@ sub QueryPrepare {
     return $Result;
 }
 
+=head2 ValidResultType()
+
+check result type, set 'ARRAY' by default
+
+    my $ResultType = $SearchObject->ValidResultType(
+        SupportedResultTypes => $SupportedResultTypes,
+        ResultType           => $ResultType,
+    );
+
+=cut
+
+sub ValidResultType {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(SupportedResultTypes)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    # return array ref as default
+    my $ResultType = $Param{ResultType} ||= 'ARRAY';
+
+    if ( !$Param{SupportedResultTypes}->{$ResultType} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message =>
+                "Specified result type: $Param{ResultType} isn't supported!",
+        );
+        return;
+    }
+
+    return $ResultType;
+}
+
 =head2 _QueryPrepareSearch()
 
 prepares query for active engine with specified object "Search" operation
@@ -133,7 +200,8 @@ prepares query for active engine with specified object "Search" operation
         MappingObject     => $MappingObject,
         Objects           => $Objects,
         QueryParams       => $QueryParams,
-        Config            => $Config
+        Config            => $Config,
+        ResultType        => $ResultType,             # optional
     );
 
 =cut
@@ -158,10 +226,11 @@ sub _QueryPrepareSearch {
     }
 
     OBJECT:
-    for my $Index ( @{ $Param{Objects} } ) {
+    for ( my $i = 0; $i < scalar @{ $Param{Objects} }; $i++ ) {
+        my $Index = $Param{Objects}->[$i];
 
         my $Loaded = $Self->_LoadModule(
-            Module => "Kernel::System::Search::Object::Query::${Index}"
+            Module => "Kernel::System::Search::Object::Query::${Index}",
         );
 
         # TODO support for not loaded module
@@ -169,18 +238,43 @@ sub _QueryPrepareSearch {
 
         my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
 
-        # my $Data = { # Response example
-        #     Error    => 0,
-        #     Fallback => {
-        #         Enable => 1
-        #     },
-        #     Query => 'Queries 1'
-        # };
+        my $Fields;
+
+        if ( $Param{Fields} ) {
+            for my $Field ( @{ $Param{Fields}->[$i] } ) {
+                push @{$Fields}, $IndexQueryObject->{IndexFields}->{$Field};
+            }
+        }
+
+        # check/set valid result type
+        my $ValidResultType = $Self->ValidResultType(
+            SupportedResultTypes => $IndexQueryObject->{IndexSupportedResultTypes},
+            ResultType           => $Param{ResultType},
+        );
+
+        # do not build query for objects
+        # with not valid result type
+        next OBJECT if !$ValidResultType;
+
+        my $Limit = $Param{Limit};
+
+        # check if limit was specified as an array
+        # for each object or as single string
+        if ( $Param{MultipleLimit} ) {
+            $Limit = $Param{Limit}->[$i];
+        }
+
         my $Data = $IndexQueryObject->Search(
+            %Param,
             QueryParams   => $Param{QueryParams},
             MappingObject => $Param{MappingObject},
             Config        => $Param{Config},
             Object        => $Index,
+            ResultType    => $ValidResultType,
+            Fields        => $Fields,
+            SortBy        => $Param{SortBy}->[$i],
+            OrderBy       => $Param{OrderBy}->[$i] || $Param{OrderBy},
+            Limit         => $Limit || $IndexQueryObject->{IndexDefaultSearchLimit},
         );
 
         $Data->{Object} = $Index;

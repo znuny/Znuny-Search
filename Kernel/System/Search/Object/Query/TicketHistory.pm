@@ -43,7 +43,9 @@ sub new {
     my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::TicketHistory');
 
     # get index specified fields
-    $Self->{IndexFields} = $IndexObject->{Fields};
+    $Self->{IndexFields}               = $IndexObject->{Fields};
+    $Self->{IndexDefaultSearchLimit}   = $IndexObject->{DefaultSearchLimit};
+    $Self->{IndexSupportedResultTypes} = $IndexObject->{SupportedResultTypes};
 
     bless( $Self, $Type );
 

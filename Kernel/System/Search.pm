@@ -88,14 +88,40 @@ sub new {
 
 =head2 Search()
 
-search for specified index
+search for specified object data
 
     my $TicketSearch = $SearchObject->Search(
-        Objects => ["Ticket"],
+        Objects => ["Ticket", "TicketHistory"],
         QueryParams => {
             TicketID => 1,
+            SLAID => 2,
+            Title => 'New Title!',
+            TicketID => 1,
+            TicketHistoryID => 2, # this property does not exists inside index "Ticket"
+                                  # and will not be applied for it as search param
         },
-        ResultType => $ResultType # (optional, default: 'ARRAY', possible: ARRAY,HASH,COUNT),
+        ResultType => $ResultType # optional, default: 'ARRAY', possible: ARRAY,HASH,COUNT or more if extended,
+        SortBy => ['TicketID', 'TicketHistoryID'],
+        OrderBy => ['Down', 'Up'], # optional, possible: Down,Up
+                                   # - for multiple objects: ['Down', 'Up']
+                                   # - for all objects specified in "Objects" param: 'Down'
+        Limit => ['', 10], # optional, possible: empty string (default value) or integer
+                           # - for multiple objects:  [500, 10000, '']
+                           # - for all objects specified in "Objects" param: '1000'
+        Fields => [["TicketID", "SLAID"],["TicketHistoryID", "Name"]],
+        # optional, possible: any valid column name
+        # - for multiple objects:
+        # [["TicketColumnName1", "TicketColumnName2"], ["TicketHistoryColumnName1", "TicketHistoryColumnName2"]]
+        # - for only selected filtering on objects:
+        # [[],["TicketHistoryColumn1", "TicketHistoryColumn2"]]
+    );
+
+    # simple call for all of single ticket history
+    my $Search = $SearchObject->Search(
+        Objects => ["TicketHistory"],
+        QueryParams => {
+            TicketID => 2,
+        },
     );
 
 =cut
@@ -116,15 +142,21 @@ sub Search {
         return;
     }
 
-    # if there was an critical error, fallback all of the objects with given search parameters
-    return $Self->Fallback(%Param) if $Self->{Fallback};
+    # copy standard param to avoid overwriting on standarization
+    my $Params = \%Param;
+
+    # standardize params
+    $Self->SearchParamsStandardize( Param => $Params );
+
+    # if there was an error, fallback all of the objects with given search parameters
+    return $Self->Fallback( %{$Params} ) if $Self->{Fallback};
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
     # prepare query for engine
     my $QueryData = $SearchObject->QueryPrepare(
-        %Param,
+        %{$Params},
         Operation     => "Search",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
@@ -147,7 +179,7 @@ sub Search {
 
     # if any error during query building occured, use fallback instead
     if ($Fallback) {
-        return $Self->_Fallback(%Param);
+        return $Self->_Fallback( %{$Params} );
     }
 
     my %Result;
@@ -170,7 +202,7 @@ sub Search {
         # TODO check if this can be re-done for single index instead
         # then merge fallback with ES response
         if ( $ResultQuery->{Fallback}->{Enable} ) {
-            return $Self->_Fallback(%Param);
+            return $Self->Fallback(%Param);
         }
         elsif (
             $ResultQuery->{Error}
@@ -180,11 +212,13 @@ sub Search {
         }
 
         my $FormattedResult = $Self->_ResultFormat(
+            %{$Params},
             Result     => $ResultQuery,
             Config     => $Self->{Config},
             IndexName  => $Query->{Object},
             Operation  => "Search",
-            ResultType => $Param{ResultType} // '',
+            ResultType => $Param{ResultType} || 'ARRAY',
+            QueryData  => $Query,
         );
 
         if ( defined $FormattedResult ) {
@@ -581,6 +615,107 @@ sub BaseModulesCheck {
     return 1;
 }
 
+=head2 Fallback()
+
+fallback from using advanced search
+
+    my $Result = $SearchObject->Fallback(
+        Objects      => $Objects,
+        QueryParams  => $QueryParams
+    );
+
+=cut
+
+sub Fallback {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    NEEDED:
+    for my $Needed (qw(Objects QueryParams)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my %Result;
+    INDEX:
+    for ( my $i = 0; $i < scalar @{ $Param{Objects} }; $i++ ) {
+
+        my $IndexName = $Param{Objects}->[$i];
+
+        # get globally formatted fallback response
+        my $Response = $SearchObject->Fallback(
+            %Param,
+            IndexName     => $IndexName,
+            IndexCounter  => $i,
+            MultipleLimit => $Param{MultipleLimit},
+            OrderBy       => $Param{OrderBy}->[$i],
+            SortBy        => $Param{SortBy}->[$i],
+            Fields        => $Param{Fields}->[$i],
+        );
+
+        # on any error ignore response
+        next INDEX if !$Response;
+
+        # get valid result type from the response
+        my $ResultType = delete $Response->{ResultType};
+
+        # format reponse per index
+        my $FormattedResult = $Self->_ResultFormat(
+            Result     => $Response,
+            Config     => $Self->{Config},
+            IndexName  => $IndexName,
+            Operation  => "Search",
+            ResultType => $ResultType,
+            Fallback   => 1,
+        );
+
+        # merge response into return data
+        if ( defined $FormattedResult ) {
+            %Result = ( %Result, %{$FormattedResult} );
+        }
+    }
+
+    return \%Result;
+}
+
+=head2 SearchParamsStandardize()
+
+globally standardize search params
+
+    $SearchObject->SearchParamsStandardize(
+        %Param,
+    );
+
+=cut
+
+sub SearchParamsStandardize {
+    my ( $Self, %Param ) = @_;
+
+    if ( IsHashRefWithData( $Param{Param} ) ) {
+        if ( IsArrayRefWithData( $Param{Param}->{Objects} ) ) {
+            if ( $Param{Param}->{OrderBy} && !IsArrayRefWithData( $Param{Param}->{OrderBy} ) ) {
+                my $OrderBy = $Param{Param}->{OrderBy};
+                $Param{Param}->{OrderBy} = [];
+                for ( my $i = 0; $i < scalar @{ $Param{Param}->{Objects} }; $i++ ) {
+                    $Param{Param}->{OrderBy}->[$i] = $OrderBy;
+                }
+            }
+            if ( ref( $Param{Param}->{Limit} ) eq 'ARRAY' ) {
+                $Param{Param}->{MultipleLimit} = 1;
+            }
+        }
+    }
+
+    return 1;
+}
+
 =head2 _ResultFormat()
 
 format response data globally, then format again for index separately
@@ -616,7 +751,8 @@ sub _ResultFormat {
         Result    => $Param{Result},
         Config    => $Param{Config},
         IndexName => $Param{IndexName},
-    ) if !$Param{Fallback};
+        %Param,
+    ) if !$Param{Fallback};    # fallback skip
 
     my %OperationMapping = (
         Search            => 'SearchFormat',
@@ -634,63 +770,6 @@ sub _ResultFormat {
     );
 
     return $IndexFormattedResult;
-}
-
-=head2 Fallback()
-
-fallback from using advanced search
-
-    my $Result = $SearchObject->Fallback(
-        Objects      => $Objects,
-        QueryParams  => $QueryParams
-    );
-
-=cut
-
-sub Fallback {
-    my ( $Self, %Param ) = @_;
-
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
-
-    NEEDED:
-    for my $Needed (qw(Objects QueryParams)) {
-
-        next NEEDED if defined $Param{$Needed};
-
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Parameter '$Needed' is needed!",
-        );
-        return;
-    }
-
-    my %Result;
-    for my $IndexName ( @{ $Param{Objects} } ) {
-
-        # get globally formatted fallback response
-        my $Response = $SearchObject->Fallback(
-            IndexName => $IndexName,
-            %Param
-        );
-
-        # format reponse per index
-        my $FormattedResult = $Self->_ResultFormat(
-            Result     => $Response,
-            Config     => $Self->{Config},
-            IndexName  => $IndexName,
-            Operation  => "Search",
-            ResultType => $Param{ResultType} // '',
-            Fallback   => 1,
-        );
-
-        # merge response into return data
-        if ( defined $FormattedResult ) {
-            %Result = ( %Result, %{$FormattedResult} );
-        }
-    }
-
-    return \%Result;
 }
 
 1;
