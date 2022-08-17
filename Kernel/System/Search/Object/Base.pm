@@ -87,6 +87,11 @@ sub Fallback {
 
     my $SQLSearchResult = $Self->SQLObjectSearch(
         QueryParams => $Param{QueryParams},
+        Limit       => $Param{Limit} || $Self->{DefaultSearchLimit},
+        OrderBy     => $Param{OrderBy},
+        SortBy      => $Param{SortBy},
+        ResultType  => $Param{ResultType},
+        Fields      => $Param{Fields},
     );
 
     my $Result = {
@@ -107,8 +112,8 @@ search in sql database for objects index related
         },
         Fields => ['id', 'sla_id'] # optional, returns all
                                    # fields if not specified
-        OrderBy => $IdentifierSQL,
-        OrderDirection => "Down",  # possible: "DESC", "ASC"
+        SortBy => $IdentifierSQL,
+        OrderBy => "Down",  # possible: "Down", "Up"
     );
 
 =cut
@@ -131,11 +136,15 @@ sub SQLObjectSearch {
 
     my $IndexRealName = $Self->{Config}->{IndexRealName};
     my $Fields        = $Self->{Fields};
-
     my @TableColumns;
 
+    # set columns that will be retrieved
     if ( IsArrayRefWithData( $Param{Fields} ) ) {
         @TableColumns = @{ $Param{Fields} };
+
+        for ( my $i = 0; $i < scalar @TableColumns; $i++ ) {
+            $TableColumns[$i] = $Fields->{ $TableColumns[$i] };
+        }
     }
     else {
         @TableColumns = values %{$Fields};
@@ -146,11 +155,16 @@ sub SQLObjectSearch {
 
     if ( IsHashRefWithData( $Param{QueryParams} ) ) {
         my @QueryConditions;
+
+        # apply search params for columns that are supported
         PARAM:
         for my $QueryParam ( sort keys %{ $Param{QueryParams} } ) {
 
             # check if there is existing mapping between query param and database column
             next PARAM if !$Fields->{$QueryParam};
+
+            # do not accept undef values for param
+            next PARAM if !defined $Param{QueryParams}->{$QueryParam};
 
             if ( $Param{QueryParams}->{$QueryParam} eq '' ) {
                 push @QueryConditions, "$Fields->{$QueryParam} IS NULL";
@@ -160,14 +174,50 @@ sub SQLObjectSearch {
             push @QueryConditions, "$Fields->{$QueryParam} = '$Param{QueryParams}->{$QueryParam}'";
         }
 
-        $SQL .= ' WHERE ' . join( ' AND ', @QueryConditions );
+        # apply WHERE clause only when there are
+        # at least one valid query condition
+        if ( scalar @QueryConditions ) {
+            $SQL .= ' WHERE ' . join( ' AND ', @QueryConditions );
+        }
     }
 
-    if ( $Param{OrderBy} ) {
-        $SQL .= " ORDER BY $Param{OrderBy}";
-        if ( $Param{OrderDirection} ) {
-            $SQL .= " $Param{OrderDirection}";
+    # sort data
+    # check if property is specified in the object fields
+    if (
+        $Param{SortBy} && $Self->{Fields}->{ $Param{SortBy} }
+        )
+    {
+        # check if specified result type can be sorted
+        my $Sortable = $Self->IsSortableResultType(
+            ResultType => $Param{ResultType},
+        );
+
+        # apply sort query
+        if ($Sortable) {
+            $SQL .= " ORDER BY $Self->{Fields}->{$Param{SortBy}}";
+            if ( $Param{OrderBy} ) {
+                if ( $Param{OrderBy} eq 'Up' ) {
+                    $SQL .= " ASC";
+                }
+                else {
+                    $SQL .= " DESC";
+                }
+            }
         }
+        else {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Can't sort table: \"$Self->{Config}->{IndexRealName}\" with result type:" .
+                    " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
+                    " Specified result type is not sortable!\n" .
+                    " Sort operation won't be applied."
+            );
+        }
+    }
+
+    # apply limit query
+    if ( $Param{Limit} ) {
+        $SQL .= " LIMIT $Param{Limit}";
     }
 
     return if !$DBObject->Prepare(
@@ -207,26 +257,7 @@ sub SearchFormat {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # return array ref as default
-    $Param{ResultType} ||= 'ARRAY';
-
-    # define supported result types
-    my $SupportedResultType = {
-        'ARRAY' => 1,
-        'HASH'  => 1,
-        'COUNT' => 1,
-    };
-
-    if ( !$SupportedResultType->{ $Param{ResultType} } ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message =>
-                "Specified result type: $Param{ResultType} isn't supported! Default value: \"ARRAY\" will be used instead.",
-        );
-
-        # revert to default result type
-        $SupportedResultType = 'ARRAY';
-    }
+    my $ResultType = $Param{ResultType};
 
     my $IndexName               = $Self->{Config}->{IndexName};
     my $GloballyFormattedResult = $Param{GloballyFormattedResult};
@@ -247,10 +278,7 @@ sub SearchFormat {
 
     my $IndexResponse;
 
-    if ( $Param{ResultType} eq "COUNT" ) {
-        $IndexResponse->{$IndexName} = scalar @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} };
-    }
-    elsif ( $Param{ResultType} eq "ARRAY" ) {
+    if ( $Param{ResultType} eq "ARRAY" ) {
         $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData};
     }
     elsif ( $Param{ResultType} eq "HASH" ) {
@@ -275,6 +303,9 @@ sub SearchFormat {
 
             $IndexResponse->{$IndexName}->{ $Data->{$Identifier} } = $Data;
         }
+    }
+    elsif ( $Param{ResultType} eq "COUNT" ) {
+        $IndexResponse->{$IndexName} = scalar @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} };
     }
 
     return $IndexResponse;
@@ -333,10 +364,10 @@ sub ObjectListIDs {
 
     # search for all objects from newest, order it by id
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
-        QueryParams    => {},
-        Fields         => [$IdentifierSQL],
-        OrderDirection => "DESC",
-        OrderBy        => $IdentifierSQL,
+        QueryParams => {},
+        Fields      => $IdentifierSQL,
+        OrderBy     => "DESC",
+        SortBy      => $IdentifierSQL,
     );
 
     my @Result = ();
@@ -386,6 +417,75 @@ sub CustomFieldsConfig {
     }
 
     return \%CustomFieldsMapping;
+}
+
+=head2 DefaultConfigGet()
+
+get default index config
+
+    my $Success = $SearchBaseObject->DefaultConfigGet();
+
+=cut
+
+sub DefaultConfigGet {
+    my ( $Self, %Param ) = @_;
+
+    # define supported result types
+    $Self->{SupportedResultTypes} = {
+
+        # key defines if result type is supported
+        'ARRAY' => {
+
+            # sortable defines if sql/engine can use
+            # OrderBy, SortBy parameters in queries
+            Sortable => 1,
+        },
+        'HASH' => {
+            Sortable => 0,
+        },
+        'COUNT' => {
+            Sortable => 0,
+        }
+    };
+
+    # define default limit for search query
+    $Self->{DefaultSearchLimit} = 10000;
+
+    return 1;
+}
+
+=head2 IsSortableResultType()
+
+check if result type is sort-able
+
+    my $Result = $SearchBaseObject->IsSortableResultType();
+
+=cut
+
+sub IsSortableResultType {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->{SupportedResultTypes}->{ $Param{ResultType} }->{Sortable} ? 1 : 0;
+}
+
+=head2 _Load()
+
+load fields, custom field mapping
+
+    my %FunctionResult = $SearchBaseObject->_Load(
+        Fields => $Fields,
+    );
+
+=cut
+
+sub _Load {
+    my ( $Self, %Param ) = @_;
+
+    # load custom field mapping
+    %{ $Param{Fields} } = ( %{ $Param{Fields} }, %{ $Self->CustomFieldsConfig() } );
+    $Self->{Fields} = $Param{Fields};
+
+    return 1;
 }
 
 1;

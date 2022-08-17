@@ -125,7 +125,10 @@ sub QueryExecute {
                 Message  => "Need $Name!"
             );
             return {
-                Error => 1,
+                Error    => 1,
+                Fallback => {
+                    Enable => 1,
+                }
             };
         }
     }
@@ -146,7 +149,10 @@ sub QueryExecute {
             Message  => "Query failed for engine: $Engine. Message: $@",
         );
         return {
-            Error => 1,
+            Error    => 1,
+            Fallback => {
+                Enable => 1,
+            }
         };
     }
 
