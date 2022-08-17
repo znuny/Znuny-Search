@@ -77,10 +77,13 @@ sub new {
         ChangeBy               => 'change_by',
     };
 
-    # load custom field mapping
-    %{$FieldMapping} = ( %{$FieldMapping}, %{ $Self->CustomFieldsConfig() } );
+    # get default config
+    $Self->DefaultConfigGet();
 
-    $Self->{Fields} = $FieldMapping;
+    # load fields with custom field mapping
+    $Self->_Load(
+        Fields => $FieldMapping,
+    );
 
     return $Self;
 }

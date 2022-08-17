@@ -13,7 +13,7 @@ use warnings;
 
 use parent qw( Kernel::System::Search::Mapping );
 
-use Kernel::System::VariableCheck qw(IsArrayRefWithData);
+use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::System::Log',
@@ -84,7 +84,8 @@ sub ResultFormat {
     } if $Result->{status};
 
     my $GloballyFormattedObjData = $Self->ResponseDataFormat(
-        Hits => $Result->{hits}->{hits}
+        Hits => $Result->{hits}->{hits},
+        %Param,
     );
 
     return {
@@ -111,13 +112,14 @@ process query data to structure that will be used to execute query
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    # Empty query template.
+    # empty query template
     my %Query = (
         query => {
             bool => {}
         }
     );
 
+    # build query from parameters
     for my $Param ( sort keys %{ $Param{QueryParams} } ) {
 
         my $Must = {
@@ -131,28 +133,39 @@ sub Search {
         push @{ $Query{query}{bool}{must} }, $Must;
     }
 
-    # $Query{query} = { # E.Q. initial Query
-    #     query=>{
-    #         bool => {
-    #             must => [
-    #                 {
-    #                     match => {
-    #                         Owner =>{
-    #                             query => "Kamil Furtek"
-    #                         }
-    #                     }
-    #                 },
-    #                 {
-    #                     match => {
-    #                         Responsible =>{
-    #                             query => "Kamil Furtek"
-    #                         }
-    #                     }
-    #                 }
-    #             ]
-    #         }
-    #     }
-    # }
+    # filter only specified fields
+    if ( IsArrayRefWithData( $Param{Fields} ) ) {
+        for my $Field ( @{ $Param{Fields} } ) {
+            push @{ $Query{fields} }, $Field;
+        }
+
+        # data source won't be "_source" key anymore
+        # instead it will be "fields"
+        $Query{_source} = "false";
+    }
+
+    # TO-DO start sort:
+    # integers and datetimes won't work
+    # as there is no mapping (defined data types) yet
+    # for now text type fields sorting works
+
+    # set sorting field
+    if ( $Param{SortBy} ) {
+
+        # not specified
+        my $OrderBy     = $Param{OrderBy} || "Up";
+        my $OrderByStrg = $OrderBy eq 'Up' ? 'asc' : 'desc';
+
+        $Query{sort}->[0]->{ $Param{SortBy} . ".keyword" } = {
+            order => $OrderByStrg,
+        };
+    }
+
+    # TO-DO end: sort
+
+    if ( $Param{Limit} ) {
+        $Query{size} = $Param{Limit};
+    }
 
     return \%Query;
 }
@@ -302,9 +315,23 @@ sub ResponseDataFormat {
 
     my @Objects;
 
-    # ES engine response stores objects inside _source key
-    for my $Hit ( @{$Hits} ) {
-        push @Objects, $Hit->{_source};
+    # when specified fields are filtered response
+    # contains them inside "fields" key
+    if ( $Param{QueryData}->{Query}->{_source} && $Param{QueryData}->{Query}->{_source} eq 'false' ) {
+        for my $Hit ( @{$Hits} ) {
+            my %Data;
+            for my $Field ( sort keys %{ $Hit->{fields} } ) {
+                $Data{$Field} = $Hit->{fields}->{$Field}->[0];
+            }
+            push @Objects, \%Data;
+        }
+    }
+
+    # ES engine response stores objects inside "_source" key by default
+    elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
+        for my $Hit ( @{$Hits} ) {
+            push @Objects, $Hit->{_source};
+        }
     }
 
     return \@Objects;

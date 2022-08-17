@@ -265,19 +265,57 @@ sub Search {
         },
     } if !$Param{MappingObject};
 
-    my $MappingObject = $Param{MappingObject};
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $ParamSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
 
+    my $MappingObject = $Param{MappingObject};
     my %SearchParams;
 
-    # return columns that are supported
+    # apply search params for columns that are supported
+    PARAM:
     for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
+
+        # check if there is existing mapping between query param and database column
+        next PARAM if !$Self->{IndexFields}->{$SearchParam};
+
+        # do not accept undef values for param
+        next PARAM if !defined $Param{QueryParams}->{$SearchParam};
+
         $SearchParams{ $Self->{IndexFields}->{$SearchParam} } = $Param{QueryParams}->{$SearchParam};
+    }
+
+    my $SortBy;
+
+    if (
+        $Param{SortBy} && $Self->{IndexFields}->{ $Param{SortBy} }
+        )
+    {
+        my $Sortable = $ParamSearchObject->IsSortableResultType(
+            ResultType => $Param{ResultType},
+        );
+
+        if ($Sortable) {
+
+            # change into real column name
+            $SortBy = $Self->{IndexFields}->{ $Param{SortBy} };
+        }
+        else {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Can't sort index: \"$ParamSearchObject->{Config}->{IndexName}\" with result type:" .
+                    " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
+                    " Specified result type is not sortable!\n" .
+                    " Sort operation won't be applied."
+            );
+        }
     }
 
     # returns the query
     my $Query = $MappingObject->Search(
+        Limit => $Self->{IndexDefaultSearchLimit},    # default limit or override with limit from param
         %Param,
-        QueryParams => \%SearchParams
+        QueryParams => \%SearchParams,
+        SortBy      => $SortBy,
     );
 
     if ( !$Query ) {
