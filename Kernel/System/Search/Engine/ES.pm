@@ -17,6 +17,7 @@ use parent qw( Kernel::System::Search::Engine );
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search::Mapping::ES',
+    'Kernel::System::Search::Cluster',
 );
 
 =head1 NAME
@@ -71,11 +72,24 @@ sub Connect {
         };
     }
 
-    # TODO - connect from config param
+    my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
+
+    my $ActiveEngine = $SearchClusterObject->ActiveClusterGet();
+
+    if ( !$ActiveEngine->{RemoteSystem} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Cannot find any active search engine.",
+        );
+        return {
+            Error => 1
+        };
+    }
+
     # try to receive information about cluster after connection.
     my $ConnectObject = Search::Elasticsearch->new(
         nodes => [
-            '172.17.0.1:9200',    # MOCK-UP
+            $ActiveEngine->{RemoteSystem},
         ],
         client => '7_0::Direct',
     );
@@ -155,6 +169,48 @@ sub QueryExecute {
             }
         };
     }
+
+    return $Result;
+}
+
+=head2 DiagnosticDataGet()
+
+executes diagnosis query for engine
+
+    my $Result = $EngineESObject->DiagnosticDataGet(
+        ConnectObject   => $ConnectObject,
+    );
+
+=cut
+
+sub DiagnosticDataGet {
+    my ( $Self, %Param ) = @_;
+
+    my $ConnectObject = $Param{ConnectObject};
+    return {} if !$ConnectObject;
+
+    my $ClusterHealth = $ConnectObject->transport()->perform_request(
+        method => 'GET',
+        path   => "_cluster/health",
+    );
+
+    my $NodesStat = $ConnectObject->transport()->perform_request(
+        method => 'GET',
+        path   => "_nodes/stats",
+    );
+
+    my $IndexStat = $ConnectObject->transport()->perform_request(
+        method => 'GET',
+        path   => "_cat/indices",
+    );
+
+    my @Indexes = split( '\n', $IndexStat );
+
+    my $Result = {
+        Cluster => $ClusterHealth,
+        Nodes   => $NodesStat,
+        Indexes => \@Indexes
+    };
 
     return $Result;
 }

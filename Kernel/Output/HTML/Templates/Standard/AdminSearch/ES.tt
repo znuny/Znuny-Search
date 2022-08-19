@@ -1,0 +1,145 @@
+# --
+# Copyright (C) 2012-2022 Znuny GmbH, http://znuny.com/
+# --
+# This software comes with ABSOLUTELY NO WARRANTY. For details, see
+# the enclosed file COPYING for license information (AGPL). If you
+# did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
+# --
+
+[% IF Data.Cluster.ClusterName %]
+
+<div class="WidgetSimple">
+    <div class="Header">
+        <h2>[% Translate("Cluster information") | html %]</h2>
+    </div>
+    <div class="Content">
+        <table class="DataTable" id="ClusterSummaryTable" summary="List of cluster summary information">
+                        <thead>
+                            <tr>
+                                <th>[% Translate("Name") | html %]</th>
+                                <th>[% Translate("Status") | html %]</th>
+                                <th>[% Translate("Number of nodes") | html %]</th>
+                                <th>[% Translate("Number of shards") | html %]</th>
+                                <th style="width:50px;">[% Translate("Integrity") | html %]</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="[% Data.Changes.Cluster.ClusterName | html %]">[% Data.Cluster.ClusterName | html %]</td>
+                                <td class="[% Data.Changes.Cluster.Status | html %]"><div style="width:100%;height:9px;background-color:[% Data.Cluster.Status | html %]; display:inline-block;margin: auto;"></div></td>
+                                <td class="[% Data.Changes.Cluster.NumberOfNodes | html %]">[% Data.Cluster.NumberOfNodes | html %]</td>
+                                <td class="[% Data.Changes.Cluster.NumberOfPrimaryShards | html %]">[% Data.Cluster.NumberOfPrimaryShards | html %]</td>
+                                <td>
+                                [% IF !Data.Changes.Cluster %]
+                                    <i style="color:green" class="fa fa-check"></i>
+                                [% ELSE %]
+                                    <i style="color:red" class="fa fa-times"></i>
+                                [% END %]
+                            </td>
+                            </tr>
+                        </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="WidgetSimple">
+    <div class="Header">
+        <h2>[% Translate("Nodes") | html %]</h2>
+    </div>
+    <div class="Content">
+<table class="DataTable" id="NodesTable" summary="List of all nodes">
+                    <thead>
+                        <tr>
+                            <th>[% Translate("Name") | html %]</th>
+                            <th>[% Translate("IP") | html %]</th>
+                            <th>[% Translate("Transport address") | html %]</th>
+                            <th>[% Translate("Shards") | html %]</th>
+                            <th>[% Translate("Object type") | html %]</th>
+                            <th style="width:50px;">[% Translate("Integrity") | html %]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+[% RenderBlockStart("Node") %]
+                        <tr class="[% Data.Style.Node | html %]">
+                            <td class="[% Data.Style.Name | html %]">[% Translate(Data.Name) | html %]</td>
+                            <td class="[% Data.Style.IP | html %]">[% Translate(Data.IP) | html %]</td>
+                            <td class="[% Data.Style.TransportAddress | html %]">[% Translate(Data.TransportAddress) | html %]</td>
+                            <td class="[% Data.Style.Shards | html %]">[% Translate(Data.Shards) | html %]</td>
+                            <td class="[% Data.Style.ObjectType | html %]">[% Translate(Data.ObjectType) | html %]</td>
+                            <td>
+                                [% IF !Data.Changes %]
+                                    <i style="color:green" class="fa fa-check"></i>
+                                [% ELSE %]
+                                    <i style="color:red" class="fa fa-times"></i>
+                                [% END %]
+                            </td>
+                        </tr>
+[% RenderBlockEnd("Node") %]
+                    </tbody>
+</table>
+</div>
+</div>
+
+<div class="WidgetSimple">
+    <div class="Header">
+        <h2>[% Translate("Indexes") | html %]</h2>
+    </div>
+    <div class="Content">
+<table class="DataTable" id="IndexTable" summary="List of all registered indexes">
+                    <thead>
+                        <tr>
+                            <th>[% Translate("Name") | html %]</th>
+                            <th>[% Translate("Status") | html %]</th>
+                            <th>[% Translate("Size") | html %]</th>
+                            <th>[% Translate("Primary shards") | html %]</th>
+                            <th>[% Translate("Recovery shards") | html %]</th>
+                            <th style="width:50px;">[% Translate("Integrity") | html %]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+[% RenderBlockStart("Index") %]
+                        <tr class="[% Data.Style.Index | html %]">
+                            <td class="[% Data.Style.Name | html %]">[% Translate(Data.Name) | html %]
+[% IF !Data.IndexIsValid %]
+                            <i title="[% Translate("Index is not valid, click for more informations !") | html %]" class="fa fa-exclamation-triangle NotSupportedIcon"></i>
+                            <div class="Hidden" id="NotSupportedDialogContainer">
+                                <div id="NotSupportedDialog" class="InnerContent GenericInterfaceDialog">
+                                    <span class="WarningDialog ">&nbsp;</span>
+                                    <p class="Center Warning">[% Translate("This index is not valid. It's either not registered or modules can't be loaded properly. Please read documentation about 'Registering new index types'. Then reload this page.") | html %]</p>
+                                    <div class="SpacingTop"></div>
+                                </div>
+                            </div>
+[% END %]
+[% IF Data.Style.Index == 'Missing' %]
+                            <i title="[% Translate("Index is missing, click for more informations !") | html %]" class="fa fa-exclamation-triangle MissingIcon"></i>
+                            <div class="Hidden" id="MissingDialogContainer">
+                                <div id="MissingDialog" class="InnerContent GenericInterfaceDialog">
+                                    <span class="WarningDialog ">&nbsp;</span>
+                                    <p class="Center Warning">[% Translate("This index is missing by engine site. Please read documentation about 'Engine structure'.") | html %]</p>
+                                    <div class="SpacingTop"></div>
+                                </div>
+                            </div>
+[% END %]
+                        </div>
+                            </td>
+                            <td class="[% Data.Style.Status | html %]">[% Translate(Data.Status) | html %]</td>
+                            <td class="[% Data.Style.Size | html %]">[% Translate(Data.Size) | html %]</td>
+                            <td class="[% Data.Style.PrimaryShards | html %]">[% Translate(Data.PrimaryShards) | html %]</td>
+                            <td class="[% Data.Style.RecoveryShards | html %]">[% Translate(Data.RecoveryShards) | html %]</td>
+                            <td class="[% Data.Style.ObjectType | html %]">
+                                [% IF !Data.Changes %]
+                                    <i style="color:green" class="fa fa-check"></i>
+                                [% ELSE %]
+                                    <i style="color:red" class="fa fa-times"></i>
+                                [% END %]
+                            </td>
+                        </tr>
+[% RenderBlockEnd("Index") %]
+                    </tbody>
+</table>
+    </div>
+</div>
+
+[% ELSE %]
+    [% Translate("Cannot connect to engine.") | html %]
+[% END %]
