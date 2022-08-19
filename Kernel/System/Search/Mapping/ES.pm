@@ -364,4 +364,62 @@ sub IndexClear {
     return $Query;
 }
 
+=head2 DiagnosticFormat()
+
+returns formatted response for diagnose of search engine.
+
+    my $Result = $MappingESObject->DiagnosticFormat(
+        Result => $Result
+    );
+
+=cut
+
+sub DiagnosticFormat {
+    my ( $Self, %Param ) = @_;
+
+    my $DiagnosisResult = $Param{Result};
+    my $ReceivedNodes   = $DiagnosisResult->{Nodes}->{nodes} || {};
+    my $ReceivedIndexes = $DiagnosisResult->{Indexes} || [];
+
+    my %Nodes;
+    for my $Node ( sort keys %{$ReceivedNodes} ) {
+        $Node = $ReceivedNodes->{$Node};
+        $Nodes{ $Node->{name} } = {
+            TransportAddress => $Node->{transport_address},
+            Shards           => $Node->{indices}->{shard_stats}->{total_count},
+            ObjectType       => $Node->{attributes}->{objectType},
+            Name             => $Node->{attributes}->{objectType},
+            IP               => $Node->{ip}
+        };
+    }
+
+    my %Indexes;
+    for my $Index ( @{$ReceivedIndexes} ) {
+        my @IndexAttributes = split( ' ', $Index );
+        $Indexes{ $IndexAttributes[2] } = {
+            Status         => $IndexAttributes[0],
+            Size           => $IndexAttributes[8],
+            PrimaryShards  => $IndexAttributes[4],
+            RecoveryShards => $IndexAttributes[5],
+        };
+    }
+
+    my $Diagnosis = {
+        Cluster => {
+            NumberOfNodes         => $DiagnosisResult->{Cluster}->{number_of_nodes},
+            NumberOfPrimaryShards => $DiagnosisResult->{Cluster}->{active_primary_shards},
+            Status                => $DiagnosisResult->{Cluster}->{status},
+            ClusterName           => $DiagnosisResult->{Cluster}->{cluster_name},
+        },
+        Nodes => {
+            %Nodes,
+        },
+        Indexes => {
+            %Indexes,
+        }
+    };
+
+    return $Diagnosis;
+}
+
 1;

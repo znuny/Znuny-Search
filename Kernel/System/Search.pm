@@ -18,6 +18,7 @@ our @ObjectDependencies = (
     'Kernel::System::Search::Object',
     'Kernel::System::Main',
     'Kernel::Config',
+    'Kernel::System::Search::Cluster',
 );
 
 =head1 NAME
@@ -51,9 +52,15 @@ sub new {
     # check if engine feature is enabled
     if ( !$Self->{Config}->{Enabled} || !IsArrayRefWithData( $Self->{Config}->{RegisteredIndexes} ) ) {
         $Self->{Fallback} = 1;
+        $Self->{Error}    = $Self->{Config}->{Enabled}
+            ?
+            { Configuration => { NoIndexRegistered => 1 } }
+            : { Configuration => { Disabled => 1 } };
+
     }    # check if there is choosen active engine of the search
     elsif ( !$Self->{Config}->{ActiveEngine} ) {
         $Self->{Fallback} = 1;
+        $Self->{Error}    = { Configuration => { ActiveEngineNotFound => 1 } };
         $LogObject->Log(
             Priority => 'error',
             Message  => "Search configuration does not specify a valid active engine!",
@@ -67,6 +74,7 @@ sub new {
 
         if ( !$ModulesCheckOk ) {
             $Self->{Fallback} = 1;
+            $Self->{Error}    = { BaseModules => { NotFound => 1 } };
         }
         else {
             # if there were no errors before, try connecting
@@ -76,6 +84,7 @@ sub new {
 
             if ( !$ConnectObject || $ConnectObject->{Error} ) {
                 $Self->{Fallback} = 1;
+                $Self->{Error}    = { Connection => { Failed => 1 } };
             }
             else {
                 $Self->{ConnectObject} = $ConnectObject;
@@ -545,16 +554,29 @@ get basic config for search
 sub ConfigGet {
     my ( $Self, %Param ) = @_;
 
-    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+    my $ConfigObject        = $Kernel::OM->Get('Kernel::Config');
+    my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
 
-    my $ActiveEngine          = "ES";                                                  # MOCK-UP
-    my $Enabled               = 1;                                                     # MOCK-UP
+    my $ActiveEngineConfig = $SearchClusterObject->ActiveClusterGet();
+
+    my $ActiveEngine          = $ActiveEngineConfig->{Engine} || '';
+    my $Enabled               = $ConfigObject->Get("SearchEngine");
     my $RegisteredIndexConfig = $ConfigObject->Get("Loader::Search::$ActiveEngine");
+    my $RegisteredEngines     = $Self->EngineListGet();
 
     my $Config = {
-        ActiveEngine => $ActiveEngine,
-        Enabled      => $Enabled,
+        Enabled => $Enabled
     };
+
+    for my $Key ( sort keys %{$RegisteredEngines} ) {
+        if ( $Key eq $ActiveEngine ) {
+            $Config->{ActiveEngine} = $ActiveEngine;
+        }
+    }
+
+    if ( !$Config->{ActiveEngine} && $ActiveEngine ) {
+        $Config->{ActiveEngine} = 'Unregistered';
+    }
 
     if ( IsHashRefWithData($RegisteredIndexConfig) ) {
         my @RegisteredIndex;
@@ -563,7 +585,8 @@ sub ConfigGet {
                 push @RegisteredIndex, $RegisteredIndex if !grep { $_ eq $RegisteredIndex } @RegisteredIndex;
             }
         }
-        $Config->{RegisteredIndexes} = \@RegisteredIndex;
+        $Config->{RegisteredIndexes}
+            = \@RegisteredIndex;    # key: friendly name for calls, value: name in search engine structure
     }
 
     return $Config;
@@ -613,6 +636,35 @@ sub BaseModulesCheck {
     }
 
     return 1;
+}
+
+=head2 DiagnosticDataGet()
+
+get diagnostic data for active engine
+
+    my $DiagnosisData = $SearchObject->DiagnosticDataGet();
+
+=cut
+
+sub DiagnosticDataGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    return if $Self->{Fallback} || !$Self->{MappingObject};
+
+    my $Response = $Self->{EngineObject}->DiagnosticDataGet(
+        ConnectObject => $Self->{ConnectObject},
+    );
+
+    return if !$Response;
+
+    my $FormattedDiagnosis = $Self->{MappingObject}->DiagnosticFormat(
+        Result => $Response,
+    );
+
+    return $FormattedDiagnosis;
 }
 
 =head2 Fallback()
@@ -714,6 +766,30 @@ sub SearchParamsStandardize {
     }
 
     return 1;
+}
+
+=head2 EngineListGet()
+
+get list of valid engines from XML
+
+    my $Result = $SearchObject->EngineListGet();
+
+=cut
+
+sub EngineListGet {
+    my ( $Self, %Param ) = @_;
+
+    my $ConfigObject     = $Kernel::OM->Get('Kernel::Config');
+    my $EngineListConfig = $ConfigObject->Get('Loader::SearchEngines');
+
+    my %Engines;
+    for my $EngineConfigKey ( sort keys %{$EngineListConfig} ) {
+        for my $Engine ( sort keys %{ $EngineListConfig->{$EngineConfigKey} } ) {
+            $Engines{$Engine} = $EngineListConfig->{$EngineConfigKey}->{$Engine};
+        }
+    }
+
+    return \%Engines;
 }
 
 =head2 _ResultFormat()

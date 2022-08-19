@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <otrs_config version="2.0" init="Application">
+    <Setting Name="Loader::SearchEngines###000-Framework" Required="0" Valid="1">
+        <Description Translatable="1">Register search engines.</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="ES">Elastic Search</Item>
+            </Hash>
+        </Value>
+    </Setting>
     <Setting Name="Loader::Search::ES###000-Framework" Required="0" Valid="1">
         <Description Translatable="1">Register search indexes for elastic search engine.</Description>
         <Navigation>Core::Search</Navigation>
@@ -43,6 +52,46 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="Frontend::Module###AdminSearch" Required="0" Valid="1">
+        <Description Translatable="1">Frontend module registration for the agent interface.</Description>
+        <Navigation>Frontend::Admin::ModuleRegistration</Navigation>
+        <Value>
+            <Item ValueType="FrontendRegistration">
+                <Hash>
+                    <Item Key="GroupRo">
+                        <Array>
+                        </Array>
+                    </Item>
+                    <Item Key="Group">
+                        <Array>
+                            <Item>admin</Item>
+                        </Array>
+                    </Item>
+                    <Item Key="Description">Admin</Item>
+                    <Item Key="Title" Translatable="1">Search engine configuration GUI</Item>
+                    <Item Key="NavBarName">Admin</Item>
+                </Hash>
+            </Item>
+        </Value>
+    </Setting>
+    <Setting Name="Loader::Module::AdminSearch###000-Framework" Required="0" Valid="1">
+        <Description Translatable="1">Loader module registration for the agent interface.</Description>
+        <Navigation>Frontend::Admin::ModuleRegistration::Loader</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="CSS">
+                    <Array>
+                        <Item>Core.Agent.Admin.Search.css</Item>
+                    </Array>
+                </Item>
+                <Item Key="JavaScript">
+                    <Array>
+                        <Item>Core.Agent.Admin.Search.js</Item>
+                    </Array>
+                </Item>
+            </Hash>
+        </Value>
+    </Setting>
     <Setting Name="Search::FieldsLoader::Ticket###000-Framework" Required="0" Valid="0">
         <Description Translatable="1">Register for example custom mapping for "Ticket" index. Priority is used to define which configuration of the same attribute should be taken.</Description>
         <Navigation>Core::Search::Ticket</Navigation>
@@ -50,6 +99,49 @@
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Object::Ticket::CustomPackage</Item>
             </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Frontend::AdminModuleGroups###002-Search" Required="1" Valid="1">
+        <Description Translatable="1">Defines available groups for the admin overview screen.</Description>
+        <Navigation>Frontend::Base::NavBarModule</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Search">
+                    <Hash>
+                        <Item Key="Title" Translatable="1">Search Engine</Item>
+                        <Item Key="Order">9000</Item>
+                    </Hash>
+                </Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Frontend::NavigationModule###AdminSearch" Required="0" Valid="1">
+        <Description Translatable="1">Admin area navigation for the admin search engine configuration interface.</Description>
+        <Navigation>Frontend::Admin::ModuleRegistration::AdminOverview</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Group">
+                    <Array>
+                        <Item>admin</Item>
+                    </Array>
+                </Item>
+                <Item Key="GroupRo">
+                    <Array>
+                    </Array>
+                </Item>
+                <Item Key="Module">Kernel::Output::HTML::NavBar::ModuleAdmin</Item>
+                <Item Key="Name" Translatable="1">Search Engine</Item>
+                <Item Key="Block">Search</Item>
+                <Item Key="Description" Translatable="1">Manage search engine clusters.</Item>
+                <Item Key="IconBig">fa-search</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="SearchEngine" Required="1" Valid="1">
+        <Description Translatable="1">Define if search engine feature should be enabled.</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Item ValueType="Checkbox">0</Item>
         </Value>
     </Setting>
 </otrs_config>

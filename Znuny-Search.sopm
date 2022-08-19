@@ -13,6 +13,10 @@
 
     <Filelist>
         <File Permission="660" Location="Kernel/Config/Files/XML/Search.xml"/>
+        <File Permission="660" Location="Kernel/Modules/AdminSearch.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Cluster.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Admin/Details.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Admin/Details/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Engine.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping.pm"/>
@@ -28,6 +32,10 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/Reindex.pm"/>
         <File Permission="660" Location="Kernel/System/Ticket/Event/Search/IndexEvent/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
+        <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES.tt"/>
+        <File Permission="660" Location="var/httpd/htdocs/js/Core.Agent.Admin.Search.js"/>
+        <File Permission="660" Location="var/httpd/htdocs/skins/Agent/default/css/Core.Agent.Admin.Search.css"/>
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
         <File Permission="770" Location="var/scripts/znuny-package.sh"/>
     </Filelist>
@@ -41,7 +49,29 @@
     <CodeReinstall Type="post"><![CDATA[
         $Kernel::OM->Get('var::packagesetup::ZnunySearch')->CodeReinstall();
     ]]></CodeReinstall>
-
-    <DatabaseInstall></DatabaseInstall>
-    <DatabaseUninstall></DatabaseUninstall>
+    <DatabaseInstall>
+        <TableCreate Name="search_clusters">
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
+            <Column Name="name" Required="true" Size="100" Type="VARCHAR" />
+            <Column Name="description" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="remote_system" Required="true" Size="255" Type="VARCHAR" />
+            <Column Name="engine" Required="true" Size="100" Type="VARCHAR" />
+            <Column Name="valid_id" Required="false" Type="INTEGER" />
+            <Column Name="create_time" Required="false" Type="DATE" />
+            <Column Name="change_time" Required="false" Type="DATE" />
+            <Column Name="create_by" Required="false" Type="INTEGER" />
+            <Column Name="change_by" Required="false" Type="INTEGER" />
+        </TableCreate>
+        <TableCreate Name="search_cluster_states">
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
+            <Column Name="cluster_id" Required="true" Type="INTEGER" />
+            <Column Name="state" Required="false" Size="3000" Type="VARCHAR" />
+            <Column Name="create_by" Required="false" Type="INTEGER" />
+            <Column Name="create_time" Required="false" Type="DATE" />
+        </TableCreate>
+    </DatabaseInstall>
+    <DatabaseUninstall>
+        <TableDrop Name="search_clusters"/>
+        <TableDrop Name="search_cluster_states"/>
+    </DatabaseUninstall>
 </otrs_package>
