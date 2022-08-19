@@ -1,0 +1,244 @@
+# --
+# Copyright (C) 2012-2022 Znuny GmbH, http://znuny.com/
+# --
+# This software comes with ABSOLUTELY NO WARRANTY. For details, see
+# the enclosed file COPYING for license information (AGPL). If you
+# did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
+# --
+
+[% RenderBlockStart("Main") %]
+<div class="MainBox ARIARoleMain LayoutFixedSidebar SidebarFirst">
+    <h1 class="InvisibleText">[% Translate("Cluster Management") | html %]</h1>
+
+    [% BreadcrumbPath = [
+            {
+                Name => Translate('Search Engine Management'),
+                Link => Env("Action"),
+            },
+        ]
+    %]
+
+    [% SWITCH Data.Action %]
+        [% CASE 'Add' %]
+            [% BreadcrumbPath.push({ Name => Translate("Add Cluster"),}) %]
+        [% CASE 'Change' %]
+            [% USE EditTitle = String(Translate("Edit Cluster Settings")) %]
+            [% BreadcrumbPath.push({ Name => EditTitle.append( ': ', Data.ClusterData.Name ), }) %]
+    [% END %]
+
+    [% INCLUDE "Breadcrumb.tt" Path = BreadcrumbPath %]
+
+    <div class="Clear"></div>
+    <div class="SidebarColumn">
+[% RenderBlockStart("ActionList") %]
+        <div class="WidgetSimple">
+            <div class="Header">
+                <h2>[% Translate("Actions") | html %]</h2>
+            </div>
+            <div class="Content">
+                <ul class="ActionList">
+[% RenderBlockStart("ActionOverview") %]
+                    <li>
+                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Nav=[% Data.Nav | uri %]" class="CallForAction Fullsize Center"><span><i class="fa fa-caret-left"></i>[% Translate("Go to overview") | html %]</span></a>
+                    </li>
+[% RenderBlockEnd("ActionOverview") %]
+[% RenderBlockStart("ActionAdd") %]
+                    <li>
+                        <form action="[% Env("CGIHandle") %]" method="post">
+                            <input type="hidden" name="Action" value="[% Env("Action") %]"/>
+                            <input type="hidden" name="Subaction" value="Add"/>
+                            <input type="hidden" name="Nav" value="[% Data.Nav | html %]"/>
+
+                            <button class="CallForAction Fullsize Center" type="submit"><span><i class="fa fa-plus-square"></i>[% Translate("Add Cluster") | html %]</span></button>
+                        </form>
+                    </li>
+[% RenderBlockEnd("ActionAdd") %]
+[% RenderBlockStart("ActionDelete") %]
+                    <li>
+                        <button id="DeleteButton" class="CallForAction Fullsize Center" type="button"><span><i class="fa fa-trash-o"></i> [% Translate("Delete cluster") | html %]</span></button>
+                        <div class="Hidden" id="DeleteDialogContainer">
+                            <div id="DeleteDialog" class="InnerContent GenericInterfaceDialog">
+                                <span class="WarningDialog ">&nbsp;</span>
+                                <p class="Center Warning">[% Translate("Do you really want to delete this cluster?") | html %]</p>
+                                <div class="SpacingTop"></div>
+                            </div>
+                        </div>
+                    </li>
+[% RenderBlockEnd("ActionDelete") %]
+[% RenderBlockStart("ActionSynchronize") %]
+                    <li>
+                        <button id="SynchronizeButton" class="CallForAction Fullsize Center" type="button"><span><i class="fa fa-refresh"></i> [% Translate("Synchronize cluster") | html %]</span></button>
+                    </li>
+[% RenderBlockEnd("ActionSynchronize") %]
+                </ul>
+            </div>
+        </div>
+[% RenderBlockEnd("ActionList") %]
+    </div>
+
+    <div class="ContentColumn">
+
+[% RenderBlockStart("Status") %]
+<div class="WidgetSimple">
+    <div class="Header">
+[% IF Data.ClusterName %]
+        <h2>[% Translate("Active Cluster") | html %]: <span class="ClusterDescription">[% Data.ClusterName | html %]</span></h2><br>
+        <h2>[% Translate("Connection") | html %]: <span class="[% Data.ConnectionStatus | html %]">[% Translate(Data.ConnectionMessage) | html %]</span></h2><br>
+        <h2>[% Translate("Search engine running") | html %]:
+[% IF Data.SearchEngineIsRunning %]
+            <span class="IsRunning">[% Translate("yes") | html %]</span></h2>
+[% ELSE %]
+            <span class="IsNotRunning">[% Translate("no") | html %]</span></h2>
+[% END %]
+[% ELSE %]
+        <h2>[% Translate("There are no valid clusters.") | html %]</h2><br>
+[% END %]
+    </div>
+</div>
+[% RenderBlockEnd("Status") %]
+
+[% RenderBlockStart("OverviewHeader") %]
+        <div class="WidgetSimple">
+            <div class="Header">
+                <h2>[% Translate("List") | html %]</h2>
+            </div>
+[% RenderBlockEnd("OverviewHeader") %]
+[% RenderBlockStart("OverviewResult") %]
+            <div class="Content ">
+                <table class="DataTable" id="ClusterTable" summary="List of all registered clusters">
+                    <thead>
+                        <tr>
+                            <th>[% Translate("Name") | html %]</th>
+                            <th>[% Translate("Description") | html %]</th>
+                            <th>[% Translate("Remote system") | html %]</th>
+                            <th>[% Translate("Engine") | html %]</th>
+                            <th>[% Translate("Validity") | html %]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+[% RenderBlockStart("NoDataFoundMsg") %]
+                        <tr>
+                            <td colspan="5">
+                                [% Translate("No data found.") | html %]
+                            </td>
+                        </tr>
+[% RenderBlockEnd("NoDataFoundMsg") %]
+
+[% RenderBlockStart("OverviewResultRow") %]
+                        <tr [% IF Data.Valid != "valid"%]class="Invalid"[% END %]>
+                            <td>
+                                <a class="AsBlock" href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ID | uri %];Nav=[% Data.Nav | uri %]">[% Data.Name | html %]</a>
+                            </td>
+                            <td>[% Translate(Data.Description) | html %]</td>
+                            <td>[% Translate(Data.RemoteSystem) | html %]</td>
+                            <td>[% Translate(Data.Engine) | html %]</td>
+                            <td>[% Translate(Data.Valid) | html %]</td>
+                        </tr>
+[% RenderBlockEnd("OverviewResultRow") %]
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+[% RenderBlockEnd("OverviewResult") %]
+[% RenderBlockStart("Details") %]
+        <form action="[% Env("CGIHandle") %]" method="post" class="Validate PreventMultipleSubmits">
+            <input type="hidden" name="Action" value="[% Env("Action") %]"/>
+            <input type="hidden" name="Subaction" value="[% Data.Action | html %]Action"/>
+            <input type="hidden" name="ClusterID" value="[% Data.ClusterID | html %]" id="ClusterID"/>
+            [% IF Data.Action == 'Change' %]
+                <input type="hidden" name="ContinueAfterSave" id="ContinueAfterSave" value=""/>
+            [% END %]
+            <div class="WidgetSimple">
+                <div class="Header">
+                    <h2>[% Translate("General") | html %]</h2>
+                </div>
+                <div class="Content">
+                    <div class="LayoutGrid ColumnsWithSpacing">
+                        <div class="Size1of2">
+                            <fieldset class="TableLike">
+                                <label class="Mandatory" for="Name"><span class="Marker">*</span> [% Translate("Name") | html %]:</label>
+                                <div class="Field">
+                                    <input id="Name" class="W50pc [% Data.NameServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Name | html %]" name="Name"/>
+                                    <div id="NameError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                                    <div id="NameServerError" class="TooltipErrorMessage"><p>[% Translate(Data.NameServerErrorMessage) | html %]</p></div>
+                                </div>
+                                <div class="Clear"></div>
+
+                                <label for="Description">[% Translate("Description") | html %]:</label>
+                                <div class="Field">
+                                    <input id="Description" class="W50pc" type="text" maxlength="250" value="[% Data.Description | html %]" name="Description"/>
+                                </div>
+                                <div class="Clear"></div>
+
+                                <label class="Mandatory" for="RemoteSystem"><span class="Marker">*</span>[% Translate("Remote system") | html %]:</label>
+                                <div class="Field">
+                                    <input id="RemoteSystem" class="W50pc [% Data.RemoteSystemError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.RemoteSystem | html %]" name="RemoteSystem"/>
+                                    <div id="RemoteSystemError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                                    <div id="RemoteSystemServerError" class="TooltipErrorMessage"><p>[% Translate(Data.RemoteSystemErrorMessage) | html %]</p></div>
+                                </div>
+                                <div class="Clear"></div>
+                            </fieldset>
+                        </div>
+                        <div class="Size1of2">
+                            <fieldset class="TableLike">
+                                <label class="Mandatory" for="EngineID"><span class="Marker">*</span>[% Translate("Engine") | html %]:</label>
+                                <div class="Field">
+                                    [% Data.EngineStrg %]
+                                    <div id="EngineIDError" class="TooltipErrorMessage">
+                                        <p>[% Translate("This field is required.") | html %]</p>
+                                    </div>
+                                    <div id="EngineIDServerError" class="TooltipErrorMessage">
+                                        <p>[% Translate("This field is required.") | html %]</p>
+                                    </div>
+                                </div>
+                                <div class="Clear"></div>
+
+                                <label for="ValidID">[% Translate("Validity") | html %]:</label>
+                                <div class="Field">
+                                    [% Data.ValidtyStrg %]
+                                </div>
+                                <div class="Clear"></div>
+                            </fieldset>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="WidgetSimple">
+                <div class="Header">
+                    <h2>[% Translate("Details") | html %]</h2>
+                </div>
+[% RenderBlockStart("DiagnosisDetails") %]
+                <div class="Content">
+                    [% Data.Details %]
+                </div>
+[% RenderBlockEnd("DiagnosisDetails") %]
+            </div>
+            <div class="WidgetSimple">
+                <div class="Header">
+                    <h2>[% Translate("Save") | html %]</h2>
+                </div>
+                <div class="Content">
+                    <fieldset class="TableLike">
+                        <div class="Field SpacingTop">
+                            [% IF Data.Action == 'Change' %]
+                                <button class="CallForAction Primary" id="SubmitAndContinue" type="button" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                                [% Translate("or") | html %]
+                                <button class="CallForAction Primary" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save and finish") | html %]</span></button>
+                            [% ELSE %]
+                                <button class="CallForAction Primary" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                            [% END %]
+                            [% Translate("or") | html %]
+                            <a href="[% Env("Baselink") %]Action=[% Env("Action") %]"><span>[% Translate("Cancel") | html %]</span></a>
+                        </div>
+                        <div class="Clear"></div>
+                    </fieldset>
+                </div>
+            </div>
+        </form>
+[% RenderBlockEnd("Details") %]
+
+    </div>
+    <div class="Clear"></div>
+</div>
+[% RenderBlockEnd("Main") %]

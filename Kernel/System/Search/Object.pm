@@ -16,6 +16,9 @@ use Kernel::System::VariableCheck qw(:all);
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Main',
+    'Kernel::Config',
+    'Kernel::System::Search',
+    'Kernel::System::Search::Object',
 );
 
 =head1 NAME
@@ -147,6 +150,51 @@ sub QueryPrepare {
     );
 
     return $Result;
+}
+
+=head2 RealIndexIsValid()
+
+check if specified real index name is valid
+
+    my $Result = $SearchObject->RealIndexIsValid(
+        Name => "Ticket",
+    );
+
+=cut
+
+sub RealIndexIsValid {
+    my ( $Self, %Param ) = @_;
+
+    my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
+    my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $MainObject        = $Kernel::OM->Get('Kernel::System::Main');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Name (qw(IndexRealName)) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    INDEX:
+    for my $Index ( @{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
+        my $Loaded = $SearchChildObject->_LoadModule(
+            Module => "Kernel::System::Search::Object::$Index",
+            Silent => 1
+        );
+        next INDEX if !$Loaded;
+        my $IndexObject   = $Kernel::OM->Get("Kernel::System::Search::Object::$Index");
+        my $IndexRealName = $IndexObject->{Config}->{IndexRealName};
+
+        return 1 if $IndexRealName eq $Param{IndexRealName};
+    }
+
+    return;
 }
 
 =head2 ValidResultType()
@@ -481,7 +529,7 @@ sub _LoadModule {
     if ( !$Self->{LoadedModules}->{$Module} ) {
         my $Loaded = $MainObject->Require(
             $Module,
-            Silent => 0,
+            Silent => $Param{Silent},
         );
         if ( !$Loaded ) {
 

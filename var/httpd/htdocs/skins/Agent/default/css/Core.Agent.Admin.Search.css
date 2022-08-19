@@ -1,0 +1,31 @@
+#IndexTable tr > td.Change{
+	color: grey;
+}
+
+#IndexTable tr.Removed{
+	color: red;
+}
+
+#IndexTable tr.Added{
+	color: green;
+}
+
+#IndexTable .NotSupportedIcon{
+	color: red;
+	visibility: visible;
+}
+
+#IndexTable .Missing{
+	color: grey;
+}
+
+.WidgetSimple > .Header > h2 > span.ClusterDescription,
+.WidgetSimple > .Header > h2 > span.Available,
+.WidgetSimple > .Header > h2 > span.IsRunning{
+	color: green;
+}
+
+.WidgetSimple > .Header > h2 > span.Failed,
+.WidgetSimple > .Header > h2 > span.IsNotRunning{
+    color: red;
+}
