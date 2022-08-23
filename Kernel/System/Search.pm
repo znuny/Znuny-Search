@@ -102,7 +102,6 @@ search for specified object data
     my $TicketSearch = $SearchObject->Search(
         Objects => ["Ticket", "TicketHistory"],
         QueryParams => {
-            TicketID => 1,
             SLAID => 2,
             Title => 'New Title!',
             TicketID => 1,
@@ -171,28 +170,28 @@ sub Search {
         MappingObject => $Self->{MappingObject},
     );
 
-    my $Fallback;
+    my @FailedIndexQuery;
     my @ValidQueries = ();
 
-    if ( !defined $QueryData ) {
-        $Fallback = 1;
-    }
-    elsif ( IsArrayRefWithData( $QueryData->{Queries} ) ) {
-        if ( grep { $_->{Fallback}->{Enable} } @{ $QueryData->{Queries} } ) {
-            $Fallback = 1;
+    # define valid queries
+    if ( IsArrayRefWithData( $QueryData->{Queries} ) ) {
+        my @FailedQueries = grep { $_->{Fallback}->{Enable} } @{ $QueryData->{Queries} };
+        if ( scalar @FailedQueries > 0 ) {
+            for my $Query (@FailedQueries) {
+                push @FailedIndexQuery, $Query->{Object};
+            }
         }
         else {
             @ValidQueries = grep { !$_->{Error} } @{ $QueryData->{Queries} };
         }
     }
 
-    # if any error during query building occured, use fallback instead
-    if ($Fallback) {
-        return $Self->_Fallback( %{$Params} );
-    }
+    # use full fallback when no valid queries were built
+    return $Self->Fallback( %{$Params} ) if ( !scalar @ValidQueries );
 
     my %Result;
 
+    # execute all valid queries
     QUERY:
     for my $Query (@ValidQueries) {
         my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Query->{Object}");
@@ -207,16 +206,10 @@ sub Search {
 
         next QUERY if !$ResultQuery;
 
-        # this enables fallback for all indexes
-        # TODO check if this can be re-done for single index instead
-        # then merge fallback with ES response
         if ( $ResultQuery->{Fallback}->{Enable} ) {
-            return $Self->Fallback(%Param);
+            push @FailedIndexQuery, $Query->{Object};
         }
-        elsif (
-            $ResultQuery->{Error}
-            )
-        {
+        elsif ( $ResultQuery->{Error} ) {
             next QUERY;
         }
 
@@ -235,7 +228,13 @@ sub Search {
         }
     }
 
-    $Self->{Fallback} = 0;
+    if ( scalar @FailedIndexQuery > 0 ) {
+        my $FallbackResult = $Self->Fallback(
+            %{$Params},
+            Objects => \@FailedIndexQuery,
+        );
+        %Result = ( %Result, %{$FallbackResult} );
+    }
 
     return \%Result;
 }

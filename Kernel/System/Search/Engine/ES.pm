@@ -100,10 +100,19 @@ sub Connect {
 
     # If engine was not reachable than treat it like an error for further fallbacks.
     if ($@) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Connection failed for engine: $Self->{Config}->{ActiveEngine}. Message: $@",
-        );
+        if ( $Self->{Config}->{ActiveEngine} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Connection failed for engine: $Self->{Config}->{ActiveEngine}. Message: $@",
+            );
+        }
+        else {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Connection failed. Message: $@",
+            );
+        }
+
         return {
             Error => 1
         };
