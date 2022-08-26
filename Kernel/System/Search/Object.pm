@@ -23,11 +23,11 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object - Functions index related
+Kernel::System::Search::Object - search object lib
 
 =head1 DESCRIPTION
 
-TO-DO
+Functions index related.
 
 =head1 PUBLIC INTERFACE
 
@@ -44,6 +44,18 @@ sub new {
 
     my $Self = {};
     bless( $Self, $Type );
+
+    $Self->{DefaultOperatorMapping} = {
+        ">="             => 'GreaterEqualThan',
+        "="              => 'Equal',
+        "<="             => 'LowerEqualThan',
+        ">"              => 'GreaterThan',
+        "<"              => 'LowerThan',
+        "IS EMPTY"       => 'IsEmpty',
+        "IS NOT EMPTY"   => 'IsNotEmpty',
+        "IS DEFINED"     => 'IsDefined',
+        "IS NOT DEFINED" => 'IsNotDefined',
+    };
 
     return $Self;
 }

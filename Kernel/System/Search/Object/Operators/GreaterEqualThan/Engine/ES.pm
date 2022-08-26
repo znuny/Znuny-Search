@@ -6,13 +6,12 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::Ticket::CustomPackage;
+package Kernel::System::Search::Object::Operators::GreaterEqualThan::Engine::ES;
 
 use strict;
 use warnings;
 
-our @ObjectDependencies = (
-);
+our @ObjectDependencies = ();
 
 sub new {
     my ( $Type, %Param ) = @_;
@@ -20,15 +19,22 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
-    # This will override original TicketID from "Kernel::System::Search::Object::Ticket".
-    my $FieldMapping = {
-        TicketID => 'TicketID'
-    };
-
-    $Self->{Fields}        = $FieldMapping;
-    $Self->{DefaultValues} = {};
-
     return $Self;
+}
+
+sub QueryBuild {
+    my ( $Self, %Param ) = @_;
+
+    return {
+        Query => {
+            range => {
+                $Param{Field} => {
+                    gte => $Param{Value}
+                }
+            }
+        },
+        Section => 'must'
+    };
 }
 
 1;
