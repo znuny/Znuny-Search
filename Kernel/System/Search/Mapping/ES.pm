@@ -17,6 +17,7 @@ use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::System::Log',
+    'Kernel::System::Search::Object::Operators',
 );
 
 =head1 NAME
@@ -112,31 +113,44 @@ process query data to structure that will be used to execute query
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    # empty query template
-    my %Query = (
-        query => {
-            bool => {}
-        }
-    );
+    my %Query = ();
 
     # build query from parameters
-    for my $Param ( sort keys %{ $Param{QueryParams} } ) {
+    PARAM:
+    for my $Field ( sort keys %{ $Param{QueryParams} } ) {
 
-        my $Must = {
-            match => {
-                $Param => {
-                    query => $Param{QueryParams}->{$Param}
-                }
-            }
-        };
+        my $Value;
+        my $Operator;
 
-        push @{ $Query{query}{bool}{must} }, $Must;
+        if ( ref $Param{QueryParams}->{$Field} eq "HASH" ) {
+            $Operator = $Param{QueryParams}->{$Field}->{Operator} || "=";
+            $Value    = $Param{QueryParams}->{$Field}->{Value} // "";
+        }
+        else {
+            $Operator = "=";
+            $Value    = $Param{QueryParams}->{$Field} // '';
+        }
+
+        next PARAM if !$Field;
+
+        my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
+
+        my $Result = $OperatorModule->OperatorQueryGet(
+            Field    => $Field,
+            Value    => $Value,
+            Operator => $Operator,
+            Object   => $Param{Object},
+        );
+
+        my $Query = $Result->{Query};
+
+        push @{ $Query{query}{bool}{ $Result->{Section} } }, $Query;
     }
 
     # filter only specified fields
     if ( IsArrayRefWithData( $Param{Fields} ) ) {
         for my $Field ( @{ $Param{Fields} } ) {
-            push @{ $Query{fields} }, $Field;
+            push @{ $Query{fields} }, $Field->{ColumnName};
         }
 
         # data source won't be "_source" key anymore
@@ -156,7 +170,7 @@ sub Search {
         my $OrderBy     = $Param{OrderBy} || "Up";
         my $OrderByStrg = $OrderBy eq 'Up' ? 'asc' : 'desc';
 
-        $Query{sort}->[0]->{ $Param{SortBy} . ".keyword" } = {
+        $Query{sort}->[0]->{ $Param{SortBy}->{ColumnName} . ".keyword" } = {
             order => $OrderByStrg,
         };
     }

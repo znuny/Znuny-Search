@@ -12,9 +12,10 @@ use strict;
 use warnings;
 
 use parent qw( Kernel::System::Search::Object::Base );
+use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
-    'Kernel::System::Ticket',
+    'Kernel::System::Search::Object',
 );
 
 =head1 NAME
@@ -50,31 +51,115 @@ sub new {
 
     # define schema for data
     my $FieldMapping = {
-        TicketID               => 'id',
-        TicketNumber           => 'tn',
-        Title                  => 'title',
-        QueueID                => 'queue_id',
-        LockID                 => 'ticket_lock_id',
-        TypeID                 => 'type_id',
-        ServiceID              => 'service_id',
-        SLAID                  => 'sla_id',
-        OwnerID                => 'user_id',
-        ResponsibleID          => 'responsible_user_id',
-        PriorityID             => 'ticket_priority_id',
-        StateID                => 'ticket_state_id',
-        CustomerID             => 'customer_id',
-        CustomerUserID         => 'customer_user_id',
-        UnlockTimeout          => 'timeout',
-        UntilTime              => 'until_time',
-        EscalationTime         => 'escalation_time',
-        EscalationUpdateTime   => 'escalation_update_time',
-        EscalationResponseTime => 'escalation_response_time',
-        EscalationSolutionTime => 'escalation_solution_time',
-        ArchiveFlag            => 'archive_flag',
-        Created                => 'create_time',
-        CreateBy               => 'create_by',
-        Changed                => 'change_time',
-        ChangeBy               => 'change_by',
+        TicketID => {
+            ColumnName => 'id',
+            Type       => 'Integer'
+        },
+        TicketNumber => {
+            ColumnName => 'tn',
+            Type       => 'Integer'
+        },
+        Title => {
+            ColumnName => 'title',
+            Type       => 'String'
+        },
+        QueueID => {
+            ColumnName => 'queue_id',
+            Type       => 'Integer'
+        },
+        LockID => {
+            ColumnName => 'ticket_lock_id',
+            Type       => 'Integer'
+        },
+        TypeID => {
+            ColumnName => 'type_id',
+            Type       => 'Integer'
+        },
+        ServiceID => {
+            ColumnName => 'service_id',
+            Type       => 'Integer'
+        },
+        SLAID => {
+            ColumnName => 'sla_id',
+            Type       => 'Integer'
+        },
+        OwnerID => {
+            ColumnName => 'user_id',
+            Type       => 'Integer'
+        },
+        ResponsibleID => {
+            ColumnName => 'responsible_user_id',
+            Type       => 'Integer'
+        },
+        PriorityID => {
+            ColumnName => 'ticket_priority_id',
+            Type       => 'Integer'
+        },
+        StateID => {
+            ColumnName => 'ticket_state_id',
+            Type       => 'Integer'
+        },
+        CustomerID => {
+            ColumnName => 'customer_id',
+            Type       => 'Integer'
+        },
+        CustomerUserID => {
+            ColumnName => 'customer_user_id',
+            Type       => 'Integer'
+        },
+        UnlockTimeout => {
+            ColumnName => 'timeout',
+            Type       => 'Integer'
+        },
+        UntilTime => {
+            ColumnName => 'until_time',
+            Type       => 'Integer'
+        },
+        EscalationTime => {
+            ColumnName => 'escalation_time',
+            Type       => 'Integer'
+        },
+        EscalationUpdateTime => {
+            ColumnName => 'escalation_update_time',
+            Type       => 'Integer'
+        },
+        EscalationResponseTime => {
+            ColumnName => 'escalation_response_time',
+            Type       => 'Integer'
+        },
+        EscalationSolutionTime => {
+            ColumnName => 'escalation_solution_time',
+            Type       => 'Integer'
+        },
+        ArchiveFlag => {
+            ColumnName => 'archive_flag',
+            Type       => 'Integer'
+        },
+        Created => {
+            ColumnName => 'create_time',
+            Type       => 'Date'
+        },
+        CreateBy => {
+            ColumnName => 'create_by',
+            Type       => 'Integer'
+        },
+        Changed => {
+            ColumnName => 'change_time',
+            Type       => 'Date'
+        },
+        ChangeBy => {
+            ColumnName => 'change_by',
+            Type       => 'Integer'
+        },
+    };
+
+    # Define default values. It applies when
+    # specified column value is empty (undefined).
+    my $DefaultValues = {
+        ResponsibleID => 1,
+        TypeID        => 1,
+        ServiceID     => '',
+        SLAID         => '',
     };
 
     # get default config
@@ -82,7 +167,8 @@ sub new {
 
     # load fields with custom field mapping
     $Self->_Load(
-        Fields => $FieldMapping,
+        Fields        => $FieldMapping,
+        DefaultValues => $DefaultValues,
     );
 
     return $Self;

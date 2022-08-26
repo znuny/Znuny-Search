@@ -14,7 +14,7 @@ use warnings;
 use parent qw( Kernel::System::Search::Object::Base );
 
 our @ObjectDependencies = (
-    'Kernel::System::DB',
+    'Kernel::System::Search::Object',
 );
 
 =head1 NAME
@@ -50,30 +50,76 @@ sub new {
 
     # define schema for data
     my $FieldMapping = {
-        TicketHistoryID => 'id',
-        Name            => 'name',
-        HistoryTypeID   => 'history_type_id',
-        TicketID        => 'ticket_id',
-        ArticleID       => 'article_id',
-        TypeID          => 'type_id',
-        QueueID         => 'queue_id',
-        OwnerID         => 'owner_id',
-        PriorityID      => 'priority_id',
-        StateID         => 'state_id',
-        Created         => 'create_time',
-        CreateBy        => 'create_by',
-        Changed         => 'change_time',
-        ChangeBy        => 'change_by',
+        TicketHistoryID => {
+            ColumnName => 'id',
+            Type       => 'Integer'
+        },
+        Name => {
+            ColumnName => 'name',
+            Type       => 'String'
+        },
+        HistoryTypeID => {
+            ColumnName => 'history_type_id',
+            Type       => 'Integer'
+        },
+        TicketID => {
+            ColumnName => 'ticket_id',
+            Type       => 'Integer'
+        },
+        ArticleID => {
+            ColumnName => 'article_id',
+            Type       => 'Integer'
+        },
+        TypeID => {
+            ColumnName => 'type_id',
+            Type       => 'Integer'
+        },
+        QueueID => {
+            ColumnName => 'queue_id',
+            Type       => 'Integer'
+        },
+        OwnerID => {
+            ColumnName => 'owner_id',
+            Type       => 'Integer'
+        },
+        PriorityID => {
+            ColumnName => 'priority_id',
+            Type       => 'Integer'
+        },
+        StateID => {
+            ColumnName => 'state_id',
+            Type       => 'Integer'
+        },
+        Created => {
+            ColumnName => 'create_time',
+            Type       => 'Date'
+        },
+        CreateBy => {
+            ColumnName => 'create_by',
+            Type       => 'Integer'
+        },
+        Changed => {
+            ColumnName => 'change_time',
+            Type       => 'Date'
+        },
+        ChangeBy => {
+            ColumnName => 'change_by',
+            Type       => 'Integer'
+        },
     };
+
+    # Define default values. It applies when
+    # specified property is empty (undefined).
+    my $DefaultValues = {};
 
     # get default config
     $Self->DefaultConfigGet();
 
     # load fields with custom field mapping
     $Self->_Load(
-        Fields => $FieldMapping,
+        Fields        => $FieldMapping,
+        DefaultValues => $DefaultValues,
     );
-
     return $Self;
 }
 

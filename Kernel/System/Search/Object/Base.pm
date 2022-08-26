@@ -17,6 +17,8 @@ our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::DB',
     'Kernel::Config',
+    'Kernel::System::Search::Object::Operators',
+    'Kernel::System::Search::Object',
 );
 
 =head1 NAME
@@ -116,6 +118,10 @@ search in sql database for objects index related
         OrderBy => "Down",  # possible: "Down", "Up"
     );
 
+TO-DO: delete later
+Developer note: most conditions needs to be met with engine
+alternative (Kernel/System/Search/Object/Query->Search()).
+
 =cut
 
 sub SQLObjectSearch {
@@ -134,8 +140,12 @@ sub SQLObjectSearch {
         }
     }
 
-    my $IndexRealName = $Self->{Config}->{IndexRealName};
-    my $Fields        = $Self->{Fields};
+    my $IndexRealName           = $Self->{Config}->{IndexRealName};
+    my $Fields                  = $Self->{Fields};
+    my $DefaultValues           = $Self->{DefaultValues};
+    my $SupportedOperators      = $Self->{SupportedOperators};
+    my $DataTypeOperatorMapping = $Self->{DataTypeOperatorMapping};
+
     my @TableColumns;
 
     # set columns that will be retrieved
@@ -143,16 +153,19 @@ sub SQLObjectSearch {
         @TableColumns = @{ $Param{Fields} };
 
         for ( my $i = 0; $i < scalar @TableColumns; $i++ ) {
-            $TableColumns[$i] = $Fields->{ $TableColumns[$i] };
+            $TableColumns[$i] = $Fields->{ $TableColumns[$i] }->{ColumnName};
         }
     }
     else {
-        @TableColumns = values %{$Fields};
+        for my $Field ( sort keys %{$Fields} ) {
+            push @TableColumns, $Fields->{$Field}->{ColumnName};
+        }
     }
 
     # prepare sql statement
     my $SQL = 'SELECT ' . join( ',', @TableColumns ) . ' FROM ' . $IndexRealName;
 
+    my @QueryParamValues = ();
     if ( IsHashRefWithData( $Param{QueryParams} ) ) {
         my @QueryConditions;
 
@@ -160,18 +173,51 @@ sub SQLObjectSearch {
         PARAM:
         for my $QueryParam ( sort keys %{ $Param{QueryParams} } ) {
 
+            my $QueryParamColumnName = $Fields->{$QueryParam}->{ColumnName};
+
             # check if there is existing mapping between query param and database column
             next PARAM if !$Fields->{$QueryParam};
 
             # do not accept undef values for param
             next PARAM if !defined $Param{QueryParams}->{$QueryParam};
 
-            if ( $Param{QueryParams}->{$QueryParam} eq '' ) {
-                push @QueryConditions, "$Fields->{$QueryParam} IS NULL";
-                next PARAM;
+            my $QueryParamType = $Fields->{$QueryParam}->{Type};
+
+            my $QueryParamValue;
+            my $QueryParamOperator;
+
+            if ( ref $Param{QueryParams}->{$QueryParam} eq "HASH" ) {
+                $QueryParamValue    = $Param{QueryParams}->{$QueryParam}->{Value};
+                $QueryParamOperator = $Param{QueryParams}->{$QueryParam}->{Operator} || '=';
+            }
+            else {
+                $QueryParamValue    = $Param{QueryParams}->{$QueryParam};
+                $QueryParamOperator = "=";
             }
 
-            push @QueryConditions, "$Fields->{$QueryParam} = '$Param{QueryParams}->{$QueryParam}'";
+            if ( !$SupportedOperators->{$QueryParamType}->{Operator}->{$QueryParamOperator} ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Operator '$QueryParamOperator' is not supported for '$QueryParamType' type.",
+                );
+                return;
+            }
+
+            my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
+
+            my $Result = $OperatorModule->OperatorQueryGet(
+                Field    => $QueryParamColumnName,
+                Value    => $QueryParamValue,
+                Operator => $QueryParamOperator,
+                Object   => $Self->{Config}->{IndexName},
+                Fallback => 1,
+            );
+
+            if ( $Result->{Bindable} ) {
+                push @QueryParamValues, \$QueryParamValue;
+            }
+
+            push @QueryConditions, $Result->{Query};
         }
 
         # apply WHERE clause only when there are
@@ -194,7 +240,7 @@ sub SQLObjectSearch {
 
         # apply sort query
         if ($Sortable) {
-            $SQL .= " ORDER BY $Self->{Fields}->{$Param{SortBy}}";
+            $SQL .= " ORDER BY $Self->{Fields}->{$Param{SortBy}}->{ColumnName}";
             if ( $Param{OrderBy} ) {
                 if ( $Param{OrderBy} eq 'Up' ) {
                     $SQL .= " ASC";
@@ -221,7 +267,8 @@ sub SQLObjectSearch {
     }
 
     return if !$DBObject->Prepare(
-        SQL => $SQL,
+        SQL  => $SQL,
+        Bind => \@QueryParamValues
     );
 
     my @Result;
@@ -259,6 +306,20 @@ sub SearchFormat {
 
     my $ResultType = $Param{ResultType};
 
+    # define supported result types
+    my $SupportedResultTypes = $Self->{SupportedResultTypes};
+
+    if ( !$SupportedResultTypes->{ $Param{ResultType} } ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message =>
+                "Specified result type: $Param{ResultType} isn't supported! Default value: \"ARRAY\" will be used instead.",
+        );
+
+        # revert to default result type
+        $Param{ResultType} = 'ARRAY';
+    }
+
     my $IndexName               = $Self->{Config}->{IndexName};
     my $GloballyFormattedResult = $Param{GloballyFormattedResult};
 
@@ -267,10 +328,12 @@ sub SearchFormat {
         ATTRIBUTE:
         for my $ObjectAttribute ( sort keys %{$ObjectData} ) {
 
-            my @AttributeName = grep { $Self->{Fields}->{$_} eq $ObjectAttribute } keys %{ $Self->{Fields} };
+            my @AttributeName
+                = grep { $Self->{Fields}->{$_}->{ColumnName} eq $ObjectAttribute } keys %{ $Self->{Fields} };
             next ATTRIBUTE if !$AttributeName[0];
 
-            $ObjectData->{ $AttributeName[0] } = $ObjectData->{$ObjectAttribute};
+            $ObjectData->{ $AttributeName[0] } = $ObjectData->{$ObjectAttribute}
+                // $Self->{DefaultValues}->{ $AttributeName[0] };
 
             delete $ObjectData->{$ObjectAttribute};
         }
@@ -282,6 +345,7 @@ sub SearchFormat {
         $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData};
     }
     elsif ( $Param{ResultType} eq "HASH" ) {
+
         my $Identifier = $Self->{Config}->{Identifier};
         if ( !$Identifier ) {
             $LogObject->Log(
@@ -290,6 +354,8 @@ sub SearchFormat {
             );
             return;
         }
+
+        $IndexResponse = { $IndexName => {} };
 
         DATA:
         for my $Data ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
@@ -360,13 +426,13 @@ sub ObjectListIDs {
 
     my $IndexObject   = $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Config}->{IndexName}");
     my $Identifier    = $IndexObject->{Config}->{Identifier};
-    my $IdentifierSQL = $IndexObject->{Fields}->{$Identifier};
+    my $IdentifierSQL = $IndexObject->{Fields}->{$Identifier}->{ColumnName};
 
     # search for all objects from newest, order it by id
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         QueryParams => {},
         Fields      => $IdentifierSQL,
-        OrderBy     => "DESC",
+        OrderBy     => "Down",
         SortBy      => $IdentifierSQL,
     );
 
@@ -405,15 +471,20 @@ sub CustomFieldsConfig {
         );
     }
 
-    my $CustomPackageModuleConfigList = $ConfigObject->Get("Search::FieldsLoader::$Self->{Config}->{IndexName}}");
+    my $CustomPackageModuleConfigList = $ConfigObject->Get("Search::FieldsLoader::$Self->{Config}->{IndexName}");
 
-    my %CustomFieldsMapping;
+    my %CustomFieldsMapping = (
+        Fields        => {},
+        DefaultValues => {},
+    );
 
     for my $CustomPackageConfig ( sort keys %{$CustomPackageModuleConfigList} ) {
         my $Module        = $CustomPackageModuleConfigList->{$CustomPackageConfig};
         my $PackageModule = $Kernel::OM->Get("$Module->{Module}");
 
-        %CustomFieldsMapping = ( %{ $PackageModule->{Fields} }, %CustomFieldsMapping );
+        for my $Type (qw( Fields DefaultValues )) {
+            %{ $CustomFieldsMapping{$Type} } = ( %{ $PackageModule->{$Type} }, %{ $CustomFieldsMapping{$Type} } );
+        }
     }
 
     return \%CustomFieldsMapping;
@@ -451,6 +522,44 @@ sub DefaultConfigGet {
     # define default limit for search query
     $Self->{DefaultSearchLimit} = 10000;
 
+    $Self->{SupportedOperators} = {
+        Date => {
+            Operator => {
+                ">="             => 1,
+                "="              => 1,
+                "<="             => 1,
+                "<"              => 1,
+                ">"              => 1,
+                "IS EMPTY"       => 1,
+                "IS NOT EMPTY"   => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
+            }
+        },
+        String => {
+            Operator => {
+                "="              => 1,
+                "IS EMPTY"       => 1,
+                "IS NOT EMPTY"   => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
+            }
+        },
+        Integer => {
+            Operator => {
+                ">="             => 1,
+                "="              => 1,
+                "<="             => 1,
+                "<"              => 1,
+                ">"              => 1,
+                "IS EMPTY"       => 1,
+                "IS NOT EMPTY"   => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
+            }
+        }
+    };
+
     return 1;
 }
 
@@ -481,9 +590,14 @@ load fields, custom field mapping
 sub _Load {
     my ( $Self, %Param ) = @_;
 
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $Config       = $Self->CustomFieldsConfig();
+
     # load custom field mapping
-    %{ $Param{Fields} } = ( %{ $Param{Fields} }, %{ $Self->CustomFieldsConfig() } );
-    $Self->{Fields} = $Param{Fields};
+    %{ $Self->{Fields} }        = ( %{ $Param{Fields} },        %{ $Config->{Fields} } );
+    %{ $Self->{DefaultValues} } = ( %{ $Param{DefaultValues} }, %{ $Config->{DefaultValues} } );
+
+    $Self->{OperatorMapping} = $SearchObject->{DefaultOperatorMapping};
 
     return 1;
 }

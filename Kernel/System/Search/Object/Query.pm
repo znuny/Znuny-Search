@@ -253,6 +253,10 @@ create query for specified operation
         QueryParams     => $QueryParams,
     );
 
+TO-DO: delete later
+Developer note: most conditions needs to be met with fallback
+alternative (Kernel::System::Search::Object::Base->SQLObjectSearch()).
+
 =cut
 
 sub Search {
@@ -276,12 +280,33 @@ sub Search {
     for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
 
         # check if there is existing mapping between query param and database column
-        next PARAM if !$Self->{IndexFields}->{$SearchParam};
+        next PARAM if !$Self->{IndexFields}->{$SearchParam}->{ColumnName};
 
         # do not accept undef values for param
         next PARAM if !defined $Param{QueryParams}->{$SearchParam};
+        $SearchParams{ $Self->{IndexFields}->{$SearchParam}->{ColumnName} } = $Param{QueryParams}->{$SearchParam};
 
-        $SearchParams{ $Self->{IndexFields}->{$SearchParam} } = $Param{QueryParams}->{$SearchParam};
+        my $QueryParamType = $Self->{IndexFields}->{$SearchParam}->{Type};
+        my $QueryParamValue;
+        my $QueryParamOperator;
+
+        if ( ref $Param{QueryParams}->{$SearchParam} eq "HASH" ) {
+            $QueryParamValue    = $Param{QueryParams}->{$SearchParam}->{Value};
+            $QueryParamOperator = $Param{QueryParams}->{$SearchParam}->{Operator} || '=';
+        }
+        else {
+            $QueryParamValue    = $Param{QueryParams}->{$SearchParam};
+            $QueryParamOperator = "=";
+        }
+
+        if ( !$Self->{IndexSupportedOperators}->{$QueryParamType}->{Operator}->{$QueryParamOperator} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Operator '$QueryParamOperator' is not supported for '$QueryParamType' type.",
+            );
+
+            return;
+        }
     }
 
     my $SortBy;
