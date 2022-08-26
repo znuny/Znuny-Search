@@ -245,7 +245,7 @@ sub _QueryExecuteSearch {
         index => $Param{Index},
         body  => {
             %{ $Param{Query} }
-        }
+        },
     );
 
     return $Result;
