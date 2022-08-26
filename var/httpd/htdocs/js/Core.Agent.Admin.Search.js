@@ -21,6 +21,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         $('#SynchronizeButton').on('click', TargetNS.SynchronizeCluster);
         $('.NotSupportedIcon').on('click', TargetNS.ShowNotSupportedDialog);
         $('.MissingIcon').on('click', TargetNS.ShowMissingDialog);
+        $('#ClusterStatus .DetailsIcon').on('click', TargetNS.ShowClusterStatusDialog);
     };
 
     TargetNS.ShowDeleteDialog = function(Event){
@@ -102,6 +103,30 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             'Center',
             true
         );
+        Event.stopPropagation();
+    }
+
+    TargetNS.ShowClusterStatusDialog = function(Event){
+        Core.UI.Dialog.ShowDialog({
+            Modal: true,
+            Title: Core.Language.Translate('Detailed cluster status'),
+            HTML: $('#ClusterStatusContainer'),
+            PositionTop: '100px',
+            PositionLeft: 'Center',
+            CloseOnEscape: true,
+            AllowAutoGrow: true,
+            Buttons: [
+                {
+                    Type: 'Close',
+                    Label: Core.Language.Translate("Close this dialog"),
+                    Function: function() {
+                        Core.UI.Dialog.CloseDialog($('.Dialog:visible'));
+                        return false;
+                    }
+                }
+            ]
+        });
+
         Event.stopPropagation();
     }
 
