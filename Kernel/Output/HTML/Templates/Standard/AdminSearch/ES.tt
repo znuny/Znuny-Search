@@ -26,7 +26,28 @@
                         <tbody>
                             <tr>
                                 <td class="[% Data.Changes.Cluster.ClusterName | html %]">[% Data.Cluster.ClusterName | html %]</td>
-                                <td class="[% Data.Changes.Cluster.Status | html %]"><div style="width:100%;height:9px;background-color:[% Data.Cluster.Status | html %]; display:inline-block;margin: auto;"></div></td>
+                                <td class="[% Data.Changes.Cluster.Status | html %]">
+                                    <div id="ClusterStatus">
+                                        <div class="Bar" style="background-color:[% Data.Cluster.Status | html %];">
+                                        </div>
+[% RenderBlockStart("ClusterStatusDetails") %]
+                                        <a href="#"><i class="fa fa-info-circle DetailsIcon"></i></a>
+                                        <div class="Hidden" id="ClusterStatusContainer">
+                                            <div id="ClusterStatusContainer" class="InnerContent GenericInterfaceDialog">
+                                                <div class="Content" style="width:25vw">
+                                                    <fieldset class="GridTable">
+[% RenderBlockStart("ClusterStatusDetailsRow") %]
+                                                        <label>[% Translate(Data.Label) | html %]:</label>
+                                                        <p class="Value" title="[% Translate(Data.Title) | html %]">[% Translate(Data.Value) | html %]</p>
+[% RenderBlockEnd("ClusterStatusDetailsRow") %]
+                                                    </fieldset>
+                                                    </div>
+                                                <div class="SpacingTop"></div>
+                                            </div>
+                                        </div>
+[% RenderBlockEnd("ClusterStatusDetails") %]
+                                    </div>
+                                </td>
                                 <td class="[% Data.Changes.Cluster.NumberOfNodes | html %]">[% Data.Cluster.NumberOfNodes | html %]</td>
                                 <td class="[% Data.Changes.Cluster.NumberOfPrimaryShards | html %]">[% Data.Cluster.NumberOfPrimaryShards | html %]</td>
                                 <td>
@@ -127,7 +148,7 @@
                             <td class="[% Data.Style.PrimaryShards | html %]">[% Translate(Data.PrimaryShards) | html %]</td>
                             <td class="[% Data.Style.RecoveryShards | html %]">[% Translate(Data.RecoveryShards) | html %]</td>
                             <td class="[% Data.Style.ObjectType | html %]">
-                                [% IF !Data.Changes %]
+                                [% IF Data.IsIntegral %]
                                     <i style="color:green" class="fa fa-check"></i>
                                 [% ELSE %]
                                     <i style="color:red" class="fa fa-times"></i>
