@@ -164,17 +164,19 @@ sub QueryPrepare {
     return $Result;
 }
 
-=head2 RealIndexIsValid()
+=head2 IndexIsValid()
 
-check if specified real index name is valid
+Check if specified index is valid -
+registration with module validity check.
 
-    my $Result = $SearchObject->RealIndexIsValid(
-        Name => "Ticket",
+    my $IsValid = $SearchObject->IndexIsValid(
+        Name => "ticket",
+        RealName => 1, # optional
     );
 
 =cut
 
-sub RealIndexIsValid {
+sub IndexIsValid {
     my ( $Self, %Param ) = @_;
 
     my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
@@ -183,7 +185,7 @@ sub RealIndexIsValid {
     my $MainObject        = $Kernel::OM->Get('Kernel::System::Main');
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
 
-    for my $Name (qw(IndexRealName)) {
+    for my $Name (qw(IndexName)) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -193,17 +195,42 @@ sub RealIndexIsValid {
         }
     }
 
-    INDEX:
-    for my $Index ( @{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
+    if ( $Param{RealName} ) {
+        INDEX:
+        for my $Index ( @{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
+
+            # get valid modules
+            my $Loaded = $SearchChildObject->_LoadModule(
+                Module => "Kernel::System::Search::Object::$Index",
+                Silent => 1
+            );
+
+            next INDEX if !$Loaded;
+
+            # search for index name inside module
+            my $IndexObject   = $Kernel::OM->Get("Kernel::System::Search::Object::$Index");
+            my $IndexRealName = $IndexObject->{Config}->{IndexRealName};
+
+            # index real name check
+            return 1 if $IndexRealName eq $Param{IndexName};
+        }
+        return;
+
+        # TODO later: check if this else section of code will be used at all - if not delete
+        # it checks single index name validity
+    }
+    else {
+        # register check
+        my $IsRegistered = grep { $_ eq $Param{IndexName} } @{ $SearchObject->{Config}->{RegisteredIndexes} };
+        return if !$IsRegistered;
+
+        # module validity check
         my $Loaded = $SearchChildObject->_LoadModule(
-            Module => "Kernel::System::Search::Object::$Index",
+            Module => "Kernel::System::Search::Object::$Param{IndexName}",
             Silent => 1
         );
-        next INDEX if !$Loaded;
-        my $IndexObject   = $Kernel::OM->Get("Kernel::System::Search::Object::$Index");
-        my $IndexRealName = $IndexObject->{Config}->{IndexRealName};
 
-        return 1 if $IndexRealName eq $Param{IndexRealName};
+        return 1 if $Loaded;
     }
 
     return;

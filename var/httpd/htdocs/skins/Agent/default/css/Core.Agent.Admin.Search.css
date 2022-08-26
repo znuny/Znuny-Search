@@ -29,3 +29,47 @@
 .WidgetSimple > .Header > h2 > span.IsNotRunning{
     color: red;
 }
+
+.DataTable#ClusterSummaryTable tbody >tr > td > #ClusterStatus{
+    display: flex;
+    flex-direction: row;
+    align-content: space-around;
+    justify-content: center;
+    align-items: center;
+}
+
+.DataTable#ClusterSummaryTable tbody >tr > td > #ClusterStatus > .Bar{
+    width:100%;
+    height:9px; 
+    display:inline-block;
+    margin: 0;
+}
+
+.DataTable#ClusterSummaryTable #ClusterStatus .DetailsIcon{
+    margin-left: 4px;
+}
+
+#ClusterStatusContainer .GridTable{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    flex-direction: column;
+}
+
+#ClusterStatusContainer .GridTable > label, fieldset.GridTable > .Row > label{
+    display: block;
+    float: left;
+    line-height: 1.9em;
+    text-align: right;
+    color: #929292;
+    min-height: 17px;
+    padding-top: 0.3em;
+    padding-bottom: 1px;
+    text-shadow: 0 1px 0 #fafafa;
+}
+
+#ClusterStatusContainer .GridTable > .Value, fieldset.GridTable > .Row > .Value{
+    margin-left: 2%;
+    padding: 4px 0 3px 8px;
+    line-height: 1.9em;
+}

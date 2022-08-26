@@ -420,10 +420,21 @@ sub DiagnosticFormat {
 
     my $Diagnosis = {
         Cluster => {
-            NumberOfNodes         => $DiagnosisResult->{Cluster}->{number_of_nodes},
-            NumberOfPrimaryShards => $DiagnosisResult->{Cluster}->{active_primary_shards},
-            Status                => $DiagnosisResult->{Cluster}->{status},
-            ClusterName           => $DiagnosisResult->{Cluster}->{cluster_name},
+            ClusterName                 => $DiagnosisResult->{Cluster}->{cluster_name},
+            Status                      => $DiagnosisResult->{Cluster}->{status},
+            TimedOut                    => $DiagnosisResult->{Cluster}->{timed_out},
+            NumberOfNodes               => $DiagnosisResult->{Cluster}->{number_of_nodes},
+            NumberOfDataNodes           => $DiagnosisResult->{Cluster}->{number_of_data_nodes},
+            NumberOfPrimaryShards       => $DiagnosisResult->{Cluster}->{active_primary_shards},
+            ActiveShards                => $DiagnosisResult->{Cluster}->{active_shards},
+            RelocatingShards            => $DiagnosisResult->{Cluster}->{relocating_shards},
+            InitializingShards          => $DiagnosisResult->{Cluster}->{initializing_shards},
+            UnassignedShards            => $DiagnosisResult->{Cluster}->{unassigned_shards},
+            DelayedUnassignedShards     => $DiagnosisResult->{Cluster}->{delayed_unassigned_shards},
+            NumberOfPendingTasks        => $DiagnosisResult->{Cluster}->{number_of_pending_tasks},
+            NumberOfInFlightFetch       => $DiagnosisResult->{Cluster}->{number_of_in_flight_fetch},
+            TaskMaxWaitingInQueueMillis => $DiagnosisResult->{Cluster}->{task_max_waiting_in_queue_millis},
+            ActiveShardsPercentAsNumber => $DiagnosisResult->{Cluster}->{active_shards_percent_as_number},
         },
         Nodes => {
             %Nodes,

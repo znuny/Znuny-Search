@@ -124,14 +124,34 @@ sub BuildDetailsSection {
         );
     }
 
+    # properties that will define integrity of index
+    my %IndexIntegrityProperties = (
+        Index          => 1,
+        Name           => 1,
+        Status         => 1,
+        PrimaryShards  => 1,
+        RecoveryShards => 1,
+    );
+
     for my $Index ( sort keys %{ $State->{Indexes} } ) {
         my $IndexName = $Index;
         my $IndexData = $State->{Indexes}->{$Index};
         my $Changes   = $State->{Changes}->{Indexes}->{$Index} || {};
 
-        my $IndexIsValid = $SearchChildObject->RealIndexIsValid(
-            IndexRealName => $IndexName,
+        my $IndexIsValid = $SearchChildObject->IndexIsValid(
+            IndexName => $IndexName,
+            RealName  => 1,
         );
+
+        my $IsIntegral = 1;
+
+        CHANGE:
+        for my $Property ( sort keys %{$Changes} ) {
+            if ( $IndexIntegrityProperties{$Property} ) {
+                $IsIntegral = 0;
+                last CHANGE;
+            }
+        }
 
         $LayoutObject->Block(
             Name => 'Index',
@@ -142,7 +162,7 @@ sub BuildDetailsSection {
                 PrimaryShards  => $IndexData->{PrimaryShards},
                 RecoveryShards => $IndexData->{RecoveryShards},
                 Style          => $Changes,
-                Changes        => IsHashRefWithData($Changes) ? 1 : 0,
+                IsIntegral     => $IsIntegral,
                 IndexIsValid   => $IndexIsValid,
             }
         );
@@ -152,15 +172,26 @@ sub BuildDetailsSection {
     for my $RegisteredIndex ( @{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
         my $Loaded = $SearchChildObject->_LoadModule(
             Module => "Kernel::System::Search::Object::$RegisteredIndex",
-            Silent => 1
+            Silent => 1,
         );
-        next INDEX if !$Loaded;
-        my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$RegisteredIndex");
+        my $IndexObject;
+        my $IndexName;
+
+        # loaded index registration will show real index name
+        if ($Loaded) {
+            $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$RegisteredIndex");
+            $IndexName   = $IndexObject->{Config}->{IndexRealName};
+        }
+        else {
+            # not valid index registration will show registered name
+            $IndexName = $RegisteredIndex;
+        }
+
         if ( !grep { $_ eq $IndexObject->{Config}->{IndexRealName} } keys %{ $State->{Indexes} } ) {
             $LayoutObject->Block(
                 Name => 'Index',
                 Data => {
-                    Name           => $IndexObject->{Config}->{IndexRealName},
+                    Name           => $IndexName,
                     Status         => '-',
                     Size           => '-',
                     PrimaryShards  => '-',
@@ -168,26 +199,110 @@ sub BuildDetailsSection {
                     Style          => {
                         Index => 'Missing'
                     },
-                    IsRegistered => 'Registered'
+                    IsRegistered => 'Registered',
+                    IndexIsValid => $Loaded,        # registration is checked so check only for valid load
+                    IsIntegral   => 1,              # this block can render only when integrity has been synchronized
                 }
             );
         }
     }
 
+    # build data for cluster status details
+    my %ClusterStatusDetails;
+    if ( $State->{Cluster}->{Status} ) {
+        %ClusterStatusDetails = %{ $State->{Cluster} };
+        delete $ClusterStatusDetails{Status};
+
+        # values of this mapping will be used as as label
+        # name/title for displayed properties
+        my %PropertiesMapping = (
+            ClusterName                 => 'Cluster name',
+            TimedOut                    => 'Timed out',
+            NumberOfNodes               => 'Number of nodes',
+            NumberOfDataNodes           => 'Number of data nodes',
+            NumberOfPrimaryShards       => 'Number of primary shards',
+            ActiveShards                => 'Active shards',
+            RelocatingShards            => 'Relocating shards',
+            InitializingShards          => 'Initializing shards',
+            UnassignedShards            => 'Unassigned shards',
+            DelayedUnassignedShards     => 'Delayed unassigned shards',
+            NumberOfPendingTasks        => ' Number of pending tasks',
+            NumberOfInFlightFetch       => 'Number of in flight fetch',
+            TaskMaxWaitingInQueueMillis => 'Maximum waiting time for task (ms)',
+            ActiveShardsPercentAsNumber => 'Active shards (%)',
+        );
+
+        # render info icon
+        $LayoutObject->Block(
+            Name => 'ClusterStatusDetails',
+        );
+
+        # display each property for cluster health
+        for my $Property ( sort keys %PropertiesMapping ) {
+            if ( defined $State->{Cluster}->{$Property} ) {
+                my $Value;
+                if ( !$State->{Cluster}->{$Property} ) {
+                    if ( $Property ne 'TimedOut' ) {
+                        $Value = 0;
+                    }
+                    else {
+                        $Value = 'no';
+                    }
+                }
+                else {
+                    $Value = $State->{Cluster}->{$Property};
+                }
+
+                $LayoutObject->Block(
+                    Name => 'ClusterStatusDetailsRow',
+                    Data => {
+                        Title => $PropertiesMapping{$Property},
+                        Label => $PropertiesMapping{$Property},
+                        Value => $Value,
+                    },
+                );
+            }
+        }
+    }
+
+    # copy variable as it will be used to
+    # decide if sync is needed
+    # original data will be returned afterwards
+    my %StateChanges = %{ $State->{Changes} };
+
+    # decide if synchronization is needed
+    # to do so delete any change properties that are not
+    # important for synchronization action
+    # that is for example "Size"
+    if ( IsHashRefWithData( $StateChanges{Indexes} ) ) {
+        for my $IndexRealName ( sort keys %{ $StateChanges{Indexes} } ) {
+            my $PropertiesCount = keys %{ $StateChanges{Indexes}->{$IndexRealName} };
+            if ( $PropertiesCount == 1 ) {
+                my @Value = keys %{ $StateChanges{Indexes}->{$IndexRealName} };
+                if ( !$IndexIntegrityProperties{ $Value[0] } ) {
+                    delete $StateChanges{Indexes}->{$IndexRealName};
+                }
+            }
+        }
+    }
+
+    # check if sync is needed
+    my $SynchronizeNeeded = IsHashRefWithData( $StateChanges{Indexes} ) || IsHashRefWithData( $StateChanges{Nodes} );
+
     my $DetailsHTML = $LayoutObject->Output(
         TemplateFile => "AdminSearch/$Self->{Engine}",
         Data         => {
             %{$State},
+            Changes => {
+                %StateChanges
+            }
         },
     );
 
-    my $Changes;
-    $Changes = 1 if IsHashRefWithData( $State->{Changes}->{Indexes} ) ||
-        IsHashRefWithData( $State->{Changes}->{Nodes} );
-
     return {
-        HTML    => $DetailsHTML,
-        Changes => $Changes
+        HTML        => $DetailsHTML,
+        Changes     => $State->{Changes},
+        Synchronize => $SynchronizeNeeded,
     };
 }
 

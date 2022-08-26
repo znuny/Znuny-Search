@@ -608,7 +608,7 @@ sub _ShowEdit {
             UserID        => $Self->{UserID}
         );
 
-        if ( IsHashRefWithData($Details) && $Details->{Changes} && $SearchObject->{ConnectObject} ) {
+        if ( ( $Details->{Synchronize} ) && $SearchObject->{ConnectObject} ) {
             $LayoutObject->Block(
                 Name => 'ActionSynchronize',
                 Data => {},
