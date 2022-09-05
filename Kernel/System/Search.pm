@@ -471,28 +471,167 @@ sub Disconnect {
     return 1;
 }
 
-=head2 IndexAdd()
+=head2 IndexInit()
 
-TO-DO
+initializes index by setting mapping
+
+    my $Result = $SearchObject->IndexInit(
+        Index => $Index,
+    );
 
 =cut
 
-sub IndexAdd {
+sub IndexInit {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Index)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+
+        return;
+    }
+
+    my $Success = $Self->IndexMappingSet(
+        Index => $Param{Index}
+    );
+
+    if ( !$Success ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Cannot initialize index: $Param{Index}, check logs for more information.",
+        );
+        return;
+    }
+
     return 1;
+
 }
 
-=head2 IndexDrop()
+=head2 IndexMappingSet()
 
-TO-DO
+set mapping for index depending on configured fields in Object/Index module
+
+    my $Result = $SearchObject->IndexMappingSet(
+        Index => $Index,
+    );
 
 =cut
 
-sub IndexDrop {
+sub IndexMappingSet {
     my ( $Self, %Param ) = @_;
 
-    return 1;
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( $Self->{Fallback} ) {
+        return;
+    }
+
+    NEEDED:
+    for my $Needed (qw(Index)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $QueryData = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexMappingSet",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $QueryData->{Query},
+        Operation     => "IndexMappingSet",
+        ConnectObject => $Self->{ConnectObject},
+        Fallback      => 0,
+    );
+
+    return 1 if !$Response->{Error};
+
+    # if there was any problems on index mapping set, then check mapping
+    my $ActualIndexMapping = $Self->IndexMappingGet(
+        Index => $Param{Index}
+    );
+
+    if ( IsHashRefWithData($ActualIndexMapping) ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "There is already existing mapping for index: '$Param{Index}'. " .
+                "Depending on the engine, the index may need to be reinitialized on the engine side.",
+        );
+    }
+
+    return;
+}
+
+=head2 IndexMappingGet()
+
+returns actual mapping set for index
+
+    my $Result = $SearchObject->IndexMappingGet(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexMappingGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( $Self->{Fallback} ) {
+        return;
+    }
+
+    NEEDED:
+    for my $Needed (qw(Index)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+
+    my $IndexRealName = $IndexObject->{Config}->{IndexRealName};
+
+    my $Result = $Self->{EngineObject}->QueryExecute(
+        Query => {
+            Index => $IndexRealName
+        },
+        Index         => $Param{Index},
+        Operation     => "IndexMappingGet",
+        ConnectObject => $Self->{ConnectObject},
+        Fallback      => 0,
+    );
+
+    my $FormattedResult = $Self->{MappingObject}->IndexMappingResultFormat(
+        Result => $Result,
+        Index  => $Param{Index}
+    );
+
+    return $FormattedResult;
 }
 
 =head2 IndexClear()
