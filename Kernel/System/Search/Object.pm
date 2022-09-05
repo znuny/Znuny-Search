@@ -630,4 +630,51 @@ sub _QueryPrepareIndexClear {
     return $Data;
 }
 
+=head2 _QueryPrepareIndexMappingSet()
+
+prepares query for index mapping set operation
+
+    my $Result = $SearchObject->_QueryPrepareIndexMappingSet(
+        MappingObject   => $MappingObject,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareIndexMappingSet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->IndexMappingSet(
+        %Param,
+        MappingObject => $Param{MappingObject},
+        Config        => $Param{Config},
+    );
+
+    return $Data;
+}
+
 1;

@@ -57,7 +57,7 @@ sub new {
         },
         TicketNumber => {
             ColumnName => 'tn',
-            Type       => 'Integer'
+            Type       => 'Long'
         },
         Title => {
             ColumnName => 'title',
@@ -101,11 +101,11 @@ sub new {
         },
         CustomerID => {
             ColumnName => 'customer_id',
-            Type       => 'Integer'
+            Type       => 'String'
         },
         CustomerUserID => {
             ColumnName => 'customer_user_id',
-            Type       => 'Integer'
+            Type       => 'String'
         },
         UnlockTimeout => {
             ColumnName => 'timeout',

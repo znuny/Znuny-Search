@@ -405,4 +405,47 @@ sub IndexClear {
     };
 }
 
+=head2 IndexMappingSet()
+
+create query for index mapping set operation
+
+    my $Result = $QueryObject->IndexMappingSet(
+        MappingObject   => $MappingObject,
+    );
+
+=cut
+
+sub IndexMappingSet {
+    my ( $Type, %Param ) = @_;
+
+    return {
+        Error    => 1,
+        Fallback => {
+            Enable => 0
+        },
+    } if !$Param{MappingObject};
+
+    my $MappingObject = $Param{MappingObject};
+
+    # Returns the query
+    my $Query = $MappingObject->IndexMappingSet(
+        %Param
+    );
+
+    return {
+        Error    => 1,
+        Fallback => {
+            Enable => 0
+        },
+    } if !$Query->{Body};
+
+    return {
+        Error    => 0,
+        Query    => $Query,
+        Fallback => {
+            Enable => 0
+        },
+    };
+}
+
 1;

@@ -112,27 +112,57 @@ sub Run {
         $Self->Print("<yellow>Reindexing: $Object->{Index}</yellow>\n");
 
         eval {
-            my $ObjectIDs = $Object->ObjectListIDs();
+            EVAL_SCOPE: {
+                my $ObjectIDs = $Object->ObjectListIDs();
 
-            next OBJECT if !( IsArrayRefWithData($ObjectIDs) );
+                last EVAL_SCOPE if !( IsArrayRefWithData($ObjectIDs) );
 
-            # clear whole index to reindex it correctly
-            $Self->{SearchObject}->IndexClear(
-                Index => $Object->{Index}
-            );
-
-            for my $ObjectID ( @{$ObjectIDs} ) {
-                my $Result = $Self->{SearchObject}->ObjectIndexAdd(
-                    Index    => $Object->{Index},
-                    ObjectID => $ObjectID,
+                # clear whole index to reindex it correctly
+                $Self->{SearchObject}->IndexClear(
+                    Index => $Object->{Index}
                 );
-                push @{ $IndexObjectStatus{ $Object->{Index} }{ObjectFails} }, $ObjectID
-                    if !$Result;
-            }
 
-            $Self->Print("<green>Done.</green>\n");
-            $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
+                # initialize index
+                my $Success = $Self->{SearchObject}->IndexInit(
+                    Index => $Object->{Index},
+                );
+
+                if ( !$Success ) {
+                    $Self->PrintError("Can't initialize index: $Object->{Index}!\n");
+                    $IndexObjectStatus{ $Object->{Index} }{Successfull} = 0;
+                    last EVAL_SCOPE;
+                }
+
+                $Self->Print("<yellow>Index initialized. Adding indexes..</yellow>\n");
+
+                my $Count        = 0;
+                my @ObjectIDsArr = @{$ObjectIDs};
+
+                for my $ObjectID (@ObjectIDsArr) {
+                    my $Result = $Self->{SearchObject}->ObjectIndexAdd(
+                        Index    => $Object->{Index},
+                        ObjectID => $ObjectID,
+                    );
+
+                    $Count++;
+
+                    # show progress every 500 indexes
+                    if ( $Count % 500 == 0 ) {
+                        my $Percent = int( $Count / ( $#ObjectIDsArr / 100 ) );
+                        $Self->Print(
+                            "<yellow>$Count</yellow> of <yellow>$#ObjectIDsArr</yellow> processed (<yellow>$Percent %</yellow> done).\n"
+                        );
+                    }
+
+                    push @{ $IndexObjectStatus{ $Object->{Index} }{ObjectFails} }, $ObjectID
+                        if !$Result;
+                }
+
+                $Self->Print("<green>Done.</green>\n");
+                $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
+            }
         };
+
         if ($@) {
             $Self->Print($@);
         }

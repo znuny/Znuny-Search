@@ -530,8 +530,6 @@ sub DefaultConfigGet {
                 "<="             => 1,
                 "<"              => 1,
                 ">"              => 1,
-                "IS EMPTY"       => 1,
-                "IS NOT EMPTY"   => 1,
                 "IS DEFINED"     => 1,
                 "IS NOT DEFINED" => 1,
             }
@@ -539,6 +537,10 @@ sub DefaultConfigGet {
         String => {
             Operator => {
                 "="              => 1,
+                ">="             => 1,
+                "<="             => 1,
+                "<"              => 1,
+                ">"              => 1,
                 "IS EMPTY"       => 1,
                 "IS NOT EMPTY"   => 1,
                 "IS DEFINED"     => 1,
@@ -558,6 +560,14 @@ sub DefaultConfigGet {
                 "IS NOT DEFINED" => 1,
             }
         }
+    };
+
+    # define list of values for types which should be set as undefined while indexing.
+    $Self->{DataTypeValuesBlackList} = {
+        Date => [
+            '0000-00-00 00:00:00',
+            '1000-00-00 00:00:00',
+        ]
     };
 
     return 1;

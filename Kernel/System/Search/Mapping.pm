@@ -38,6 +38,27 @@ sub new {
     return $Self;
 }
 
+=head2 IndexMappingResultFormat()
+
+format result from engine response
+
+=cut
+
+sub IndexMappingResultFormat {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "IndexMappingResultFormat function was not properly overriden.",
+    );
+
+    return {
+        Error => 1
+    };
+}
+
 =head2 ResultFormat()
 
 format result from engine response
