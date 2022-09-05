@@ -148,10 +148,7 @@ sub QueryExecute {
                 Message  => "Need $Name!"
             );
             return {
-                Error    => 1,
-                Fallback => {
-                    Enable => 1,
-                }
+                Error => 1,
             };
         }
     }
@@ -172,10 +169,7 @@ sub QueryExecute {
             Message  => "Query failed for engine: $Engine. Message: $@",
         );
         return {
-            Error    => 1,
-            Fallback => {
-                Enable => 1,
-            }
+            Error => 1,
         };
     }
 
@@ -377,6 +371,57 @@ sub _QueryExecuteObjectIndexRemove {
     $ConnectObject->transport()->perform_request(
         method => 'POST',
         path   => "/$Param{Query}->{Index}/_refresh",
+    );
+
+    return $Result;
+}
+
+=head2 _QueryExecuteIndexMappingSet()
+
+executes query for active engine to set data mapping for specified index
+
+    my $Result = $EngineESObject->_QueryExecuteIndexMappingSet(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexMappingSet {
+    my ( $Self, %Param ) = @_;
+
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'POST',
+        path   => "/$Param{Query}->{Index}/_mapping",
+        body   => {
+            %{ $Param{Query}->{Body} }
+        }
+    );
+
+    return $Result;
+}
+
+=head2 _QueryExecuteIndexMappingGet()
+
+executes query for active engine with mapping set operation
+
+    my $Result = $EngineESObject->_QueryExecuteIndexMappingGet(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexMappingGet {
+    my ( $Self, %Param ) = @_;
+
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'GET',
+        path   => "/$Param{Query}->{Index}/_mapping",
     );
 
     return $Result;

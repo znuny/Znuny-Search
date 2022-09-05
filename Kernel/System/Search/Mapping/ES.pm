@@ -216,6 +216,24 @@ sub ObjectIndexAdd {
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
+    # workaround for elastic search date validation
+    my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} };
+
+    for my $DataTypeWithBlackList (@DataTypesWithBlackList) {
+
+        my $BlackListedValues = $IndexObject->{DataTypeValuesBlackList}->{$DataTypeWithBlackList};
+        my @ColumnsWithBlackListedType
+            = grep { $IndexObject->{Fields}->{$_}->{Type} eq $DataTypeWithBlackList } keys %{ $IndexObject->{Fields} };
+
+        COLUMN:
+        for my $Column (@ColumnsWithBlackListedType) {
+            my $ColumnName = $IndexObject->{Fields}->{$Column}->{ColumnName};
+            if ( $Param{Body}->{$ColumnName} && grep { $Param{Body}->{$ColumnName} eq $_ } @{$BlackListedValues} ) {
+                $Param{Body}->{$ColumnName} = undef;
+            }
+        }
+    }
+
     my $Result = {
         Index => $IndexObject->{Config}->{IndexRealName},
         Body  => $Param{Body}
@@ -380,7 +398,7 @@ sub IndexClear {
 
 =head2 DiagnosticFormat()
 
-returns formatted response for diagnose of search engine.
+returns formatted response for diagnose of search engine
 
     my $Result = $MappingESObject->DiagnosticFormat(
         Result => $Result
@@ -445,6 +463,117 @@ sub DiagnosticFormat {
     };
 
     return $Diagnosis;
+}
+
+=head2 IndexMappingSet()
+
+returns query for engine mapping data types
+
+    my $Result = $MappingESObject->IndexMappingSet(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexMappingSet {
+    my ( $Self, %Param ) = @_;
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+
+    my $DataTypes = {
+        Date => {
+            type   => "date",
+            format => "YYYY-MM-dd HH:mm:ss",
+            fields => {
+                keyword => {
+                    type         => "keyword",
+                    ignore_above => 20,
+                }
+            }
+        },
+        Integer => {
+            type   => "integer",
+            fields => {
+                keyword => {
+                    type => "keyword",
+                }
+            }
+        },
+        String => {
+            type   => "text",
+            fields => {
+                keyword => {
+                    type => "keyword",
+                }
+            }
+        },
+        Long => {
+            type   => "long",
+            fields => {
+                keyword => {
+                    type => "keyword",
+                }
+            }
+        }
+    };
+
+    my $Fields = $IndexObject->{Fields};
+
+    my %Body;
+    for my $FieldName ( sort keys %{$Fields} ) {
+        $Body{ $Fields->{$FieldName}->{ColumnName} } = $DataTypes->{ $Fields->{$FieldName}->{Type} };
+    }
+
+    my $Query = {
+        Index => $IndexObject->{Config}->{IndexRealName},
+        Body  => {
+            properties => {
+                %Body
+            }
+        }
+    };
+
+    return $Query;
+}
+
+=head2 IndexMappingResultFormat()
+
+returns formatted result from engine
+
+    my $Result = $MappingESObject->IndexMappingResultFormat(
+        Result => $Result,
+    );
+
+=cut
+
+sub IndexMappingResultFormat {
+    my ( $Self, %Param ) = @_;
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
+
+    my $Properties = $Param{Result}->{ $IndexObject->{Config}->{IndexRealName} }->{mappings}->{properties} || {};
+
+    my $FieldsMapping = {
+        date    => "Date",
+        text    => "String",
+        integer => "Integer",
+        long    => "Long"
+    };
+
+    my %FormattedResult;
+    ATTRIBUTE:
+    for my $Attribute ( sort keys %{$Properties} ) {
+        my @ColumnName
+            = grep { $IndexObject->{Fields}->{$_}->{ColumnName} eq $Attribute } keys %{ $IndexObject->{Fields} };
+        my $FieldConfig = $IndexObject->{Fields}->{ $ColumnName[0] };
+        my $FieldType   = $FieldsMapping->{ $Properties->{$Attribute}->{type} } || '';
+
+        $FieldConfig->{Type} = $FieldType;
+        $FormattedResult{ $ColumnName[0] } = $FieldConfig;
+    }
+
+    return \%FormattedResult;
 }
 
 1;
