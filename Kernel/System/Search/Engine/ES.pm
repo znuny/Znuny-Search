@@ -14,10 +14,13 @@ use Search::Elasticsearch;
 
 use parent qw( Kernel::System::Search::Engine );
 
+use Kernel::System::VariableCheck qw(IsArrayRefWithData);
+
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search::Mapping::ES',
     'Kernel::System::Search::Cluster',
+    'Kernel::System::Search::Auth::ES',
 );
 
 =head1 NAME
@@ -76,21 +79,43 @@ sub Connect {
 
     my $ActiveEngine = $SearchClusterObject->ActiveClusterGet();
 
-    if ( !$ActiveEngine->{RemoteSystem} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Cannot find any active search engine.",
-        );
+    my $ClusterNodes = $SearchClusterObject->ClusterCommunicationNodeList(
+        ClusterID => $ActiveEngine->{ClusterID},
+        Valid     => 1,
+    );
+
+    if ( !IsArrayRefWithData($ClusterNodes) ) {
+        if ( !$Param{Silent} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Cannot find any cluster communication nodes! Connecting to Elastic search engine aborted.",
+            );
+        }
         return {
             Error => 1
         };
     }
 
+    my @Nodes;
+    for my $Node ( @{$ClusterNodes} ) {
+
+        my $UserInfo = $Self->UserInfoStrgBuild(
+            Login    => $Node->{Login},
+            Password => $Node->{Password},
+        );
+
+        push @Nodes, {
+            scheme => $Node->{Protocol} // '',
+            host   => $Node->{Host}     // '',
+            port   => $Node->{Port}     // '',
+            path   => $Node->{Path}     // '',
+            userinfo => $UserInfo,
+        };
+    }
+
     # try to receive information about cluster after connection.
     my $ConnectObject = Search::Elasticsearch->new(
-        nodes => [
-            $ActiveEngine->{RemoteSystem},
-        ],
+        nodes  => \@Nodes,
         client => '7_0::Direct',
     );
 
@@ -100,19 +125,20 @@ sub Connect {
 
     # If engine was not reachable than treat it like an error for further fallbacks.
     if ($@) {
-        if ( $Self->{Config}->{ActiveEngine} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Connection failed for engine: $Self->{Config}->{ActiveEngine}. Message: $@",
-            );
+        if ( !$Param{Silent} ) {
+            if ( $Param{Config}->{ActiveEngine} ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Connection failed for engine: $Param{Config}->{ActiveEngine}. Message: $@",
+                );
+            }
+            else {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Connection failed for search engine. Message: $@",
+                );
+            }
         }
-        else {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Connection failed. Message: $@",
-            );
-        }
-
         return {
             Error => 1
         };
@@ -216,6 +242,89 @@ sub DiagnosticDataGet {
     };
 
     return $Result;
+}
+
+=head2 CheckNodeConnection()
+
+    Check connection to node
+
+    my $Result = $EngineESObject->CheckNodeConnection(
+        Protocol   => $Protocol,
+        Host       => $Host,
+        ...
+    );
+
+=cut
+
+sub CheckNodeConnection {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    my $UserInfo = $Self->UserInfoStrgBuild(
+        Login    => $Param{Login},
+        Password => $Param{Password},
+    );
+
+    my $ConnectObject = Search::Elasticsearch->new(
+        sniff_request_timeout => 0.5,
+        nodes                 => [
+            {
+                scheme => $Param{Protocol} // '',
+                host   => $Param{Host}     // '',
+                port   => $Param{Port}     // '',
+                path   => $Param{Path}     // '',
+                userinfo => $UserInfo,
+            },
+        ]
+    );
+
+    eval {
+        $ConnectObject->cluster()->health();
+    };
+
+    # if engine was not reachable than treat it like an error for further fallbacks
+    if ($@) {
+        if ( !$Param{Silent} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message =>
+                    "Communication node authentication failed for node connection check. Login:$Param{Login}. Message: $@"
+            );
+        }
+        return;
+    }
+
+    return 1;
+}
+
+=head2 UserInfoStrgBuild()
+
+build user info string
+
+    my $UserInfo = $EngineESObject->UserInfoStrgBuild(
+        Login    => 'admin',
+        Password => 'admin'
+    );
+
+=cut
+
+sub UserInfoStrgBuild {
+    my ( $Self, %Param ) = @_;
+
+    # create AuthObject
+    my $SearchAuthESObject = $Kernel::OM->Get('Kernel::System::Search::Auth::ES');
+
+    my $PwdAuth = $SearchAuthESObject->ClusterCommunicationNodeAuthPwd(
+        Login  => $Param{Login},
+        Pw     => $Param{Password},
+        Silent => 1,
+    );
+
+    my $Login    = $PwdAuth->{Login}    // '';
+    my $Password = $PwdAuth->{Password} // '';
+
+    return "$Login:$Password";
 }
 
 =head2 _QueryExecuteSearch()

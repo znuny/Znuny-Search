@@ -61,15 +61,18 @@ sub new {
     elsif ( !$Self->{Config}->{ActiveEngine} ) {
         $Self->{Fallback} = 1;
         $Self->{Error}    = { Configuration => { ActiveEngineNotFound => 1 } };
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Search configuration does not specify a valid active engine!",
-        );
+        if ( !$Param{Silent} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Search configuration does not specify a valid active engine!",
+            );
+        }
     }
     else {
         # check base modules (mapping/engine) for selected engine
         my $ModulesCheckOk = $Self->BaseModulesCheck(
             Config => $Self->{Config},
+            Silent => $Param{Silent},
         );
 
         if ( !$ModulesCheckOk ) {
@@ -80,6 +83,7 @@ sub new {
             # if there were no errors before, try connecting
             my $ConnectObject = $Self->Connect(
                 Config => $Self->{Config},
+                Silent => $Param{Silent},
             );
 
             if ( !$ConnectObject || $ConnectObject->{Error} ) {
@@ -108,7 +112,7 @@ search for specified object data
             TicketHistoryID => 2, # this property does not exists inside index "Ticket"
                                   # and will not be applied for it as search param
         },
-        ResultType => $ResultType # optional, default: 'ARRAY', possible: ARRAY,HASH,COUNT or more if extended,
+        ResultType => $ResultType, # optional, default: 'ARRAY', possible: ARRAY,HASH,COUNT or more if extended,
         SortBy => ['TicketID', 'TicketHistoryID'],
         OrderBy => ['Down', 'Up'], # optional, possible: Down,Up
                                    # - for multiple objects: ['Down', 'Up']
@@ -759,13 +763,15 @@ sub BaseModulesCheck {
         my $Location = $Modules{$Module};
         my $Loaded   = $MainObject->Require(
             $Location,
-            Silent => 0,
+            Silent => $Param{Silent},
         );
         if ( !$Loaded ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Module $Location is not valid!"
-            );
+            if ( !$Param{Silent} ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Module $Location is not valid!"
+                );
+            }
             return;
         }
         else {
