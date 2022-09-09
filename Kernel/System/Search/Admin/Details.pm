@@ -54,7 +54,7 @@ Build details section based on default search engine
 structure(Cluster, Node, Index). There is possibility to override
 this function and template for specific engine.
 
-    my $DetailsObject = $DetailsObject->BuildDetailsSection(
+    my $Details = $DetailsObject->BuildDetailsSection(
         ClusterConfig => $ClusterConfig,
         UserID => $UserID,
     );
@@ -64,12 +64,23 @@ this function and template for specific engine.
 sub BuildDetailsSection {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Name (qw(ClusterConfig UserID)) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
     $Kernel::OM->ObjectsDiscard(
         Objects => ['Kernel::System::Search'],
     );
 
     my $LayoutObject      = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
-    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
@@ -310,7 +321,7 @@ sub BuildDetailsSection {
 
 store cluster state data as JSON in database table
 
-    my $DetailsObject = $DetailsObject->ClusterStateSet(
+    my $Success = $DetailsObject->ClusterStateSet(
         ClusterState => $ClusterState,
         ClusterID    => $ClusterID,
     );
@@ -352,7 +363,7 @@ sub ClusterStateSet {
 
 receive cluster state data as JSON from database table
 
-    my $DetailsObject = $DetailsObject->ClusterStateGet(
+    my $ClusterState = $DetailsObject->ClusterStateGet(
         ClusterID    => $ClusterID,
     );
 
@@ -400,7 +411,7 @@ sub ClusterStateGet {
 
 check differences between engine and stored state of cluster details
 
-    my $DetailsObject = $DetailsObject->StateCheck(
+    my $State = $DetailsObject->StateCheck(
         Engine => $EngineData,
         Store  => $StoreData,
     );

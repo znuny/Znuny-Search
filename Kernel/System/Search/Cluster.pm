@@ -76,7 +76,7 @@ sub ClusterList {
 
 get data of specified cluster
 
-    my $Cluster = $SearchClusterObject->ClusterGet(
+    my $Cluster = $ClusterObject->ClusterGet(
         ClusterID => $ClusterID
     );
 
@@ -127,7 +127,7 @@ sub ClusterGet {
 
 add cluster
 
-    my $Success = $SearchAdminObject->ClusterAdd(
+    my $Success = $ClusterObject->ClusterAdd(
         Name => $Name,
         ValidID => $ValidID,
         EngineID => $EngineID,
@@ -235,10 +235,10 @@ sub ClusterDelete {
 
 update cluster
 
-    my $Success = $SearchAdminObject->ClusterUpdate(
+    my $Success = $ClusterObject->ClusterUpdate(
         ClusterID => $ClusterID,
         %ClusterData,
-    )
+    );
 
 =cut
 
@@ -298,12 +298,9 @@ sub ClusterUpdate {
 
 =head2 ActiveClusterGet()
 
-receive data of first valid(active) clusters
+receive data of first valid (active) clusters
 
-    my $ActiveCluster = $ClusterObject->ActiveClusterGet(
-        ClusterID => $ClusterID,
-        %ClusterData,
-    )
+    my $ActiveCluster = $ClusterObject->ActiveClusterGet();
 
 =cut
 
@@ -339,7 +336,7 @@ sub ActiveClusterGet {
 
 store cluster communication node data in database table
 
-    my $Result = $SearchAdminObject->ClusterCommunicationNodeAdd(
+    my $Result = $ClusterObject->ClusterCommunicationNodeAdd(
         Name      => $Name,
         Protocol  => $Protocol,
         ValidID   => $ValidID,
@@ -435,7 +432,7 @@ sub ClusterCommunicationNodeAdd {
 
 updates cluster communication node data in database table
 
-    my $Result = $SearchAdminObject->ClusterCommunicationNodeUpdate(
+    my $Result = $ClusterObject->ClusterCommunicationNodeUpdate(
         Name      => 'some-name',
         ValidID   => 1, # possible "2", "1", "0"
         Comment   => 'some-comment',
@@ -517,7 +514,7 @@ sub ClusterCommunicationNodeUpdate {
 
 remove cluster communication node data from database table
 
-    my $Result = $SearchAdminObject->ClusterCommunicationNodeRemove(
+    my $Result = $ClusterObject->ClusterCommunicationNodeRemove(
         NodeID => $NodeID
     );
 
@@ -566,7 +563,7 @@ sub ClusterCommunicationNodeRemove {
 
 returns list of cluster communication nodes stored data in database table
 
-    my $ClusterCommunicationNodeList = $SearchAdminObject->ClusterCommunicationNodeList(
+    my $ClusterCommunicationNodeList = $ClusterObject->ClusterCommunicationNodeList(
         ClusterID => $ClusterID,
         Valid     => 1, # possible: 1,0
     );
@@ -653,9 +650,9 @@ sub ClusterCommunicationNodeList {
 
 returns cluster communication node data stored in database table
 
-    my $ClusterCommunicationNode = $SearchAdminObject->ClusterCommunicationNodeGet(
+    my $ClusterCommunicationNode = $ClusterObject->ClusterCommunicationNodeGet(
         NodeID => $NodeID, # optional
-        // or
+        # or
         ClusterID => $ClusterID,
         Name      => $Name,
     );
@@ -734,7 +731,7 @@ sub ClusterCommunicationNodeGet {
 
 set password for communication node
 
-    my $Success = $SearchAdminObject->ClusterCommunicationNodeSetPassword(
+    my $Success = $ClusterObject->ClusterCommunicationNodeSetPassword(
         ClusterID => 1,
         Login => 'some-login',
         Password => 'qwe123',
@@ -804,20 +801,20 @@ sub ClusterCommunicationNodeSetPassword {
     return $Success;
 }
 
-=head2 NodesImport()
+=head2 ClusterCommunicationNodesImport()
 
-returns cluster communication node data stored in database table
+import cluster communication nodes
 
-    my $Result = $SearchAdminObject->NodesImport(
+    my $Result = $ClusterObject->ClusterCommunicationNodesImport(
         Content                => $Content,
-        OverwriteExistingNodes => $OverwriteExistingNodes,
+        OverwriteExistingNodes => $OverwriteExistingNodes, # optional
         UserID                 => $UserID,
         ClusterID              => $ClusterID
      );
 
 =cut
 
-sub NodesImport {
+sub ClusterCommunicationNodesImport {
     my ( $Self, %Param ) = @_;
 
     my $DBObject   = $Kernel::OM->Get('Kernel::System::DB');
@@ -951,6 +948,18 @@ sub NameExistsCheck {
 
     return 0;
 }
+
+=head2 NodeNameExistsCheck()
+
+return 1 if another node with this name already exists
+in specified cluster
+
+    $Exist = $ClusterObject->NodeNameExistsCheck(
+        Name   => 'Cluster1',
+        NodeID => 1, # optional
+    );
+
+=cut
 
 sub NodeNameExistsCheck {
     my ( $Self, %Param ) = @_;
