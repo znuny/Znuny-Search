@@ -17,6 +17,10 @@
         <File Permission="660" Location="Kernel/System/Search/Cluster.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Admin/Details.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Admin/Details/ES.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Admin/Node.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Admin/Node/ES.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Auth.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Auth/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Engine.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping.pm"/>
@@ -54,6 +58,9 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Operators.pm"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES.tt"/>
+        <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
+        <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES.tt"/>
+        <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES/Node.tt"/>
         <File Permission="660" Location="var/httpd/htdocs/js/Core.Agent.Admin.Search.js"/>
         <File Permission="660" Location="var/httpd/htdocs/skins/Agent/default/css/Core.Agent.Admin.Search.css"/>
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
@@ -74,7 +81,6 @@
             <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
             <Column Name="name" Required="true" Size="100" Type="VARCHAR" />
             <Column Name="description" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="remote_system" Required="true" Size="255" Type="VARCHAR" />
             <Column Name="engine" Required="true" Size="100" Type="VARCHAR" />
             <Column Name="valid_id" Required="false" Type="INTEGER" />
             <Column Name="create_time" Required="false" Type="DATE" />
@@ -89,9 +95,25 @@
             <Column Name="create_by" Required="false" Type="INTEGER" />
             <Column Name="create_time" Required="false" Type="DATE" />
         </TableCreate>
+        <TableCreate Name="search_cluster_nodes">
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
+            <Column Name="name" Required="true" Size="255" Type="VARCHAR" />
+            <Column Name="node_comment" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="protocol" Required="true" Size="255" Type="VARCHAR" />
+            <Column Name="host" Required="true" Size="255" Type="VARCHAR" />
+            <Column Name="port" Required="true" Type="INTEGER" />
+            <Column Name="node_path" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="node_login" Required="false" Size="200" Type="VARCHAR" />
+            <Column Name="node_password" Required="false" Size="128" Type="VARCHAR" />
+            <Column Name="valid_id" Required="true" Type="INTEGER" />
+            <Column Name="cluster_id" Required="true" Type="INTEGER" />
+            <Column Name="create_by" Required="false" Type="INTEGER" />
+            <Column Name="create_time" Required="false" Type="DATE" />
+        </TableCreate>
     </DatabaseInstall>
     <DatabaseUninstall>
         <TableDrop Name="search_clusters"/>
         <TableDrop Name="search_cluster_states"/>
+        <TableDrop Name="search_cluster_nodes"/>
     </DatabaseUninstall>
 </otrs_package>

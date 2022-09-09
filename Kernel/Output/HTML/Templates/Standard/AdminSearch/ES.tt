@@ -65,7 +65,7 @@
 
 <div class="WidgetSimple">
     <div class="Header">
-        <h2>[% Translate("Nodes") | html %]</h2>
+        <h2>[% Translate("All nodes") | html %]</h2>
     </div>
     <div class="Content">
 <table class="DataTable" id="NodesTable" summary="List of all nodes">
