@@ -20,11 +20,12 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::Ticket - common base backend functions for "Ticket" index
+Kernel::System::Search::Object::Ticket - common base backend functions for specified object
 
 =head1 DESCRIPTION
 
-TO-DO
+This module defines schema and rules for specified object to be used
+for fallback or separate engine.
 
 =head1 PUBLIC INTERFACE
 
@@ -44,9 +45,9 @@ sub new {
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'ticket',      # engine-wise index name
-        IndexName     => 'Ticket',      # backend-wise index name
-        Identifier    => 'TicketID',    # column name that represents index object id in the field mapping
+        IndexRealName => 'ticket',      # index name on the engine/sql side
+        IndexName     => 'Ticket',      # index name on the api side
+        Identifier    => 'TicketID',    # column name that represents object id in the field mapping
     };
 
     # define schema for data

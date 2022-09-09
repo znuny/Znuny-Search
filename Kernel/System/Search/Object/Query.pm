@@ -20,11 +20,11 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::Query - common query backend functions
+Kernel::System::Search::Object::Query - search engine query lib
 
 =head1 DESCRIPTION
 
-TO-DO
+Common search engine query backend functions.
 
 =head1 PUBLIC INTERFACE
 
@@ -53,7 +53,7 @@ sub new {
 
 create query for specified operation
 
-    my $Result = $QueryTicketObject->ObjectIndexAdd(
+    my $Result = $SearchQueryObject->ObjectIndexAdd(
         MappingObject   => $Config,
         ObjectID        => $ObjectID,
     );
@@ -122,7 +122,7 @@ sub ObjectIndexAdd {
 
 create query for specified operation
 
-    my $Result = $QueryTicketObject->ObjectIndexUpdate(
+    my $Result = $SearchQueryObject->ObjectIndexUpdate(
         MappingObject   => $Config,
         ObjectID        => $ObjectID,
     );
@@ -203,7 +203,7 @@ sub ObjectIndexGet {
 
 create query for specified operation
 
-    my $Result = $QueryObject->ObjectIndexRemove(
+    my $Result = $SearchQueryObject->ObjectIndexRemove(
         MappingObject   => $Config,
         ObjectID        => $ObjectID,
         Config          => $Config,
@@ -248,7 +248,7 @@ sub ObjectIndexRemove {
 
 create query for specified operation
 
-    my $Result = $QueryObject->Search(
+    my $Result = $SearchQueryObject->Search(
         MappingObject   => $Config,
         QueryParams     => $QueryParams,
     );
@@ -280,7 +280,7 @@ sub Search {
     for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
 
         # check if there is existing mapping between query param and database column
-        next PARAM if !$Self->{IndexFields}->{$SearchParam}->{ColumnName};
+        next PARAM if !$Self->{IndexFields}->{$SearchParam};
 
         # do not accept undef values for param
         next PARAM if !defined $Param{QueryParams}->{$SearchParam};
@@ -365,9 +365,9 @@ sub Search {
 
 create query for index clearing operation
 
-    my $Result = $QueryObject->IndexClear(
+    my $Result = $SearchQueryObject->IndexClear(
         MappingObject   => $MappingObject,
-        QueryParams     => $QueryParams,
+        Index           => "Ticket"
     );
 
 =cut
@@ -409,7 +409,7 @@ sub IndexClear {
 
 create query for index mapping set operation
 
-    my $Result = $QueryObject->IndexMappingSet(
+    my $Result = $SearchQueryObject->IndexMappingSet(
         MappingObject   => $MappingObject,
     );
 

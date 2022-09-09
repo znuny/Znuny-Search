@@ -64,9 +64,14 @@ Should return same response as advanced search
 engine globally formatted response.
 
     my $Result = $SearchBaseObject->Fallback(
-        QueryParams => {
+        QueryParams  => {
             TicketID => 1,
         },
+        Limit        => $Limit,
+        OrderBy      => $OrderBy,
+        SortBy       => $SortBy,
+        ResultType   => $ResultType,
+        Fields       => $Fields,
     );
 
 =cut
@@ -112,10 +117,12 @@ search in sql database for objects index related
         QueryParams => {
             TicketID => 1,
         },
-        Fields => ['id', 'sla_id'] # optional, returns all
-                                   # fields if not specified
-        SortBy => $IdentifierSQL,
-        OrderBy => "Down",  # possible: "Down", "Up"
+        Fields      => ['id', 'sla_id'] # optional, returns all
+                                        # fields if not specified
+        SortBy      => $IdentifierSQL,
+        OrderBy     => "Down",  # possible: "Down", "Up",
+        ResultType  => $ResultType,
+        Limit       => 10
     );
 
 TO-DO: delete later
@@ -173,13 +180,13 @@ sub SQLObjectSearch {
         PARAM:
         for my $QueryParam ( sort keys %{ $Param{QueryParams} } ) {
 
-            my $QueryParamColumnName = $Fields->{$QueryParam}->{ColumnName};
-
             # check if there is existing mapping between query param and database column
             next PARAM if !$Fields->{$QueryParam};
 
             # do not accept undef values for param
             next PARAM if !defined $Param{QueryParams}->{$QueryParam};
+
+            my $QueryParamColumnName = $Fields->{$QueryParam}->{ColumnName};
 
             my $QueryParamType = $Fields->{$QueryParam}->{Type};
 
@@ -327,7 +334,6 @@ sub SearchFormat {
     for my $ObjectData ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
         ATTRIBUTE:
         for my $ObjectAttribute ( sort keys %{$ObjectData} ) {
-
             my @AttributeName
                 = grep { $Self->{Fields}->{$_}->{ColumnName} eq $ObjectAttribute } keys %{ $Self->{Fields} };
             next ATTRIBUTE if !$AttributeName[0];
@@ -431,9 +437,10 @@ sub ObjectListIDs {
     # search for all objects from newest, order it by id
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         QueryParams => {},
-        Fields      => $IdentifierSQL,
-        OrderBy     => "Down",
-        SortBy      => $IdentifierSQL,
+        Fields      => [$Identifier],
+        OrderBy     => $Param{OrderBy},
+        SortBy      => $Identifier,
+        ResultType  => $Param{ResultType},
     );
 
     my @Result = ();
@@ -450,11 +457,10 @@ sub ObjectListIDs {
 
 =head2 CustomFieldsConfig()
 
-get all registered custom field mapping for parent index module or specified in parameter index
+get all registered custom field mapping for parent index module
+or specified in parameter index
 
-    $Config = $SearchBaseObject->CustomFieldsConfig(
-        Index => $Index # Optional
-    );
+    $Config = $SearchBaseObject->CustomFieldsConfig();
 
 =cut
 
@@ -471,7 +477,9 @@ sub CustomFieldsConfig {
         );
     }
 
-    my $CustomPackageModuleConfigList = $ConfigObject->Get("Search::FieldsLoader::$Self->{Config}->{IndexName}");
+    my $CustomPackageModuleConfigList = $ConfigObject->Get(
+        "Search::FieldsLoader::$Self->{Config}->{IndexName}"
+    );
 
     my %CustomFieldsMapping = (
         Fields        => {},
@@ -577,7 +585,9 @@ sub DefaultConfigGet {
 
 check if result type is sort-able
 
-    my $Result = $SearchBaseObject->IsSortableResultType();
+    my $Result = $SearchBaseObject->IsSortableResultType(
+        ResultType => "ARRAY",
+    );
 
 =cut
 
@@ -593,6 +603,7 @@ load fields, custom field mapping
 
     my %FunctionResult = $SearchBaseObject->_Load(
         Fields => $Fields,
+        DefaultValues => $DefaultValues,
     );
 
 =cut

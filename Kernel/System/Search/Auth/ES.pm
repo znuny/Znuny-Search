@@ -17,11 +17,11 @@ our @ObjectDependencies = ();
 
 =head1 NAME
 
-Kernel::System::Search::Auth::ES - Elastic search engine auth related functions
+Kernel::System::Search::Auth::ES - search authorization lib
 
 =head1 DESCRIPTION
 
-Functions to authenticate
+Elastic search engine authorization related functions
 
 =head1 PUBLIC INTERFACE
 

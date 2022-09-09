@@ -25,11 +25,11 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Engine::ES - Functions engine related
+Kernel::System::Search::Engine::ES - elstic search engine lib
 
 =head1 SYNOPSIS
 
-TO-DO
+Functions engine related.
 
 =head1 PUBLIC INTERFACE
 
@@ -37,7 +37,7 @@ TO-DO
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $EngineESObject = $Kernel::OM->Get('Kernel::System::Search::Engine::ES');
+    my $SearchEngineESObject = $Kernel::OM->Get('Kernel::System::Search::Engine::ES');
 
 =cut
 
@@ -54,7 +54,7 @@ sub new {
 
 connect to specified search engine
 
-    my $ConnectObject = $EngineESObject->Connect(
+    my $ConnectObject = $SearchEngineESObject->Connect(
         Config => $Config,
     );
 
@@ -151,7 +151,7 @@ sub Connect {
 
 executes query for active engine with specified operation
 
-    my $Result = $EngineESObject->QueryExecute(
+    my $Result = $SearchEngineESObject->QueryExecute(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
         Index           => $Index,
@@ -206,7 +206,7 @@ sub QueryExecute {
 
 executes diagnosis query for engine
 
-    my $Result = $EngineESObject->DiagnosticDataGet(
+    my $Result = $SearchEngineESObject->DiagnosticDataGet(
         ConnectObject   => $ConnectObject,
     );
 
@@ -246,12 +246,17 @@ sub DiagnosticDataGet {
 
 =head2 CheckNodeConnection()
 
-    Check connection to node
+check connection to communication node
 
-    my $Result = $EngineESObject->CheckNodeConnection(
+    my $Result = $SearchEngineESObject->CheckNodeConnection(
         Protocol   => $Protocol,
         Host       => $Host,
-        ...
+        Port       => $Port,
+        Port       => $Port,
+        Path       => $Path,
+        Login      => $Login,
+        Password   => $Password,
+        Silent     => 1 # optional, possible: 0, 1
     );
 
 =cut
@@ -302,7 +307,7 @@ sub CheckNodeConnection {
 
 build user info string
 
-    my $UserInfo = $EngineESObject->UserInfoStrgBuild(
+    my $UserInfo = $SearchEngineESObject->UserInfoStrgBuild(
         Login    => 'admin',
         Password => 'admin'
     );
@@ -331,7 +336,7 @@ sub UserInfoStrgBuild {
 
 executes query for active engine with specified object "Search" operation
 
-    my $Result = $EngineESObject->_QueryExecuteSearch(
+    my $Result = $SearchEngineESObject->_QueryExecuteSearch(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
         Index           => $Index,
@@ -358,7 +363,7 @@ sub _QueryExecuteSearch {
 
 executes query for active engine with specified object "Add" operation
 
-    my $Result = $EngineESObject->_QueryExecuteObjectIndexAdd(
+    my $Result = $SearchEngineESObject->_QueryExecuteObjectIndexAdd(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
         ObjectID        => $ObjectID,
@@ -391,7 +396,7 @@ sub _QueryExecuteObjectIndexAdd {
 
 executes query for active engine with specified "IndexClear" operation
 
-    my $Result = $EngineESObject->_QueryExecuteIndexClear(
+    my $Result = $SearchEngineESObject->_QueryExecuteIndexClear(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
     );
@@ -423,7 +428,7 @@ sub _QueryExecuteIndexClear {
 
 executes query for active engine with specified "Update" operation
 
-    my $Result = $EngineESObject->_QueryExecuteObjectIndexUpdate(
+    my $Result = $SearchEngineESObject->_QueryExecuteObjectIndexUpdate(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
         ObjectID        => $ObjectID,
@@ -459,7 +464,7 @@ sub _QueryExecuteObjectIndexUpdate {
 
 executes query for active engine with specified "Remove" operation
 
-    my $Result = $EngineESObject->_QueryExecuteObjectIndexRemove(
+    my $Result = $SearchEngineESObject->_QueryExecuteObjectIndexRemove(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
         ObjectID        => $ObjectID,
@@ -489,7 +494,7 @@ sub _QueryExecuteObjectIndexRemove {
 
 executes query for active engine to set data mapping for specified index
 
-    my $Result = $EngineESObject->_QueryExecuteIndexMappingSet(
+    my $Result = $SearchEngineESObject->_QueryExecuteIndexMappingSet(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
     );
@@ -516,7 +521,7 @@ sub _QueryExecuteIndexMappingSet {
 
 executes query for active engine with mapping set operation
 
-    my $Result = $EngineESObject->_QueryExecuteIndexMappingGet(
+    my $Result = $SearchEngineESObject->_QueryExecuteIndexMappingGet(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
     );
