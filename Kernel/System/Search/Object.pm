@@ -64,9 +64,10 @@ sub new {
 
 fallback from using advanced search
 
-    my $Result = $SearchObject->Fallback(
+    my $Result = $SearchChildObject->Fallback(
         IndexName    => $IndexName,
-        QueryParams  => $QueryParams
+        QueryParams  => $QueryParams,
+        IndexCounter => 1,            # define which index in order is searched
     );
 
 =cut
@@ -132,7 +133,7 @@ sub Fallback {
 
 prepare query for active engine with specified operation
 
-    my $Result = $SearchObject->QueryPrepare(
+    my $Result = $SearchChildObject->QueryPrepare(
         Config          => $Config,
         MappingObject   => $MappingObject,
         Operation       => $Operation,
@@ -145,7 +146,7 @@ sub QueryPrepare {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    for my $Name (qw( Operation MappingObject Config )) {
+    for my $Name (qw( Config MappingObject Operation )) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -169,7 +170,7 @@ sub QueryPrepare {
 Check if specified index is valid -
 registration with module validity check.
 
-    my $IsValid = $SearchObject->IndexIsValid(
+    my $IsValid = $SearchChildObject->IndexIsValid(
         Name => "ticket",
         RealName => 1, # optional
     );
@@ -240,7 +241,7 @@ sub IndexIsValid {
 
 check result type, set 'ARRAY' by default
 
-    my $ResultType = $SearchObject->ValidResultType(
+    my $ResultType = $SearchChildObject->ValidResultType(
         SupportedResultTypes => $SupportedResultTypes,
         ResultType           => $ResultType,
     );
@@ -283,7 +284,7 @@ sub ValidResultType {
 
 prepares query for active engine with specified object "Search" operation
 
-    my $Result = $SearchObject->_QueryPrepareSearch(
+    my $Result = $SearchChildObject->_QueryPrepareSearch(
         MappingObject     => $MappingObject,
         Objects           => $Objects,
         QueryParams       => $QueryParams,
@@ -377,7 +378,7 @@ sub _QueryPrepareSearch {
 
 prepares query for active engine with specified object "Add" operation
 
-    my $Result = $SearchObject->_QueryPrepareObjectIndexAdd(
+    my $Result = $SearchChildObject->_QueryPrepareObjectIndexAdd(
         MappingObject   => $MappingObject,
         ObjectID        => $ObjectID,
         Index           => $Index,
@@ -427,7 +428,7 @@ sub _QueryPrepareObjectIndexAdd {
 
 prepares query for active engine with specified object "Update" operation
 
-    my $Result = $SearchObject->_QueryPrepareObjectIndexUpdate(
+    my $Result = $SearchChildObject->_QueryPrepareObjectIndexUpdate(
         MappingObject   => $MappingObject,
         ObjectID        => $ObjectID,
         Index           => $Index,
@@ -489,7 +490,7 @@ sub _QueryPrepareObjectIndexGet {
 
 prepare query for index object removal
 
-    my $Query = $SearchObject->_QueryPrepareObjectIndexRemove(
+    my $Query = $SearchChildObject->_QueryPrepareObjectIndexRemove(
         Index         => 'Ticket',
         ObjectID      => 1,
         MappingObject => $MappingObject,
@@ -539,7 +540,7 @@ sub _QueryPrepareObjectIndexRemove {
 
 loads/check module
 
-    my $Loaded = $SearchObject->_LoadModule(
+    my $Loaded = $SearchChildObject->_LoadModule(
         Module => 'Kernel::System::Search::Object::Query::SomeModuleName',
     );
 
@@ -573,7 +574,6 @@ sub _LoadModule {
         if ( !$Loaded ) {
 
             # TO-DO support not loaded object
-            # for now ignore them
             return;
         }
         else {
@@ -587,7 +587,7 @@ sub _LoadModule {
 
 prepares query for index clear operation
 
-    my $Result = $SearchObject->_QueryPrepareIndexClear(
+    my $Result = $SearchChildObject->_QueryPrepareIndexClear(
         MappingObject   => $MappingObject,
         Index           => $Index,
         Config          => $Config
@@ -634,7 +634,7 @@ sub _QueryPrepareIndexClear {
 
 prepares query for index mapping set operation
 
-    my $Result = $SearchObject->_QueryPrepareIndexMappingSet(
+    my $Result = $SearchChildObject->_QueryPrepareIndexMappingSet(
         MappingObject   => $MappingObject,
         Index           => $Index,
         Config          => $Config

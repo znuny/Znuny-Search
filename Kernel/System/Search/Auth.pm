@@ -20,11 +20,11 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Auth - Base search engine auth related functions
+Kernel::System::Search::Auth - search authorization lib
 
 =head1 DESCRIPTION
 
-Functions to authenticate
+Base search engine authorization related functions.
 
 =head1 PUBLIC INTERFACE
 
@@ -47,7 +47,7 @@ sub new {
 
 get authentication password for engine communication node
 
-    my $AuthData = $SearchAuthESObject->ClusterCommunicationNodeAuthPwd(
+    my $AuthData = $SearchAuthObject->ClusterCommunicationNodeAuthPwd(
         Login => $Login,
         Pw    => $Password,
     )
@@ -98,10 +98,11 @@ sub ClusterCommunicationNodeAuthPwd {
 
 set password to communication node
 
-    my $Result = $ClusterObject->_ClusterCommunicationNodeSetPassword(
-        NodeID        => 1,
+    my $Result = $SearchAuthObject->_ClusterCommunicationNodeSetPassword(
+        NodeID        => 1, # required
         Password      => 'admin',
         Login         => 'admin',
+        # or
         PasswordClear => 1 # possible "1", "0"
     );
 

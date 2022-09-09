@@ -8,8 +8,6 @@
 
 package Kernel::System::Search::Engine;
 
-use Search::Elasticsearch;
-
 use strict;
 use warnings;
 
@@ -19,11 +17,12 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Engine - Engine related functions
+Kernel::System::Search::Engine - search engine lib
 
 =head1 DESCRIPTION
 
-TO-DO
+This module should be used as a parent for specified engines
+in Kernel::System::Search::Engine::"EngineName" module.
 
 =head1 PUBLIC INTERFACE
 

@@ -23,17 +23,17 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Admin::Node - Cluster details elastic search backend functions
+Kernel::System::Search::Admin::Node - admin node view engine lib
 
 =head1 DESCRIPTION
 
-TO-DO
+Cluster node admin backend functions.
 
 =head1 PUBLIC INTERFACE
 
 =head2 new()
 
-    my $SearchAdminDetailsESObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Node');
+    my $SearchAdminNodeObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Node');
 
 =cut
 

@@ -113,7 +113,10 @@ sub Run {
 
         eval {
             EVAL_SCOPE: {
-                my $ObjectIDs = $Object->ObjectListIDs();
+                my $ObjectIDs = $Object->ObjectListIDs(
+                    OrderBy    => 'Down',
+                    ResultType => 'ARRAY'
+                );
 
                 last EVAL_SCOPE if !( IsArrayRefWithData($ObjectIDs) );
 

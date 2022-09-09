@@ -46,7 +46,7 @@ sub new {
 
 =head2 OperatorQueryBuild()
 
-build query for engine/fallback search call
+build query for engine/fallback search call using operator
 
     my $Result = $SearchBaseObject->OperatorQueryBuild(
         Field              => $Field,

@@ -19,6 +19,11 @@ our @ObjectDependencies = (
 
 Kernel::System::Search::Mapping - common mapping backend functions
 
+=head1 DESCRIPTION
+
+This module should be used as a parent for specified engines
+in Kernel::System::Search::Mapping::"EngineName" module.
+
 =head1 PUBLIC INTERFACE
 
 =head2 new()

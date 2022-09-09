@@ -44,7 +44,7 @@ sub Run {
 
     if ( $Self->{Subaction} eq 'Change' ) {
 
-        # check for ClusterID
+        # check for ClusterID param
         if ( !$ClusterID ) {
             return $LayoutObject->ErrorScreen(
                 Message => Translatable('Need ClusterID !'),
@@ -64,6 +64,7 @@ sub Run {
             );
         }
 
+        # show overview of an existing cluster
         return $Self->_ShowEdit(
             %Param,
             ClusterID   => $ClusterID,
@@ -75,7 +76,7 @@ sub Run {
 
         $LayoutObject->ChallengeTokenCheck();
 
-        my $GetParam = $Self->_GetBaseParams();
+        my $GetParam = $Self->_GetBaseClusterParams();
 
         if ( !$ClusterID ) {
             return $LayoutObject->ErrorScreen(
@@ -173,7 +174,7 @@ sub Run {
         my $ClusterData;
 
         # get parameter from web browser
-        my $GetParam = $Self->_GetBaseParams();
+        my $GetParam = $Self->_GetBaseClusterParams();
 
         # set new configuration
         $ClusterData->{Name}        = $GetParam->{Name};
@@ -683,7 +684,7 @@ sub Run {
         my $OverwriteExistingNodes = $ParamObject->GetParam( Param => 'OverwriteExistingNodes' ) || '';
         my $ClusterID              = $ParamObject->GetParam( Param => 'ClusterID' );
 
-        my $NodesImport = $SearchClusterObject->NodesImport(
+        my $NodesImport = $SearchClusterObject->ClusterCommunicationNodesImport(
             Content                => $UploadStuff{Content},
             OverwriteExistingNodes => $OverwriteExistingNodes,
             UserID                 => $Self->{UserID},
@@ -1215,7 +1216,7 @@ sub _ShowEdit {
     return $Output;
 }
 
-sub _GetBaseParams {
+sub _GetBaseClusterParams {
     my ( $Self, %Param ) = @_;
 
     my $GetParam;

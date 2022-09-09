@@ -22,11 +22,11 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Mapping::ES - TO-DO
+Kernel::System::Search::Mapping::ES - elastic search mapping lib
 
 =head1 DESCRIPTION
 
-TO-DO
+Functions to map parameters from/to query/response to API functions.
 
 =head1 PUBLIC INTERFACE
 
@@ -34,7 +34,7 @@ TO-DO
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $MappingESObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
+    my $SearchMappingESObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
 
 =cut
 
@@ -51,7 +51,7 @@ sub new {
 
 globally formats result of specified engine
 
-    my $FormatResult = $MappingESObject->ResultFormat(
+    my $FormatResult = $SearchMappingESObject->ResultFormat(
         Result      => $ResponseResult,
         Config      => $Config,
         IndexName   => $IndexName,
@@ -104,7 +104,7 @@ sub ResultFormat {
 
 process query data to structure that will be used to execute query
 
-    my $Result = $MappingESObject->Search(
+    my $Result = $SearchMappingESObject->Search(
         QueryParams   => $QueryParams,
     );
 
@@ -159,9 +159,8 @@ sub Search {
     }
 
     # TO-DO start sort:
-    # integers and datetimes won't work
-    # as there is no mapping (defined data types) yet
-    # for now text type fields sorting works
+    # datetimes won't work
+    # for now text/integer type fields sorting works
 
     # set sorting field
     if ( $Param{SortBy} ) {
@@ -170,9 +169,16 @@ sub Search {
         my $OrderBy     = $Param{OrderBy} || "Up";
         my $OrderByStrg = $OrderBy eq 'Up' ? 'asc' : 'desc';
 
-        $Query{sort}->[0]->{ $Param{SortBy}->{ColumnName} . ".keyword" } = {
-            order => $OrderByStrg,
-        };
+        if ( $Param{SortBy}->{Type} && $Param{SortBy}->{Type} eq 'Integer' ) {
+            $Query{sort}->[0]->{ $Param{SortBy}->{ColumnName} } = {
+                order => $OrderByStrg,
+            };
+        }
+        else {
+            $Query{sort}->[0]->{ $Param{SortBy}->{ColumnName} . ".keyword" } = {
+                order => $OrderByStrg,
+            };
+        }
     }
 
     # TO-DO end: sort
@@ -188,7 +194,7 @@ sub Search {
 
 process query data to structure that will be used to execute query
 
-    my $Result = $MappingESObject->ObjectIndexAdd(
+    my $Result = $SearchMappingESObject->ObjectIndexAdd(
         Config   => $Config,
         Index    => $Index,
         ObjectID => $ObjectID,
@@ -246,7 +252,7 @@ sub ObjectIndexAdd {
 
 process query data to structure that will be used to execute query
 
-    my $Result = $MappingESObject->ObjectIndexUpdate(
+    my $Result = $SearchMappingESObject->ObjectIndexUpdate(
         Config   => $Config,
         Index    => $Index,
         ObjectID => $ObjectID,
@@ -298,7 +304,7 @@ sub ObjectIndexGet {
 
 process query data to structure that will be used to execute query
 
-    my $Result = $MappingESObject->ObjectIndexRemove(
+    my $Result = $SearchMappingESObject->ObjectIndexRemove(
         Config   => $Config,
         Index    => $Index,
         ObjectID => $ObjectID,
@@ -335,6 +341,11 @@ sub ObjectIndexRemove {
 =head2 ResponseDataFormat()
 
 globally formats response data from engine
+
+    my $Result = $SearchMappingESObject->ResponseDataFormat(
+        Hits => $Hits,
+        QueryData => $QueryData,
+    );
 
 =cut
 
@@ -373,7 +384,7 @@ sub ResponseDataFormat {
 
 returns query for engine to clear whole index from objects
 
-    my $Result = $MappingESObject->IndexClear(
+    my $Result = $SearchMappingESObject->IndexClear(
         Index => $Index,
     );
 
@@ -400,7 +411,7 @@ sub IndexClear {
 
 returns formatted response for diagnose of search engine
 
-    my $Result = $MappingESObject->DiagnosticFormat(
+    my $Result = $SearchMappingESObject->DiagnosticFormat(
         Result => $Result
     );
 
@@ -469,7 +480,7 @@ sub DiagnosticFormat {
 
 returns query for engine mapping data types
 
-    my $Result = $MappingESObject->IndexMappingSet(
+    my $Result = $SearchMappingESObject->IndexMappingSet(
         Index => $Index,
     );
 
@@ -538,9 +549,9 @@ sub IndexMappingSet {
 
 =head2 IndexMappingResultFormat()
 
-returns formatted result from engine
+format mapping result from engine
 
-    my $Result = $MappingESObject->IndexMappingResultFormat(
+    my $Result = $SearchMappingESObject->IndexMappingResultFormat(
         Result => $Result,
     );
 

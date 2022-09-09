@@ -27,7 +27,9 @@ Kernel::System::Search - Search backend functions
 
 =head1 DESCRIPTION
 
-TO-DO
+Search API that allows for operating on specified engine or fallback.
+Can search, add, get, update, delete indexes that are representation
+of sql database in separate engine.
 
 =head1 PUBLIC INTERFACE
 
@@ -104,16 +106,32 @@ sub new {
 search for specified object data
 
     my $TicketSearch = $SearchObject->Search(
-        Objects => ["Ticket", "TicketHistory"],
-        QueryParams => {
+        Objects => ["Ticket", "TicketHistory"], # always pass an array of objects
+        QueryParams => { # possible query parameters (fields) can be seen
+                         # for each objects in
+                         # Kernel::System::Search::Object::"ObjectName" module
             SLAID => 2,
             Title => 'New Title!',
             TicketID => 1,
             TicketHistoryID => 2, # this property does not exists inside index "Ticket"
                                   # and will not be applied for it as search param
+
+            # operators can be used to define even more detailed search to use
+            # on fields, but remember that not all operators can be used in all field
+            # types - the default rules are specified in the module
+            # Kernel::System::Search::Object::Base->DefaultConfigGet()
+            # every field type can be seen in
+            # Kernel::System::Search::Object::"ObjectName" module
+            LockID => {
+                Operator => 'IS NOT DEFINED'
+            },
+            StateID => {
+                Operator => '>',
+                Value => 2,
+            }
         },
         ResultType => $ResultType, # optional, default: 'ARRAY', possible: ARRAY,HASH,COUNT or more if extended,
-        SortBy => ['TicketID', 'TicketHistoryID'],
+        SortBy => ['TicketID', 'TicketHistoryID'], # possible: any object field
         OrderBy => ['Down', 'Up'], # optional, possible: Down,Up
                                    # - for multiple objects: ['Down', 'Up']
                                    # - for all objects specified in "Objects" param: 'Down'
@@ -134,6 +152,26 @@ search for specified object data
         QueryParams => {
             TicketID => 2,
         },
+    );
+
+    # more complex call
+    my $Search = $SearchObject->Search(
+        Objects => ["Ticket", "TicketHistory"],
+        QueryParams => {
+            TicketID => 2,
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+            TicketHistoryID => {
+                Operator => '>=', Value => 1000,
+            },
+        },
+
+        ResultType => "ARRAY",
+        SortBy => ['TicketID', 'TicketHistoryID'],
+        OrderBy => ['Down', 'Up'],
+        Limit => ['', 10],
+        Fields => [["TicketID", "SLAID"],["TicketHistoryID", "Name"]],
     );
 
 =cut
@@ -210,6 +248,8 @@ sub Search {
 
         next QUERY if !$ResultQuery;
 
+        # some object queries might fail
+        # on those objects fallback will be used
         if ( $ResultQuery->{Fallback}->{Enable} ) {
             push @FailedIndexQuery, $Query->{Object};
         }
@@ -232,6 +272,8 @@ sub Search {
         }
     }
 
+    # use fallback on engine failed queries
+    # and merge from not failed queries response
     if ( scalar @FailedIndexQuery > 0 ) {
         my $FallbackResult = $Self->Fallback(
             %{$Params},
@@ -494,15 +536,14 @@ sub IndexInit {
     for my $Needed (qw(Index)) {
 
         next NEEDED if defined $Param{$Needed};
-
         $LogObject->Log(
             Priority => 'error',
             Message  => "Parameter '$Needed' is needed!",
         );
-
         return;
     }
 
+    # set mapping
     my $Success = $Self->IndexMappingSet(
         Index => $Param{Index}
     );
@@ -542,7 +583,6 @@ sub IndexMappingSet {
     for my $Needed (qw(Index)) {
 
         next NEEDED if defined $Param{$Needed};
-
         $LogObject->Log(
             Priority => 'error',
             Message  => "Parameter '$Needed' is needed!",
@@ -608,7 +648,6 @@ sub IndexMappingGet {
     for my $Needed (qw(Index)) {
 
         next NEEDED if defined $Param{$Needed};
-
         $LogObject->Log(
             Priority => 'error',
             Message  => "Parameter '$Needed' is needed!",
@@ -831,7 +870,6 @@ sub Fallback {
     for my $Needed (qw(Objects QueryParams)) {
 
         next NEEDED if defined $Param{$Needed};
-
         $LogObject->Log(
             Priority => 'error',
             Message  => "Parameter '$Needed' is needed!",
@@ -885,7 +923,7 @@ sub Fallback {
 
 globally standardize search params
 
-    $SearchObject->SearchParamsStandardize(
+    my $Success = $SearchObject->SearchParamsStandardize(
         %Param,
     );
 
@@ -914,7 +952,7 @@ sub SearchParamsStandardize {
 
 =head2 EngineListGet()
 
-get list of valid engines from XML
+get list of valid engines from system configuration
 
     my $Result = $SearchObject->EngineListGet();
 
@@ -954,8 +992,8 @@ sub _ResultFormat {
 
     NEEDED:
     for my $Needed (qw(Operation Result Config IndexName)) {
-        next NEEDED if $Param{$Needed};
 
+        next NEEDED if $Param{$Needed};
         $LogObject->Log(
             Priority => 'error',
             Message  => "Missing param: $Needed",
