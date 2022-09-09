@@ -35,7 +35,7 @@ Functions index related.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
 =cut
 

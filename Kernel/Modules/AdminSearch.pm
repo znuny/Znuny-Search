@@ -33,15 +33,14 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
-    my $ParamObject = $Kernel::OM->Get('Kernel::System::Web::Request');
-
-    my $ClusterID = $ParamObject->GetParam( Param => 'ClusterID' ) || '';
-
     my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
     my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
     my $LogObject           = $Kernel::OM->Get('Kernel::System::Log');
     my $ValidObject         = $Kernel::OM->Get('Kernel::System::Valid');
     my $JSONObject          = $Kernel::OM->Get('Kernel::System::JSON');
+    my $ParamObject         = $Kernel::OM->Get('Kernel::System::Web::Request');
+
+    my $ClusterID = $ParamObject->GetParam( Param => 'ClusterID' ) || '';
 
     if ( $Self->{Subaction} eq 'Change' ) {
 
@@ -86,7 +85,7 @@ sub Run {
 
         my %ClusterData;
 
-        for my $Property (qw(Name RemoteSystem ValidID Description EngineID)) {
+        for my $Property (qw(Name ValidID Description EngineID)) {
             $ClusterData{$Property} = $GetParam->{$Property};
         }
 
@@ -107,20 +106,6 @@ sub Run {
                 ID   => $ClusterID,
                 Name => $ClusterData{Name},
             );
-        }
-
-        if ( !$ClusterData{RemoteSystem} ) {
-
-            # add server error error class
-            $Error{RemoteSystemError}   = 'ServerError';
-            $Error{RemoteSystemMessage} = Translatable('This field is required.');
-        }
-
-        if ( !$ClusterData{RemoteSystem} ) {
-
-            # add server error error class
-            $Error{EngineIDError}   = 'ServerError';
-            $Error{EngineIDMessage} = Translatable('This field is required.');
         }
 
         if ($Exists)
@@ -160,7 +145,7 @@ sub Run {
             )
         {
 
-            # if the user would like to continue editing the ACL, just redirect to the edit screen
+            # if the user would like to continue editing the cluster, just redirect to the edit screen
             return $LayoutObject->Redirect(
                 OP =>
                     "Action=AdminSearch;Subaction=Change;ClusterID=$ClusterID"
@@ -191,11 +176,10 @@ sub Run {
         my $GetParam = $Self->_GetBaseParams();
 
         # set new configuration
-        $ClusterData->{Name}         = $GetParam->{Name};
-        $ClusterData->{Description}  = $GetParam->{Description};
-        $ClusterData->{RemoteSystem} = $GetParam->{RemoteSystem};
-        $ClusterData->{EngineID}     = $GetParam->{EngineID};
-        $ClusterData->{ValidID}      = $GetParam->{ValidID};
+        $ClusterData->{Name}        = $GetParam->{Name};
+        $ClusterData->{Description} = $GetParam->{Description};
+        $ClusterData->{EngineID}    = $GetParam->{EngineID};
+        $ClusterData->{ValidID}     = $GetParam->{ValidID};
 
         my %Error;
         my $Exists;
@@ -212,13 +196,6 @@ sub Run {
                 ID   => $ClusterID,
                 Name => $GetParam->{Name},
             );
-        }
-
-        if ( !$GetParam->{RemoteSystem} ) {
-
-            # add server error error class
-            $Error{RemoteSystemError}        = 'ServerError';
-            $Error{RemoteSystemErrorMessage} = Translatable('This field is required.');
         }
 
         if ( !$GetParam->{EngineID} ) {
@@ -250,12 +227,11 @@ sub Run {
 
         # otherwise save configuration and return to overview screen
         my $ID = $SearchClusterObject->ClusterAdd(
-            Name         => $ClusterData->{Name},
-            RemoteSystem => $ClusterData->{RemoteSystem},
-            ValidID      => $ClusterData->{ValidID},
-            Description  => $ClusterData->{Description},
-            EngineID     => $ClusterData->{EngineID},
-            UserID       => $Self->{UserID},
+            Name        => $ClusterData->{Name},
+            ValidID     => $ClusterData->{ValidID},
+            Description => $ClusterData->{Description},
+            EngineID    => $ClusterData->{EngineID},
+            UserID      => $Self->{UserID},
         );
 
         # show error if cant create
@@ -323,6 +299,442 @@ sub Run {
         );
 
     }
+    elsif ( $Self->{Subaction} eq 'NodeAdd' ) {
+        return $Self->_ShowNodeSection(
+            ClusterID => $ClusterID,
+            Action    => 'NodeAdd',
+        );
+    }
+
+    elsif ( $Self->{Subaction} eq 'NodeAddAction' ) {
+
+        my $Result = $Self->_NodeBaseOperationAction(
+            %Param,
+            ClusterID => $ClusterID,
+        );
+
+        my $Error    = $Result->{Error};
+        my $GetParam = $Result->{GetParam};
+
+        # if there is an error return to add communication node screen
+        if ( IsHashRefWithData($Error) ) {
+            return $Self->_ShowNodeSection(
+                %{$Error},
+                %Param,
+                %{$GetParam},
+                ClusterID => $ClusterID,
+                Action    => 'NodeAdd',
+            );
+        }
+
+        my $NodeID = $SearchClusterObject->ClusterCommunicationNodeAdd(
+            ClusterID => $ClusterID,
+            UserID    => $Self->{UserID},
+            Password  => $GetParam->{Password},
+            Login     => $GetParam->{Login},
+            %{$GetParam},
+        );
+
+        if ( !$NodeID ) {
+
+            # add server error error class
+            $Error->{OperationError}        = 'ServerError';
+            $Error->{OperationErrorMessage} = Translatable("Can't add node. Check logs or contact with support.");
+            return $Self->_ShowNodeSection(
+                %{$Error},
+                %{$GetParam},
+                ClusterID => $ClusterID,
+                Action    => 'NodeAdd',
+            );
+        }
+
+        return $Self->_ShowEdit(
+            ClusterID => $ClusterID,
+            Action    => 'Change',
+        );
+
+    }
+
+    elsif ( $Self->{Subaction} eq 'NodeChange' ) {
+
+        my $NodeID = $ParamObject->GetParam( Param => 'NodeID' ) || '';
+
+        if ( !$ClusterID && !$NodeID ) {
+            return $LayoutObject->ErrorScreen(
+                Message => Translatable('Need ClusterID !'),
+            );
+        }
+        return $Self->_ShowNodeSection(
+            %Param,
+            ClusterID => $ClusterID,
+            NodeID    => $NodeID,
+            Action    => 'NodeChange'
+        );
+    }
+
+    elsif ( $Self->{Subaction} eq 'NodeChangeAction' ) {
+
+        my $NodeID = $ParamObject->GetParam( Param => 'NodeID' ) || '';
+
+        my $Result = $Self->_NodeBaseOperationAction(
+            %Param,
+            NodeID    => $NodeID,
+            ClusterID => $ClusterID,
+        );
+
+        my $Error    = $Result->{Error};
+        my $GetParam = $Result->{GetParam};
+
+        # if there is an error return to add/edit communication node screen
+        if ( IsHashRefWithData($Error) ) {
+            return $Self->_ShowNodeSection(
+                %{$Error},
+                %Param,
+                %{$GetParam},
+                ClusterID => $ClusterID,
+                Action    => 'NodeChange',
+            );
+        }
+
+        my $Success = $SearchClusterObject->ClusterCommunicationNodeUpdate(
+            %{$GetParam},
+            ClusterID     => $ClusterID,
+            UserID        => $Self->{UserID},
+            PasswordClear => $GetParam->{AuthRequired} ? 0 : 1,
+        );
+
+        if ( !$Success ) {
+
+            # add server error error class
+            $Error->{AddingError}        = 'ServerError';
+            $Error->{AddingErrorMessage} = Translatable("Can't update node. Check logs or contact with support.");
+            return $Self->_ShowNodeSection(
+                %{$Error},
+                %{$GetParam},
+                ClusterID => $ClusterID,
+                Action    => 'NodeChange',
+            );
+        }
+
+        if (
+            defined $ParamObject->GetParam( Param => 'ContinueAfterSave' )
+            && ( $ParamObject->GetParam( Param => 'ContinueAfterSave' ) eq '1' )
+            )
+        {
+            return $Self->_ShowNodeSection(
+                NodeID => $NodeID,
+                %{$GetParam},
+                ClusterID => $ClusterID,
+                Action    => 'NodeChange'
+            );
+        }
+        else {
+
+            return $Self->_ShowEdit(
+                ClusterID => $ClusterID,
+                Action    => 'Change',
+            );
+        }
+
+    }
+    elsif ( $Self->{Subaction} eq 'NodeCopyAction' ) {
+        my $ParamObject = $Kernel::OM->Get('Kernel::System::Web::Request');
+        my $NodeID      = $ParamObject->GetParam( Param => 'NodeID' );
+
+        if ( !$NodeID ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need NodeID!",
+            );
+            return;
+        }
+
+        my $NodeData = $SearchClusterObject->ClusterCommunicationNodeGet(
+            NodeID => $NodeID,
+        );
+
+        # Create new node name.
+        my $Count    = 1;
+        my $NodeName = $LayoutObject->{LanguageObject}->Translate( '%s (copy) %s', $NodeData->{Name}, $Count );
+
+        while (
+            IsHashRefWithData(
+                $SearchClusterObject->ClusterCommunicationNodeGet(
+                    Name      => $NodeName,
+                    ClusterID => $NodeData->{ClusterID}
+                )
+            )
+            && $Count < 100
+            )
+        {
+            $NodeName =~ s/\d+$/$Count/;
+            $Count++;
+        }
+
+        my $ClusterData = $SearchClusterObject->ClusterGet(
+            ClusterID => $NodeData->{ClusterID}
+        );
+
+        $NodeData->{Name} = $NodeName;
+
+        my $Result = $SearchClusterObject->ClusterCommunicationNodeAdd(
+            %{$NodeData},
+            UserID => $Self->{UserID}
+        );
+        if ( !$Result ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Error: Can't add copy of node!",
+            );
+
+            return $Self->_ShowEdit(
+                %Param,
+                ClusterID => $NodeData->{ClusterID},
+                Action    => 'Change',
+                Notify    => "Error while copying node!"
+            );
+        }
+
+        return $Self->_ShowEdit(
+            %Param,
+            ClusterID => $NodeData->{ClusterID},
+            Action    => 'Change',
+        );
+    }
+    elsif ( $Self->{Subaction} eq 'NodeDeleteAction' ) {
+
+        # challenge token check for write action
+        $LayoutObject->ChallengeTokenCheck();
+
+        my $ParamObject = $Kernel::OM->Get('Kernel::System::Web::Request');
+        my $NodeID      = $ParamObject->GetParam( Param => 'NodeID' );
+
+        if ( !$NodeID ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need NodeID!",
+            );
+            return;
+        }
+
+        my $Success = $SearchClusterObject->ClusterCommunicationNodeRemove(
+            NodeID => $NodeID,
+            UserID => $Self->{UserID},
+        );
+
+        # build JSON output
+        my $JSON = $LayoutObject->JSONEncode(
+            Data => {
+                Success => $Success,
+            },
+        );
+
+        # send JSON response
+        return $LayoutObject->Attachment(
+            ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
+            Content     => $JSON,
+            Type        => 'inline',
+            NoCache     => 1,
+        );
+    }
+    if ( $Self->{Subaction} eq 'TestNodeConnection' ) {
+
+        my $ParamObject  = $Kernel::OM->Get('Kernel::System::Web::Request');
+        my $EngineObject = $Kernel::OM->Get("Kernel::System::Search::Engine::ES");
+        my %GetParam;
+
+        for my $ParamName (
+            qw(AuthRequired NodeID NodeFullPath Protocol Host Port Path Login Password )
+            )
+        {
+            $GetParam{$ParamName} = $ParamObject->GetParam( Param => $ParamName ) || '';
+        }
+
+        # when auth is enabled
+        # set password
+        # empty password means stored in db password if node exists
+        my $Password;
+        my $AuthRequired = $GetParam{AuthRequired};
+        if ( $AuthRequired && !$GetParam{Password} && $GetParam{NodeID} ) {
+            my $ClusterCommunicationNode = $SearchClusterObject->ClusterCommunicationNodeGet(
+                NodeID => $GetParam{NodeID},
+            );
+
+            $Password = $ClusterCommunicationNode->{Password} // '';
+        }
+        else {
+            $Password = $GetParam{Password};
+        }
+
+        my $Connection = $EngineObject->CheckNodeConnection(
+            %GetParam,
+            Password => $Password,
+        );
+
+        return $LayoutObject->Attachment(
+            ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
+            Content     => $Connection ? '{"Connected":1}' : '{"Connected":0}',
+            Type        => 'inline',
+            NoCache     => 1,
+        );
+    }
+    elsif ( $Self->{Subaction} eq 'ClusterNodeExport' ) {
+
+        my $ParamObject = $Kernel::OM->Get('Kernel::System::Web::Request');
+        my $YAMLObject  = $Kernel::OM->Get('Kernel::System::YAML');
+
+        my $NodeID    = $ParamObject->GetParam( Param => 'NodeID' );
+        my $ClusterID = $ParamObject->GetParam( Param => 'ClusterID' );
+        my $Filename;
+        my $DataToExport;
+
+        if ( !$ClusterID && !$NodeID ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need NodeID or ClusterID!",
+            );
+            return;
+        }
+        elsif ($ClusterID) {
+            $DataToExport = $SearchClusterObject->ClusterCommunicationNodeList(
+                ClusterID => $ClusterID
+            );
+
+            my $ClusterData = $SearchClusterObject->ClusterGet(
+                ClusterID => $ClusterID
+            );
+
+            $Filename = "Export_Cluster_$ClusterData->{Name}_Nodes.yml";
+
+            if ( !IsArrayRefWithData($DataToExport) ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "No nodes for this cluster.",
+                );
+                return;
+            }
+
+            for my $Node ( @{$DataToExport} ) {
+                delete $Node->{ClusterID};
+                delete $Node->{NodeID};
+                delete $Node->{Password};
+            }
+        }
+        else {
+            my $CommunicationNodeData = $SearchClusterObject->ClusterCommunicationNodeGet(
+                NodeID => $NodeID,
+            );
+
+            my $ClusterData = $SearchClusterObject->ClusterGet(
+                ClusterID => $CommunicationNodeData->{ClusterID},
+            );
+
+            if ( !IsHashRefWithData($CommunicationNodeData) ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "No node with given ID.",
+                );
+                return;
+            }
+
+            if ( !IsHashRefWithData($ClusterData) ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "No cluster with given ID.",
+                );
+                return;
+            }
+
+            my $ClusterName = $ClusterData->{Name};
+
+            $Filename = "Export_Cluster_$ClusterData->{Name}_Node_$CommunicationNodeData->{Name}.yml";
+
+            delete $CommunicationNodeData->{ClusterID};
+            delete $CommunicationNodeData->{NodeID};
+            delete $CommunicationNodeData->{Password};
+
+            $DataToExport = [
+                $CommunicationNodeData,
+            ];
+        }
+
+        my $NodesDataYAML = $YAMLObject->Dump( Data => $DataToExport );
+
+        # send the result to the browser
+        return $LayoutObject->Attachment(
+            ContentType => 'text/html; charset=' . $LayoutObject->{Charset},
+            Content     => $NodesDataYAML,
+            Type        => 'attachment',
+            Filename    => $Filename,
+            NoCache     => 1,
+        );
+
+    }
+    if ( $Self->{Subaction} eq 'ClusterNodeImport' ) {
+
+        # challenge token check for write action
+        $LayoutObject->ChallengeTokenCheck();
+
+        my %UploadStuff = $ParamObject->GetUploadAll(
+            Param  => 'FileUpload',
+            Source => 'string',
+        );
+
+        my $OverwriteExistingNodes = $ParamObject->GetParam( Param => 'OverwriteExistingNodes' ) || '';
+        my $ClusterID              = $ParamObject->GetParam( Param => 'ClusterID' );
+
+        my $NodesImport = $SearchClusterObject->NodesImport(
+            Content                => $UploadStuff{Content},
+            OverwriteExistingNodes => $OverwriteExistingNodes,
+            UserID                 => $Self->{UserID},
+            ClusterID              => $ClusterID,
+        );
+
+        if ( !$NodesImport->{Success} ) {
+            return $Self->_ShowEdit(
+                %Param,
+                ClusterID => $ClusterID,
+                Action    => 'Change',
+                Notify    => $NodesImport->{Message},
+            );
+        }
+
+        if ( $NodesImport->{AddedNodes} ) {
+            my $Info = $LayoutObject->{LanguageObject}->Translate(
+                'The following nodes have been added successfully: %s',
+                $NodesImport->{AddedNodes}
+            );
+            push @{ $Param{Notify} }, {
+                Info => $Info
+            };
+        }
+        if ( $NodesImport->{UpdatedNodes} ) {
+            my $Info = $LayoutObject->{LanguageObject}->Translate(
+                'The following nodes have been updated successfully: %s',
+                $NodesImport->{UpdatedNodes}
+            );
+            push @{ $Param{Notify} }, {
+                Info => $Info,
+            };
+        }
+        if ( $NodesImport->{NodesErrors} ) {
+            my $Info = $LayoutObject->{LanguageObject}->Translate(
+                'There where errors adding/updating the following nodes: %s. Please check the log file for more information.',
+                $NodesImport->{NodesErrors}
+            );
+            push @{ $Param{Notify} }, {
+                Priority => 'Error',
+                Info     => $Info,
+            };
+        }
+
+        return $Self->_ShowEdit(
+            %Param,
+            ClusterID => $ClusterID,
+            Action    => 'Change',
+        );
+
+    }
 
     my $DeletedCluster = $ParamObject->GetParam( Param => 'DeletedCluster' ) || '';
 
@@ -353,8 +765,15 @@ sub _ShowOverview {
     my $LogObject           = $Kernel::OM->Get('Kernel::System::Log');
     my $ConfigObject        = $Kernel::OM->Get('Kernel::Config');
     my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
-    my $SearchObject        = $Kernel::OM->Get('Kernel::System::Search');
     my $MainObject          = $Kernel::OM->Get('Kernel::System::Main');
+
+    $Kernel::OM->ObjectParamAdd(
+        'Kernel::System::Search' => {
+            Silent => 1,
+        },
+    );
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
     my $Output = $LayoutObject->Header();
     $Output .= $LayoutObject->NavigationBar();
@@ -408,21 +827,6 @@ sub _ShowOverview {
                 ValidID => $Cluster->{ValidID},
             );
 
-            if ( !$Cluster->{RemoteSystem} ) {
-
-                # write an error message to the OTRS log
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Configuration of ClusterID $ClusterID is invalid!",
-                );
-
-                $Output .= $LayoutObject->Notify(
-                    Priority => 'Error',
-                );
-
-                next CLUSTER;
-            }
-
             # Engine isn't in the configuration
             if ( !$Self->{Engines}->{ $Cluster->{EngineID} } ) {
                 $Self->{Engines}->{ $Cluster->{EngineID} } = 'Unregistered';
@@ -430,12 +834,11 @@ sub _ShowOverview {
 
             # prepare data to output
             my $Data = {
-                ID           => $ClusterID,
-                Name         => $Cluster->{Name},
-                Description  => $Cluster->{Description} || '-',
-                RemoteSystem => $Cluster->{RemoteSystem} || '-',
-                Engine       => $Self->{Engines}->{ $Cluster->{EngineID} },
-                Valid        => $ValidStrg,
+                ID          => $ClusterID,
+                Name        => $Cluster->{Name},
+                Description => $Cluster->{Description} || '-',
+                Engine      => $Self->{Engines}->{ $Cluster->{EngineID} },
+                Valid       => $ValidStrg,
             };
 
             $LayoutObject->Block(
@@ -447,16 +850,13 @@ sub _ShowOverview {
 
     my $ConnectObject;
 
-    $Kernel::OM->ObjectsDiscard(
-        Objects => ['Kernel::System::Search'],
-    );
-
-    $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
-
     my $ActiveClusterConfig = $SearchClusterObject->ActiveClusterGet();
 
     if ( $SearchObject->{EngineObject} ) {
-        $ConnectObject = $SearchObject->{EngineObject}->Connect( Config => $SearchObject->{Config} );
+        $ConnectObject = $SearchObject->{EngineObject}->Connect(
+            Config => $SearchObject->{Config},
+            Silent => 1,
+        );
     }
     elsif ( $SearchObject->{Config}->{ActiveEngine} ) {
         my $Loaded = $MainObject->Require(
@@ -464,9 +864,13 @@ sub _ShowOverview {
             Silent => $Param{Silent},
         );
         if ($Loaded) {
-            my $EngineObject
-                = $Kernel::OM->Get("Kernel::System::Search::Engine::$SearchObject->{Config}->{ActiveEngine}");
-            $ConnectObject = $EngineObject->Connect( Config => $SearchObject->{Config} );
+            my $EngineObject = $Kernel::OM->Get(
+                "Kernel::System::Search::Engine::$SearchObject->{Config}->{ActiveEngine}"
+            );
+            $ConnectObject = $EngineObject->Connect(
+                Config => $SearchObject->{Config},
+                Silent => 1,
+            );
         }
         else {
             $ConnectObject->{Error} = 1;
@@ -509,20 +913,68 @@ sub _ShowOverview {
     return $Output;
 }
 
+sub _ShowNodeSection {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
+    my $LogObject           = $Kernel::OM->Get('Kernel::System::Log');
+    my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
+
+    my $Cluster = $SearchClusterObject->ClusterGet(
+        ClusterID => $Param{ClusterID},
+    );
+
+    if ( !IsHashRefWithData($Cluster) ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Couldn't find cluster data!"
+        );
+        $LayoutObject->FatalError();
+    }
+
+    my $CommunicationNodeObject = $Kernel::OM->Get(
+        "Kernel::System::Search::Admin::Node::$Cluster->{EngineID}"
+    );
+
+    my $NodeAddViev = $CommunicationNodeObject->BuildNodeSection(
+        %Param,
+        ClusterID => $Param{ClusterID},
+        UserID    => $Self->{UserID},
+        NodeID    => $Param{NodeID},
+        EngineID  => $Cluster->{EngineID},
+        Action    => $Param{Action},
+    );
+
+    return $NodeAddViev;
+}
+
 sub _ShowEdit {
     my ( $Self, %Param ) = @_;
 
-    my $ClusterData = $Param{ClusterData};
-
     my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
     my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
-    my $SearchObject        = $Kernel::OM->Get('Kernel::System::Search');
+    my $ValidObject         = $Kernel::OM->Get('Kernel::System::Valid');
+
+    $Kernel::OM->ObjectParamAdd(
+        'Kernel::System::Search' => {
+            Silent => 1,
+        },
+    );
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
     my $Output = $LayoutObject->Header();
     $Output .= $LayoutObject->NavigationBar();
 
     # show notifications if any
-    if ( $Param{Notify} ) {
+    if ( IsArrayRefWithData( $Param{Notify} ) ) {
+        for my $Notification ( @{ $Param{Notify} } ) {
+            $Output .= $LayoutObject->Notify(
+                %{$Notification},
+            );
+        }
+    }
+    elsif ( $Param{Notify} ) {
         $Output .= $LayoutObject->Notify(
             Info => $Param{Notify},
         );
@@ -533,24 +985,56 @@ sub _ShowEdit {
         Data => \%Param,
     );
 
-    $LayoutObject->Block( Name => 'ActionList' );
     $LayoutObject->Block( Name => 'ActionOverview' );
 
+    my $CommunicationNodeList;
+    my $ClusterData;
+
     if ( $Param{Action} eq 'Change' ) {
+        $CommunicationNodeList = $SearchClusterObject->ClusterCommunicationNodeList(
+            ClusterID => $Param{ClusterID}
+        ) // [];
+
+        $LayoutObject->Block(
+            Name => 'ActionList',
+            Data => {
+                CommunicationNodes => $CommunicationNodeList,
+                ClusterID          => $Param{ClusterID}
+            }
+        );
+
+        $LayoutObject->Block(
+            Name => 'ActionAddCommunicationNode',
+            Data => {
+                %Param,
+            },
+        );
+
+        if ( IsArrayRefWithData($CommunicationNodeList) ) {
+            $LayoutObject->Block(
+                Name => 'ActionExportCommunicationNodes',
+                Data => {
+                    ClusterID => $Param{ClusterID},
+                },
+            );
+        }
         $LayoutObject->Block(
             Name => 'ActionDelete',
             Data => \%Param,
         );
+
+        # get cluster configuration
+        $ClusterData = $SearchClusterObject->ClusterGet(
+            ClusterID => $Param{ClusterID},
+        );
     }
 
     my %GeneralData = (
-        Name         => $ClusterData->{Name},
-        Description  => $ClusterData->{Description},
-        RemoteSystem => $ClusterData->{RemoteSystem},
+        Name        => $ClusterData->{Name},
+        Description => $ClusterData->{Description},
     );
 
-    my $ValidObject = $Kernel::OM->Get('Kernel::System::Valid');
-    my %ValidList   = $ValidObject->ValidList();
+    my %ValidList = $ValidObject->ValidList();
 
     # create the validity select
     my $ValidtyStrg = $LayoutObject->BuildSelection(
@@ -582,26 +1066,73 @@ sub _ShowEdit {
         Data => {
             %Param,
             %GeneralData,
-            ValidtyStrg => $ValidtyStrg,
-            EngineStrg  => $EngineStrg,
+            ValidtyStrg        => $ValidtyStrg,
+            EngineStrg         => $EngineStrg,
+            CommunicationNodes => $CommunicationNodeList,
         },
     );
 
+    # even if there is some configuration error like disabled search engine or
+    # no index registered, check for connection when there is valid active engine
+    # selected
+    if ( $SearchObject->{Error} ) {
+        if ( $SearchObject->{Error}->{Configuration} && $SearchObject->{Config}->{ActiveEngine} ) {
+
+            # check and set base modules
+            $SearchObject->BaseModulesCheck(
+                Config => $SearchObject->{Config},
+            );
+        }
+    }
+
+    my ($ValidID) = grep { $ValidList{$_} eq 'valid' } keys %ValidList;
+    for my $CommunicationNode ( @{$CommunicationNodeList} ) {
+
+        $CommunicationNode->{Connection} = $SearchObject->{EngineObject}
+            ? $SearchObject->{EngineObject}->CheckNodeConnection(
+            %{$CommunicationNode},
+            Silent => 1,
+            )
+            : 0;
+
+        $CommunicationNode->{ValidStr} = $ValidList{ $CommunicationNode->{ValidID} };
+
+        $LayoutObject->Block(
+            Name => 'CommunicationNode',
+            Data => {
+                CommunicationNode => $CommunicationNode,
+                ClusterID         => $Param{ClusterID},
+                ValidID           => $ValidID,
+            },
+        );
+    }
+
     my $ActiveClusterConfig = $SearchClusterObject->ActiveClusterGet();
+
+    # check if mandatory fields was set
+    my $MandatoryCheckOk = 1;
+    MANDATORY:
+    for my $MandatoryProperty (qw(Name EngineID)) {
+        if ( !$ClusterData->{$MandatoryProperty} ) {
+            undef $MandatoryCheckOk;
+            last MANDATORY;
+        }
+    }
 
     my $SearchObjectCheckError = $SearchObject->{Error};
 
     if (
         !$SearchObjectCheckError
-        && !$Param{Error}
+        && $MandatoryCheckOk
         && $Self->{Subaction} ne "Add"
         && $ClusterData->{ClusterID}
         && $ClusterData->{ClusterID} eq $ActiveClusterConfig->{ClusterID}
         )
     {
 
-        my $ClusterDetailsObject
-            = $Kernel::OM->Get("Kernel::System::Search::Admin::Details::$ActiveClusterConfig->{Engine}");
+        my $ClusterDetailsObject = $Kernel::OM->Get(
+            "Kernel::System::Search::Admin::Details::$ActiveClusterConfig->{Engine}"
+        );
 
         my $Details = $ClusterDetailsObject->BuildDetailsSection(
             ClusterConfig => $ActiveClusterConfig,
@@ -628,21 +1159,31 @@ sub _ShowEdit {
     }
     elsif ($SearchObjectCheckError) {
         my $ErrorMessage;
+        my $LanguageObject = $LayoutObject->{LanguageObject};
         if ( $SearchObjectCheckError->{Configuration}->{Disabled} ) {
-            $ErrorMessage
-                = $LayoutObject->{LanguageObject}->Translate("Search engine system configuration is disabled.");
+            $ErrorMessage = $LanguageObject->Translate(
+                "Search engine system configuration is disabled."
+            );
         }
         elsif ( $SearchObjectCheckError->{Configuration}->{NoIndexRegistered} ) {
-            $ErrorMessage = $LayoutObject->{LanguageObject}->Translate("No index registered for engine.");
+            $ErrorMessage = $LanguageObject->Translate(
+                "No index registered for engine."
+            );
         }
         elsif ( $SearchObjectCheckError->{Configuration}->{ActiveEngineNotFound} ) {
-            $ErrorMessage = $LayoutObject->{LanguageObject}->Translate("Active engine not found.");
+            $ErrorMessage = $LanguageObject->Translate(
+                "Active engine not found."
+            );
         }
         elsif ( $SearchObjectCheckError->{BaseModules}->{NotFound} ) {
-            $ErrorMessage = $LayoutObject->{LanguageObject}->Translate("Base modules for engine was not found.");
+            $ErrorMessage = $LanguageObject->Translate(
+                "Base modules for engine was not found."
+            );
         }
         elsif ( $SearchObjectCheckError->{Connection}->{Failed} ) {
-            $ErrorMessage = $LayoutObject->{LanguageObject}->Translate("Connection failed.");
+            $ErrorMessage = $LanguageObject->Translate(
+                "Connection failed."
+            );
         }
 
         $LayoutObject->Block(
@@ -682,7 +1223,7 @@ sub _GetBaseParams {
 
     # get parameters from web browser
     for my $ParamName (
-        qw( Name Description RemoteSystem ValidID EngineID )
+        qw( Name Description ValidID EngineID )
         )
     {
         $GetParam->{$ParamName} = $ParamObject->GetParam( Param => $ParamName ) || '';
@@ -692,7 +1233,6 @@ sub _GetBaseParams {
 }
 
 sub _ClusterSynchronize {
-
     my ( $Self, %Param ) = @_;
 
     my $LogObject           = $Kernel::OM->Get('Kernel::System::Log');
@@ -740,6 +1280,103 @@ sub _ClusterSynchronize {
         Type        => 'inline',
         NoCache     => 1,
     );
+}
+
+=head2 _NodeBaseOperationAction()
+
+base operation action checks for node edit/add screens
+
+    my $Result = $Object->_NodeBaseOperationAction(
+        ClusterID => 1,
+        NodeID => 2, # optional
+        %Params,
+    );
+
+=cut
+
+sub _NodeBaseOperationAction {
+    my ( $Self, %Param ) = @_;
+
+    my $ParamObject         = $Kernel::OM->Get('Kernel::System::Web::Request');
+    my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
+    my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
+
+    # challenge token check for write action
+    $LayoutObject->ChallengeTokenCheck();
+
+    my $GetParam;
+    my %Error;
+
+    my %MandatoryFields = (
+        Protocol => 1,
+        Host     => 1,
+        Port     => 1,
+        Name     => 1,
+        ValidID  => 1,
+    );
+
+    # check required parameters
+    for my $ParamName (
+        qw( Protocol Host Port Path AuthRequired Login Password ClusterID NodeID Name ValidID Comment)
+        )
+    {
+        $GetParam->{$ParamName} = $ParamObject->GetParam( Param => $ParamName ) || '';
+
+        # if is mandatory and was not passed in form
+        if ( $MandatoryFields{$ParamName} && $GetParam->{$ParamName} eq '' ) {
+            $Error{ $ParamName . 'ServerError' }        = 'ServerError';
+            $Error{ $ParamName . 'ServerErrorMessage' } = Translatable('This field is required');
+        }
+    }
+
+    if ( $GetParam->{AuthRequired} ) {
+        if ( $GetParam->{AuthRequired} eq 'on' ) {
+            $GetParam->{AuthRequired} = 1;
+        }
+        elsif ( $GetParam->{AuthRequired} eq 'off' ) {
+            $GetParam->{AuthRequired} = 0;
+        }
+    }
+
+    if ( $GetParam->{Name} ) {
+
+        # check if name is duplicated
+        my $ClusterCommunicationNodeList = $SearchClusterObject->ClusterCommunicationNodeList(
+            ClusterID => $Param{ClusterID},
+        );
+
+        my $Exist = $SearchClusterObject->NodeNameExistsCheck(
+            Name      => $GetParam->{Name},
+            ClusterID => $Param{ClusterID},
+            NodeID    => $Param{NodeID},
+        );
+
+        if ($Exist) {
+
+            # add server error error class
+            $Error{NameServerError}        = 'ServerError';
+            $Error{NameServerErrorMessage} = Translatable('There is another communication node with the same name.');
+        }
+    }
+
+    if ( $GetParam->{AuthRequired} ) {
+
+        if ( !$GetParam->{Login} ) {
+
+            # add server error error class
+            $Error{LoginServerError}        = 'ServerError';
+            $Error{LoginServerErrorMessage} = Translatable('This field is required');
+        }
+    }
+    else {
+        undef $GetParam->{Login};
+        undef $GetParam->{Password};
+    }
+
+    return {
+        GetParam => $GetParam,
+        Error    => \%Error,
+    };
 }
 
 1;

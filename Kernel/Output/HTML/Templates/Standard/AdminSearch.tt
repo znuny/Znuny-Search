@@ -53,6 +53,22 @@
                         </form>
                     </li>
 [% RenderBlockEnd("ActionAdd") %]
+[% RenderBlockStart("ActionAddCommunicationNode") %]
+                    <li>
+                        <form action="[% Env("CGIHandle") %]" method="post">
+                            <input type="hidden" name="Action" value="[% Env("Action") %]"/>
+                            <input type="hidden" name="Subaction" value="NodeAdd"/>
+                            <input type="hidden" name="ClusterID" value="[% Data.ClusterID %]"/>
+                            <input type="hidden" name="Nav" value="[% Data.Nav | html %]"/>
+                            <button class="CallForAction Fullsize Center" type="submit"><span><i class="fa fa-plus-square"></i>[% Translate("Add communication node") | html %]</span></button>
+                        </form>
+                    </li>
+[% RenderBlockEnd("ActionAddCommunicationNode") %]
+[% RenderBlockStart("ActionExportCommunicationNodes") %]
+                    <li>
+                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=ClusterNodeExport;ClusterID=[% Data.ClusterID %]" class="CallForAction Fullsize Center"><span><i class="fa fa-download"></i>[% Translate("Export nodes configuration") | html %]</span></a>
+                    </li>
+[% RenderBlockEnd("ActionExportCommunicationNodes") %]
 [% RenderBlockStart("ActionDelete") %]
                     <li>
                         <button id="DeleteButton" class="CallForAction Fullsize Center" type="button"><span><i class="fa fa-trash-o"></i> [% Translate("Delete cluster") | html %]</span></button>
@@ -73,6 +89,40 @@
                 </ul>
             </div>
         </div>
+[% IF Data.ClusterID %]
+        <div class="WidgetSimple">
+            <div class="Header">
+                <h2>[% Translate("Configuration Import") | html %]</h2>
+            </div>
+            <div class="Content">
+                <p class="FieldExplanation">
+                    [% Translate("Here you can upload a configuration file to import elasticsearch nodes to your system. The file needs to be in .yml format.") | html %]
+                </p>
+                <ul class="ActionList">
+                    <li>
+                        <form action="[% Env("CGIHandle") %]" method="post" enctype="multipart/form-data" class="Validate PreventMultipleSubmits">
+                            <input type="hidden" name="Action" value="[% Env("Action") %]"/>
+                            <input type="hidden" name="Subaction" value="ClusterNodeImport"/>
+                            <input type="hidden" name="ClusterID" value="[% Data.ClusterID %]"/>
+                            <input type="hidden" name="FormID" value="[% Data.FormID | html %]"/>
+                            <input name="FileUpload" id="FileUpload" type="file" size="18" class="Fixed W100pc Validate_Required [% Data.FileUploadInvalid | html %]"/>
+                            <div id="FileUploadError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                            <div id="FileUploadServerError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                            [% IF Data.CommunicationNodes %]
+                            <fieldset class="Separated SpacingTop">
+                                <input type="checkbox" id="OverwriteExistingEntities" name="OverwriteExistingNodes" value="1" />
+                                <label for="OverwriteExistingEntities">[% Translate("Overwrite existing nodes?") | html %]</label>
+                            </fieldset>
+                            [% END %]
+                            <button class="CallForAction Fullsize Center SpacingTop" type="submit" value="[% Translate("Upload nodes configuration") | html %]">
+                                <span><i class="fa fa-upload"></i>[% Translate("Import Nodes configuration(s)") | html %]</span>
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+[% END %]
 [% RenderBlockEnd("ActionList") %]
     </div>
 
@@ -110,7 +160,6 @@
                         <tr>
                             <th>[% Translate("Name") | html %]</th>
                             <th>[% Translate("Description") | html %]</th>
-                            <th>[% Translate("Remote system") | html %]</th>
                             <th>[% Translate("Engine") | html %]</th>
                             <th>[% Translate("Validity") | html %]</th>
                         </tr>
@@ -130,7 +179,6 @@
                                 <a class="AsBlock" href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ID | uri %];Nav=[% Data.Nav | uri %]">[% Data.Name | html %]</a>
                             </td>
                             <td>[% Translate(Data.Description) | html %]</td>
-                            <td>[% Translate(Data.RemoteSystem) | html %]</td>
                             <td>[% Translate(Data.Engine) | html %]</td>
                             <td>[% Translate(Data.Valid) | html %]</td>
                         </tr>
@@ -171,13 +219,6 @@
                                 </div>
                                 <div class="Clear"></div>
 
-                                <label class="Mandatory" for="RemoteSystem"><span class="Marker">*</span>[% Translate("Remote system") | html %]:</label>
-                                <div class="Field">
-                                    <input id="RemoteSystem" class="W50pc [% Data.RemoteSystemError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.RemoteSystem | html %]" name="RemoteSystem"/>
-                                    <div id="RemoteSystemError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
-                                    <div id="RemoteSystemServerError" class="TooltipErrorMessage"><p>[% Translate(Data.RemoteSystemErrorMessage) | html %]</p></div>
-                                </div>
-                                <div class="Clear"></div>
                             </fieldset>
                         </div>
                         <div class="Size1of2">
@@ -204,16 +245,77 @@
                     </div>
                 </div>
             </div>
+            [% IF Data.ClusterID %]
             <div class="WidgetSimple">
                 <div class="Header">
-                    <h2>[% Translate("Details") | html %]</h2>
+                    <h2>[% Translate("Communication nodes") | html %]</h2>
                 </div>
+                <div class="Content">
+                    <table class="DataTable" id="NodesTable" summary="List of all nodes">
+                        <thead>
+                            <tr>
+                                <th>[% Translate("Name") | html %]</th>
+                                <th>[% Translate("Comment") | html %]</th>
+                                <th>[% Translate("Protocol") | html %]</th>
+                                <th>[% Translate("Host") | html %]</th>
+                                <th>[% Translate("Port") | html %]</th>
+                                <th>[% Translate("Path") | html %]</th>
+                                <th>[% Translate("Validity") | html %]</th>
+                                <th style="width:30px;">[% Translate("Authentication") | html %]</th>
+                                <th style="width:30px;">[% Translate("Connection") | html %]</th>
+                                <th style="width:30px;">[% Translate("Export") | html %]</th>
+                                <th style="width:30px;">[% Translate("Copy") | html %]</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        [% RenderBlockStart("CommunicationNode") %]
+                            <tr class="[% IF Data.CommunicationNode.ValidID != Data.ValidID %] Invalid [% END %]" title="Edit this node">
+                                <td><a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=NodeChange;ClusterID=[% Data.ClusterID %];NodeID=[% Data.CommunicationNode.NodeID | html %]">[% Data.CommunicationNode.Name %]</a></td>
+                                <td>[% Data.CommunicationNode.Comment | html %]</td>
+                                <td>[% Data.CommunicationNode.Protocol | upper %]</td>
+                                <td>[% Data.CommunicationNode.Host | html %]</td>
+                                <td>[% Data.CommunicationNode.Port %]</td>
+                                <td>[% Data.CommunicationNode.Path || '-' %]</td>
+                                <td>[% Data.CommunicationNode.ValidStr %]</td>
+                                <td class="Center">
+                                    [% IF Data.CommunicationNode.Login != '' %]
+                                        <i style="color:green" class="fa fa-check"></i>
+                                    [% ELSE %]
+                                        <i style="color:red" class="fa fa-times"></i>
+                                    [% END %]
+                                </td>
+                                <td class="Center">
+                                    [% IF Data.CommunicationNode.Connection %]
+                                        <i style="color:green" class="fa fa-check"></i>
+                                    [% ELSE %]
+                                        <i style="color:red" class="fa fa-times"></i>
+                                    [% END %]
+                                </td>
+                                <td class="Center"><a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=ClusterNodeExport;NodeID=[% Data.CommunicationNode.NodeID | uri %];[% Env("ChallengeTokenParam") | html %]" title="Export node"><i class="fa fa-download"></i><span class="InvisibleText">[% Translate("Export") | html %]</span></a></td>
+                                <td class="Center"><a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=NodeCopyAction;ClusterID=[% Data.ClusterID | uri %];NodeID=[% Data.CommunicationNode.NodeID %];[% Env("ChallengeTokenParam") | html %]" title="Copy node"><i class="fa fa-copy"></i><span class="InvisibleText">[% Translate("Copy") | html %]</span></a></td>
+                            </tr>
+                        [% RenderBlockEnd("CommunicationNode") %]
+                        [% IF !Data.CommunicationNodes %]
+                            <tr>
+                                <td colspan="9" style="text-align: center;">This cluster does not have communication nodes added.</td>
+                            </tr>
+                        [% END %]
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            [% END %]
 [% RenderBlockStart("DiagnosisDetails") %]
+            <div class="WidgetSimple">
+                <div class="Header">
+                    <h2>[% Translate("Status") | html %]</h2>
+                </div>
+
                 <div class="Content">
                     [% Data.Details %]
                 </div>
-[% RenderBlockEnd("DiagnosisDetails") %]
             </div>
+[% RenderBlockEnd("DiagnosisDetails") %]
             <div class="WidgetSimple">
                 <div class="Header">
                     <h2>[% Translate("Save") | html %]</h2>
@@ -222,11 +324,11 @@
                     <fieldset class="TableLike">
                         <div class="Field SpacingTop">
                             [% IF Data.Action == 'Change' %]
-                                <button class="CallForAction Primary" id="SubmitAndContinue" type="button" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                                <button class="CallForAction Primary" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
                                 [% Translate("or") | html %]
                                 <button class="CallForAction Primary" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save and finish") | html %]</span></button>
                             [% ELSE %]
-                                <button class="CallForAction Primary" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                                <button class="CallForAction Primary" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
                             [% END %]
                             [% Translate("or") | html %]
                             <a href="[% Env("Baselink") %]Action=[% Env("Action") %]"><span>[% Translate("Cancel") | html %]</span></a>
