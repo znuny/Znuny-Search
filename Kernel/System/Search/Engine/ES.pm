@@ -188,12 +188,14 @@ sub QueryExecute {
         );
     };
     if ($@) {
-        my $Engine = "Kernel::System::Search::Engine::ES";
+        if ( !$Param{Silent} ) {
+            my $Engine = "Kernel::System::Search::Engine::ES";
 
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Query failed for engine: $Engine. Message: $@",
-        );
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Query failed for engine: $Engine. Message: $@",
+            );
+        }
         return {
             Error => 1,
         };

@@ -244,6 +244,7 @@ sub Search {
             Operation     => 'Search',
             ConnectObject => $Self->{ConnectObject},
             Config        => $Self->{Config},
+            Silent        => $Param{Silent},
         );
 
         next QUERY if !$ResultQuery;
@@ -908,6 +909,7 @@ sub Fallback {
             Operation  => "Search",
             ResultType => $ResultType,
             Fallback   => 1,
+            Silent     => $Param{Silent},
         );
 
         # merge response into return data
