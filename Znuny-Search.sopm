@@ -36,6 +36,7 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/Reindex.pm"/>
         <File Permission="660" Location="Kernel/System/Ticket/Event/Search/IndexEvent/Ticket.pm"/>
+        <File Permission="660" Location="scripts/test/Search/ResponseEquality.t"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Fallback/Default.pm"/>

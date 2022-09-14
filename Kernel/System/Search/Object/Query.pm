@@ -325,13 +325,15 @@ sub Search {
             $SortBy = $Self->{IndexFields}->{ $Param{SortBy} };
         }
         else {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Can't sort index: \"$ParamSearchObject->{Config}->{IndexName}\" with result type:" .
-                    " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
-                    " Specified result type is not sortable!\n" .
-                    " Sort operation won't be applied."
-            );
+            if ( !$Param{Silent} ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Can't sort index: \"$ParamSearchObject->{Config}->{IndexName}\" with result type:" .
+                        " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
+                        " Specified result type is not sortable!\n" .
+                        " Sort operation won't be applied."
+                );
+            }
         }
     }
 
