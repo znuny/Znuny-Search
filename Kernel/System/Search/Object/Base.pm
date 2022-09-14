@@ -99,6 +99,7 @@ sub Fallback {
         SortBy      => $Param{SortBy},
         ResultType  => $Param{ResultType},
         Fields      => $Param{Fields},
+        Silent      => $Param{Silent},
     );
 
     my $Result = {
@@ -258,13 +259,15 @@ sub SQLObjectSearch {
             }
         }
         else {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Can't sort table: \"$Self->{Config}->{IndexRealName}\" with result type:" .
-                    " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
-                    " Specified result type is not sortable!\n" .
-                    " Sort operation won't be applied."
-            );
+            if ( !$Param{Silent} ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Can't sort table: \"$Self->{Config}->{IndexRealName}\" with result type:" .
+                        " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
+                        " Specified result type is not sortable!\n" .
+                        " Sort operation won't be applied."
+                );
+            }
         }
     }
 
@@ -354,10 +357,12 @@ sub SearchFormat {
 
         my $Identifier = $Self->{Config}->{Identifier};
         if ( !$Identifier ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Missing '\$Self->{Config}->{Identifier} for $IndexName index.'",
-            );
+            if ( !$Param{Silent} ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Missing '\$Self->{Config}->{Identifier} for $IndexName index.'",
+                );
+            }
             return;
         }
 
@@ -366,10 +371,13 @@ sub SearchFormat {
         DATA:
         for my $Data ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
             if ( !$Data->{$Identifier} ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Could not get object identifier: $Identifier for index: $IndexName in the response!",
-                );
+                if ( !$Param{Silent} ) {
+                    $LogObject->Log(
+                        Priority => 'error',
+                        Message =>
+                            "Could not get object identifier: $Identifier for index: $IndexName in the response!",
+                    );
+                }
                 next DATA;
             }
 
