@@ -44,7 +44,7 @@
         </Value>
     </Setting>
     <!-- TODO: change validity to 0, then enable this on search initialization -->
-    <Setting Name="Ticket::EventModulePost###000-Ticket-ObjectIndexUpdate" Required="0" Valid="0">
+    <Setting Name="Ticket::EventModulePost###000-Ticket-ObjectIndexUpdate" Required="0" Valid="1">
         <Description Translatable="1">Updates object data for index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
