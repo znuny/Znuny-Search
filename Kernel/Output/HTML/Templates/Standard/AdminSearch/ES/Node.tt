@@ -54,7 +54,7 @@
     </div>
 
     <div class="ContentColumn">
-        <form id="CommunicationNode" action="[% Env("CGIHandle") %]" method="post" class="Validate PreventMultipleSubmits">
+        <form id="CommunicationNode" action="[% Env("CGIHandle") %]" method="post" class="Validate PreventMultipleSubmits" autocomplete="off">
             <input type="hidden" name="Action" value="[% Env("Action") %]"/>
             <input type="hidden" name="Subaction" id="Subaction" value="[% Data.Action | html %]Action"/>
             <input type="hidden" name="NodeID" value="[% Data.NodeID %]" id="NodeID">
@@ -124,14 +124,14 @@
                                     <fieldset class="TableLike" id="CommunicationNodeAuth">
                                         <label class="Mandatory" for="Login"><span class="Marker">*</span> [% Translate("Login") | html %]:</label>
                                         <div class="Field">
-                                            <input id="LoginFieldNodeAuth" class="[% Data.NameServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Login | html %]" name="Login"/>
+                                            <input id="LoginFieldNodeAuth" class="[% Data.NameServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Login | html %]" name="Login" autocomplete="off"/>
                                             <div id="LoginError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
                                             <div id="LoginServerError" class="TooltipErrorMessage"><p>[% Translate(Data.LoginServerErrorMessage) | html %]</p></div>
                                         </div>
                                         <div class="Clear"></div>
                                         <label for="Password">[% Translate("Password") | html %]:</label>
                                         <div class="Field">
-                                            <input id="PasswordFieldNodeAuth" class="[% Data.NameServerError | html %]" type="password" maxlength="250" name="Password"/>
+                                            <input id="PasswordFieldNodeAuth" class="[% Data.NameServerError | html %]" type="password" maxlength="250" name="Password" autocomplete="new-password"/>
                                             <div id="PasswordError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
                                             <div id="PasswordServerError" class="TooltipErrorMessage"><p>[% Translate(Data.PasswordServerErrorMessage) | html %]</p></div>
                                         </div>
