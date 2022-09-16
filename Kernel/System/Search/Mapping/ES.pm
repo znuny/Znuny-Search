@@ -18,6 +18,7 @@ use Kernel::System::VariableCheck qw(:all);
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search::Object::Operators',
+    'Kernel::System::Search',
 );
 
 =head1 NAME
@@ -45,59 +46,6 @@ sub new {
     bless( $Self, $Type );
 
     return $Self;
-}
-
-=head2 ResultFormat()
-
-globally formats result of specified engine
-
-    my $FormatResult = $SearchMappingESObject->ResultFormat(
-        Result      => $ResponseResult,
-        Config      => $Config,
-        IndexName   => $IndexName,
-    );
-
-=cut
-
-sub ResultFormat {
-    my ( $Self, %Param ) = @_;
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    NEEDED:
-    for my $Needed (qw(Result Config IndexName)) {
-        next NEEDED if $Param{$Needed};
-
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Missing param: $Needed",
-        );
-        return;
-    }
-
-    my $IndexName = $Param{IndexName};
-    my $Result    = $Param{Result};
-
-    return {
-        Reason => $Result->{reason},
-        Status => $Result->{status},
-        Type   => $Result->{type}
-    } if $Result->{status};
-
-    my $GloballyFormattedObjData = $Self->ResponseDataFormat(
-        Hits => $Result->{hits}->{hits},
-        %Param,
-    );
-
-    return {
-        "$IndexName" => {
-            ObjectData => $GloballyFormattedObjData,
-            EngineData => {
-                Shards       => $Result->{_shards},
-                ResponseTime => $Result->{took},
-            }
-        }
-    };
 }
 
 =head2 Search()
@@ -136,7 +84,7 @@ sub Search {
         my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
 
         my $Result = $OperatorModule->OperatorQueryGet(
-            Field    => $Field,
+            Field    => $Param{FieldsDefinition}->{$Field}->{ColumnName},
             Value    => $Value,
             Operator => $Operator,
             Object   => $Param{Object},
@@ -147,16 +95,10 @@ sub Search {
         push @{ $Query{query}{bool}{ $Result->{Section} } }, $Query;
     }
 
-    # filter only specified fields
-    if ( IsArrayRefWithData( $Param{Fields} ) ) {
-        for my $Field ( @{ $Param{Fields} } ) {
-            push @{ $Query{fields} }, $Field->{ColumnName};
-        }
-
-        # data source won't be "_source" key anymore
-        # instead it will be "fields"
-        $Query{_source} = "false";
-    }
+    # data source won't be "_source" key anymore
+    # instead it will be "fields"
+    $Query{_source} = "false";
+    @{ $Query{fields} } = @{ $Param{Fields} };
 
     # TO-DO start sort:
     # datetimes won't work
@@ -188,6 +130,59 @@ sub Search {
     }
 
     return \%Query;
+}
+
+=head2 SearchFormat()
+
+globally formats search result of specified engine
+
+    my $FormatResult = $SearchMappingESObject->SearchFormat(
+        Result      => $ResponseResult,
+        Config      => $Config,
+        IndexName   => $IndexName,
+    );
+
+=cut
+
+sub SearchFormat {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Result Config IndexName)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing param: $Needed",
+        );
+        return;
+    }
+
+    my $IndexName = $Param{IndexName};
+    my $Result    = $Param{Result};
+
+    return {
+        Reason => $Result->{reason},
+        Status => $Result->{status},
+        Type   => $Result->{type}
+    } if $Result->{status};
+
+    my $GloballyFormattedObjData = $Self->_ResponseDataFormat(
+        Hits => $Result->{hits}->{hits},
+        %Param,
+    );
+
+    return {
+        "$IndexName" => {
+            ObjectData => $GloballyFormattedObjData,
+            EngineData => {
+                Shards       => $Result->{_shards},
+                ResponseTime => $Result->{took},
+            }
+        }
+    };
 }
 
 =head2 ObjectIndexAdd()
@@ -240,12 +235,39 @@ sub ObjectIndexAdd {
         }
     }
 
+    my $Refresh = {};
+
+    if ( $Param{Refresh} ) {
+        $Refresh = {
+            refresh => 'true',
+        };
+    }
+
     my $Result = {
-        Index => $IndexObject->{Config}->{IndexRealName},
-        Body  => $Param{Body}
+        Index   => $IndexObject->{Config}->{IndexRealName},
+        Body    => $Param{Body},
+        Refresh => $Refresh,
     };
 
     return $Result;
+}
+
+=head2 ObjectIndexAddFormat()
+
+format response from elastic search
+
+    my $FormattedResponse = $SearchMappingESObject->ObjectIndexAddFormat(
+        Response => $Response,
+    );
+
+=cut
+
+sub ObjectIndexAddFormat {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
 }
 
 =head2 ObjectIndexUpdate()
@@ -280,24 +302,39 @@ sub ObjectIndexUpdate {
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
+    my $Refresh = {};
+
+    if ( $Param{Refresh} ) {
+        $Refresh = {
+            refresh => 'true',
+        };
+    }
+
     my $Result = {
-        Index => $IndexObject->{Config}->{IndexRealName},
-        Body  => $Param{Body}
+        Index   => $IndexObject->{Config}->{IndexRealName},
+        Body    => $Param{Body},
+        Refresh => $Refresh,
     };
 
     return $Result;
 }
 
-=head2 ObjectIndexGet()
+=head2 ObjectIndexUpdateFormat()
 
-process query data to structure that will be used to execute query
+format response from elastic search
+
+    my $Success = $SearchMappingESObject->ObjectIndexUpdateFormat(
+        Response => $Response,
+    );
 
 =cut
 
-sub ObjectIndexGet {
-    my ( $Type, %Param ) = @_;
+sub ObjectIndexUpdateFormat {
+    my ( $Self, %Param ) = @_;
 
-    return 1;
+    return $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
 }
 
 =head2 ObjectIndexRemove()
@@ -331,53 +368,181 @@ sub ObjectIndexRemove {
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
+    my $Refresh = {};
+
+    if ( $Param{Refresh} ) {
+        $Refresh = {
+            refresh => 'true',
+        };
+    }
+
     my $Result = {
-        Index => $IndexObject->{Config}->{IndexRealName},
+        Index   => $IndexObject->{Config}->{IndexRealName},
+        Refresh => $Refresh,
     };
 
     return $Result;    # Need to use perform_request()
 }
 
-=head2 ResponseDataFormat()
+=head2 ObjectIndexRemoveFormat()
 
-globally formats response data from engine
+format response from elastic search
 
-    my $Result = $SearchMappingESObject->ResponseDataFormat(
-        Hits => $Hits,
-        QueryData => $QueryData,
+    my $Success = $SearchMappingESObject->ObjectIndexRemoveFormat(
+        Response => $Response,
     );
 
 =cut
 
-sub ResponseDataFormat {
+sub ObjectIndexRemoveFormat {
     my ( $Self, %Param ) = @_;
 
-    return [] if !IsArrayRefWithData( $Param{Hits} );
+    return $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
+}
 
-    my $Hits = $Param{Hits};
+=head2 IndexAdd()
 
-    my @Objects;
+returns query for engine to add specified index
 
-    # when specified fields are filtered response
-    # contains them inside "fields" key
-    if ( $Param{QueryData}->{Query}->{_source} && $Param{QueryData}->{Query}->{_source} eq 'false' ) {
-        for my $Hit ( @{$Hits} ) {
-            my %Data;
-            for my $Field ( sort keys %{ $Hit->{fields} } ) {
-                $Data{$Field} = $Hit->{fields}->{$Field}->[0];
-            }
-            push @Objects, \%Data;
+    my $Result = $SearchMappingESObject->IndexAdd(
+        IndexRealName => 'ticket',
+    );
+
+=cut
+
+sub IndexAdd {
+    my ( $Self, %Param ) = @_;
+
+    my %Settings = $Param{Settings} ? $Param{Settings} : $Self->DefaultRemoteSettingsGet(
+        RoutingAllocation => $Param{SetRoutingAllocation} ? $Param{IndexRealName} : undef,
+    );
+
+    my $Query = {
+        Path => $Param{IndexRealName},
+        Body => \%Settings
+    };
+
+    return $Query;
+}
+
+=head2 IndexAddFormat()
+
+format response from elastic search
+
+    my $Success = $SearchMappingESObject->IndexAddFormat(
+        Response => $Response,
+    );
+
+=cut
+
+sub IndexAddFormat {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
+}
+
+=head2 IndexRemove()
+
+returns query for engine to remove specified index
+
+    my $Result = $SearchMappingESObject->IndexRemove(
+        IndexRealName => 'ticket',
+    );
+
+=cut
+
+sub IndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    my $Query = {
+        Index => $Param{IndexRealName},
+    };
+
+    return $Query;
+}
+
+=head2 IndexRemoveFormat()
+
+format response from elastic search
+
+    my $Success = $SearchMappingESObject->IndexRemoveFormat(
+        Response => $Response,
+    );
+
+=cut
+
+sub IndexRemoveFormat {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
+}
+
+=head2 IndexList()
+
+returns query for engine to list all indexes
+
+    my $Result = $SearchMappingESObject->IndexList();
+
+=cut
+
+sub IndexList {
+    my ( $Self, %Param ) = @_;
+
+    my $Query = {
+        Path   => '_cat/indices',
+        Format => 'JSON',
+    };
+
+    return $Query;
+}
+
+=head2 IndexListFormat()
+
+returns formatted response for index list in search engine
+
+    my @IndexList = $SearchMappingESObject->IndexListFormat(
+        Response => $Response,
+    );
+
+=cut
+
+sub IndexListFormat {
+    my ( $Self, %Param ) = @_;
+
+    return () if !$Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Name (qw(Config)) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return ();
         }
     }
 
-    # ES engine response stores objects inside "_source" key by default
-    elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
-        for my $Hit ( @{$Hits} ) {
-            push @Objects, $Hit->{_source};
+    my @Response = @{ $Param{Result} };
+
+    my @FormattedData;
+
+    # note: can add diagnostic properties param get here
+    for my $IndexData (@Response) {
+        if ( $IndexData->{index} ) {
+            push @FormattedData, $IndexData->{index};
         }
     }
 
-    return \@Objects;
+    return @FormattedData;
 }
 
 =head2 IndexClear()
@@ -395,32 +560,87 @@ sub IndexClear {
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
+    my $Refresh = {};
+
+    if ( $Param{Refresh} ) {
+        $Refresh = {
+            refresh => 'true',
+        };
+    }
+
     my $Query = {
         Index => $IndexObject->{Config}->{IndexRealName},
         Body  => {
             query => {
                 match_all => {}
             }
-        }
+        },
+        Refresh => $Refresh,
     };
 
     return $Query;
 }
 
-=head2 DiagnosticFormat()
+=head2 IndexClearFormat()
 
-returns formatted response for diagnose of search engine
+format response from elastic search
 
-    my $Result = $SearchMappingESObject->DiagnosticFormat(
-        Result => $Result
+    my $Success = $SearchMappingESObject->IndexClearFormat(
+        Response => $Response,
     );
 
 =cut
 
-sub DiagnosticFormat {
+sub IndexClearFormat {
     my ( $Self, %Param ) = @_;
 
-    my $DiagnosisResult = $Param{Result};
+    return $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
+}
+
+=head2 DiagnosticDataGet()
+
+returns query for engine to clear whole index from objects
+
+    my $Result = $SearchMappingESObject->DiagnosticDataGet(
+        Index => $Index,
+    );
+
+=cut
+
+sub DiagnosticDataGet {
+    my ( $Self, %Param ) = @_;
+
+    my $Query = {
+        Cluster => {
+            Path => '_cluster/health',
+        },
+        Nodes => {
+            Path => '_nodes/stats',
+        },
+        Indexes => {
+            Path => '_cat/indices',
+        },
+    };
+
+    return $Query;
+}
+
+=head2 DiagnosticDataGetFormat()
+
+returns formatted response for diagnose of search engine
+
+    my $DiagnosticData = $SearchMappingESObject->DiagnosticDataGetFormat(
+        Response => $Response
+    );
+
+=cut
+
+sub DiagnosticDataGetFormat {
+    my ( $Self, %Param ) = @_;
+
+    my $DiagnosisResult = $Param{Response};
     my $ReceivedNodes   = $DiagnosisResult->{Nodes}->{nodes} || {};
     my $ReceivedIndexes = $DiagnosisResult->{Indexes} || [];
 
@@ -489,7 +709,19 @@ returns query for engine mapping data types
 sub IndexMappingSet {
     my ( $Self, %Param ) = @_;
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $Fields      = $Param{Fields};
+    my $IndexConfig = $Param{IndexConfig};
+
+    my %Body;
+
+    if ( $Param{SetAliases} ) {
+        for my $FieldName ( sort keys %{$Fields} ) {
+            $Body{$FieldName} = {
+                type => 'alias',
+                path => $Fields->{$FieldName}->{ColumnName},
+            };
+        }
+    }
 
     my $DataTypes = {
         Date => {
@@ -528,15 +760,12 @@ sub IndexMappingSet {
         }
     };
 
-    my $Fields = $IndexObject->{Fields};
-
-    my %Body;
     for my $FieldName ( sort keys %{$Fields} ) {
         $Body{ $Fields->{$FieldName}->{ColumnName} } = $DataTypes->{ $Fields->{$FieldName}->{Type} };
     }
 
     my $Query = {
-        Index => $IndexObject->{Config}->{IndexRealName},
+        Index => $IndexConfig->{IndexRealName},
         Body  => {
             properties => {
                 %Body
@@ -547,23 +776,102 @@ sub IndexMappingSet {
     return $Query;
 }
 
-=head2 IndexMappingResultFormat()
+=head2 IndexMappingSetFormat()
 
-format mapping result from engine
+format response from elastic search
 
-    my $Result = $SearchMappingESObject->IndexMappingResultFormat(
-        Result => $Result,
+    my $Success = $SearchMappingESObject->IndexMappingSetFormat(
+        Response => $Response,
     );
 
 =cut
 
-sub IndexMappingResultFormat {
+sub IndexMappingSetFormat {
     my ( $Self, %Param ) = @_;
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
-    my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
+    my $Success = $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
 
-    my $Properties = $Param{Result}->{ $IndexObject->{Config}->{IndexRealName} }->{mappings}->{properties} || {};
+    return 1 if $Success;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    # if there was any problems on index mapping set, then check mapping
+    my $ActualIndexMapping = $SearchObject->IndexMappingGet(
+        Index => $Param{Index}
+    );
+
+    if ( IsHashRefWithData($ActualIndexMapping) ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "There is already existing mapping for index: '$Param{Index}'. " .
+                "Depending on the engine, the index may need to be reinitialized on the engine side.",
+        );
+    }
+
+    return;
+}
+
+=head2 IndexMappingGet()
+
+returns query for engine mapping data types
+
+    my $Result = $SearchMappingESObject->IndexMappingGet(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexMappingGet {
+    my ( $Self, %Param ) = @_;
+
+    return {
+        Path => "$Param{IndexRealName}/_mapping",
+    };
+}
+
+=head2 IndexMappingGetFormat()
+
+format mapping result from engine
+
+    my $IndexMapping = $SearchMappingESObject->IndexMappingGetFormat(
+        Response => $Response,
+    );
+
+=cut
+
+sub IndexMappingGetFormat {
+    my ( $Self, %Param ) = @_;
+
+    my $Success = $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
+
+    return if !$Success;
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $Response    = $Param{Response};
+    my $Properties  = $Response->{ $IndexObject->{Config}->{IndexRealName} }->{mappings}->{properties} || {};
+
+    # check if raw engine response is needed
+    if ( !$Param{Format} ) {
+
+        # filter out aliases if not specified to get
+        if ( !$Param{GetAliases} ) {
+            if ( IsHashRefWithData($Properties) ) {
+                for my $MappingProperty ( sort keys %{$Properties} ) {
+                    if ( $Properties->{$MappingProperty}->{type} && $Properties->{$MappingProperty}->{type} eq 'alias' )
+                    {
+                        delete $Response->{ $IndexObject->{Config}->{IndexRealName} }->{mappings}->{properties}
+                            ->{$MappingProperty};
+                    }
+                }
+            }
+        }
+        return $Response;
+    }
 
     my $FieldsMapping = {
         date    => "Date",
@@ -572,19 +880,129 @@ sub IndexMappingResultFormat {
         long    => "Long"
     };
 
-    my %FormattedResult;
+    # prepare formatted result
+    my $FormattedResult;
     ATTRIBUTE:
     for my $Attribute ( sort keys %{$Properties} ) {
-        my @ColumnName
-            = grep { $IndexObject->{Fields}->{$_}->{ColumnName} eq $Attribute } keys %{ $IndexObject->{Fields} };
-        my $FieldConfig = $IndexObject->{Fields}->{ $ColumnName[0] };
-        my $FieldType   = $FieldsMapping->{ $Properties->{$Attribute}->{type} } || '';
 
-        $FieldConfig->{Type} = $FieldType;
-        $FormattedResult{ $ColumnName[0] } = $FieldConfig;
+        my $IsAliasConfig = $IndexObject->{Fields}->{$Attribute};
+
+        if ( $Param{GetAliases} && $IsAliasConfig ) {
+            if ( $Properties->{$Attribute}->{path} && $Properties->{$Attribute}->{type} ) {
+                my $Path = $Properties->{$Attribute}->{path};
+                my $Type = $Properties->{$Attribute}->{type};
+
+                $FormattedResult->{Aliases}->{$Attribute} = {
+                    Path => $Path,
+                    Type => $Type,
+                };
+            }
+        }
+        elsif ( !$IsAliasConfig ) {
+            my @ColumnName
+                = grep { $IndexObject->{Fields}->{$_}->{ColumnName} eq $Attribute } keys %{ $IndexObject->{Fields} };
+
+            my $FieldConfig = $IndexObject->{Fields}->{ $ColumnName[0] };
+            my $FieldType   = $FieldsMapping->{ $Properties->{$Attribute}->{type} } || '';
+
+            $FieldConfig->{Type} = $FieldType;
+            $FormattedResult->{Mapping}->{ $ColumnName[0] } = $FieldConfig;
+        }
     }
 
-    return \%FormattedResult;
+    return $FormattedResult;
+}
+
+=head2 DefaultRemoteSettingsGet()
+
+get default remote settings
+
+    my %DefaultRemoteSettings = $Object->DefaultRemoteSettingsGet(
+        RoutingAllocation => 'ticket' # optional, need to have nodes
+                                      # with objectType attribute to work correctly
+    );
+
+=cut
+
+sub DefaultRemoteSettingsGet {
+    my ( $Self, %Param ) = @_;
+
+    my %Result = (
+        settings => {
+            index => {
+                number_of_shards => 6,
+            }
+        }
+    );
+
+    if ( $Param{RoutingAllocation} ) {
+        $Result{settings}->{index}->{routing}->{allocation}->{include}->{objectType} = $Param{RoutingAllocation};
+    }
+
+    return %Result;
+}
+
+=head2 ResponseIsSuccess()
+
+default success format response from elastic search
+
+    my $ResponseIsSuccess = $SearchMappingESObject->ResponseIsSuccess( %Param );
+
+=cut
+
+sub ResponseIsSuccess {
+    my ( $Self, %Param ) = @_;
+
+    return $Param{Response}->{__Error} ? undef : 1;
+}
+
+=head2  _ResponseDataFormat()
+
+globally formats response data from engine
+
+    my $Result = $SearchMappingESObject->_ResponseDataFormat(
+        Hits => $Hits,
+        QueryData => $QueryData,
+    );
+
+=cut
+
+sub _ResponseDataFormat {
+    my ( $Self, %Param ) = @_;
+
+    return [] if !IsArrayRefWithData( $Param{Hits} );
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
+
+    my $Hits = $Param{Hits};
+
+    my @Objects;
+
+    my $DefaultValues    = $IndexObject->{DefaultValues};
+    my $FieldsDefinition = $IndexObject->{Fields};
+    my @Fields           = keys %{$FieldsDefinition};
+
+    # when specified fields are filtered response
+    # contains them inside "fields" key
+    if ( $Param{QueryData}->{Query}->{_source} && $Param{QueryData}->{Query}->{_source} eq 'false' ) {
+        for my $Hit ( @{$Hits} ) {
+            my %Data;
+            for my $Field (@Fields) {
+                $Data{$Field} = $Hit->{fields}->{$Field}->[0] // $DefaultValues->{$Field};
+            }
+            push @Objects, \%Data;
+        }
+    }
+
+    # ES engine response stores objects inside "_source" key by default
+    # IMPORTANT: not used anymore!
+    elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
+        for my $Hit ( @{$Hits} ) {
+            push @Objects, $Hit->{_source};
+        }
+    }
+
+    return \@Objects;
 }
 
 1;

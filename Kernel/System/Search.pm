@@ -52,7 +52,7 @@ sub new {
     $Self->{Config} = $Self->ConfigGet();
 
     # check if engine feature is enabled
-    if ( !$Self->{Config}->{Enabled} || !IsArrayRefWithData( $Self->{Config}->{RegisteredIndexes} ) ) {
+    if ( !$Self->{Config}->{Enabled} || !IsHashRefWithData( $Self->{Config}->{RegisteredIndexes} ) ) {
         $Self->{Fallback} = 1;
         $Self->{Error}    = $Self->{Config}->{Enabled}
             ?
@@ -196,7 +196,7 @@ sub Search {
     my $Params = \%Param;
 
     # standardize params
-    $Self->SearchParamsStandardize( Param => $Params );
+    $Self->_SearchParamsStandardize( Param => $Params );
 
     # if there was an error, fallback all of the objects with given search parameters
     return $Self->Fallback( %{$Params} ) if $Self->{Fallback};
@@ -205,7 +205,7 @@ sub Search {
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
     # prepare query for engine
-    my $QueryData = $SearchObject->QueryPrepare(
+    my $PreparedQuery = $SearchObject->QueryPrepare(
         %{$Params},
         Operation     => "Search",
         Config        => $Self->{Config},
@@ -216,15 +216,15 @@ sub Search {
     my @ValidQueries = ();
 
     # define valid queries
-    if ( IsArrayRefWithData( $QueryData->{Queries} ) ) {
-        my @FailedQueries = grep { $_->{Fallback}->{Enable} } @{ $QueryData->{Queries} };
+    if ( IsArrayRefWithData( $PreparedQuery->{Queries} ) ) {
+        my @FailedQueries = grep { $_->{Fallback}->{Enable} } @{ $PreparedQuery->{Queries} };
         if ( scalar @FailedQueries > 0 ) {
             for my $Query (@FailedQueries) {
                 push @FailedIndexQuery, $Query->{Object};
             }
         }
         else {
-            @ValidQueries = grep { !$_->{Error} } @{ $QueryData->{Queries} };
+            @ValidQueries = grep { !$_->{Error} } @{ $PreparedQuery->{Queries} };
         }
     }
 
@@ -238,7 +238,7 @@ sub Search {
     for my $Query (@ValidQueries) {
         my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Query->{Object}");
 
-        my $ResultQuery = $Self->{EngineObject}->QueryExecute(
+        my $Response = $Self->{EngineObject}->QueryExecute(
             Query         => $Query->{Query},
             Index         => $IndexObject->{Config}->{IndexRealName},
             Operation     => 'Search',
@@ -247,20 +247,16 @@ sub Search {
             Silent        => $Param{Silent},
         );
 
-        next QUERY if !$ResultQuery;
-
         # some object queries might fail
         # on those objects fallback will be used
-        if ( $ResultQuery->{Fallback}->{Enable} ) {
+        if ( !$Response ) {
             push @FailedIndexQuery, $Query->{Object};
-        }
-        elsif ( $ResultQuery->{Error} ) {
             next QUERY;
         }
 
-        my $FormattedResult = $Self->_ResultFormat(
+        my $FormattedResult = $Self->SearchFormat(
             %{$Params},
-            Result     => $ResultQuery,
+            Result     => $Response,
             Config     => $Self->{Config},
             IndexName  => $Query->{Object},
             Operation  => "Search",
@@ -291,8 +287,12 @@ sub Search {
 add object for specified index
 
     my $Success = $SearchObject->ObjectIndexAdd(
-        Index => "Ticket",
+        Index    => "Ticket",
         ObjectID => 1,
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
     );
 
 =cut
@@ -316,35 +316,30 @@ sub ObjectIndexAdd {
         return;
     }
 
-    if ( $Self->{Fallback} ) {
-        return;
-    }
+    return if $Self->{Fallback};
 
-    my $QueryData = $SearchObject->QueryPrepare(
+    my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "ObjectIndexAdd",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
     );
 
-    if ( !defined $QueryData->{Query} ) {
-        return;
-    }
+    return if !$PreparedQuery;
 
-    my $ResultQuery = $Self->{EngineObject}->QueryExecute(
+    my $Response = $Self->{EngineObject}->QueryExecute(
         %Param,
         Operation     => "ObjectIndexAdd",
-        Query         => $QueryData->{Query},
+        Query         => $PreparedQuery,
         ConnectObject => $Self->{ConnectObject},
         Config        => $Self->{Config},
     );
 
-    if ( $ResultQuery->{Error} )
-    {
-        return;
-    }
-
-    return 1;
+    return $Self->{MappingObject}->ObjectIndexAddFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
 }
 
 =head2 ObjectIndexUpdate()
@@ -375,47 +370,30 @@ sub ObjectIndexUpdate {
         );
     }
 
-    if ( $Self->{Fallback} ) {
-        return;
-    }
+    return if $Self->{Fallback};
 
-    my $QueryData = $SearchObject->QueryPrepare(
+    my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "ObjectIndexUpdate",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
     );
 
-    if ( !defined $QueryData->{Query} ) {
-        return;
-    }
+    return if !$PreparedQuery;
 
-    my $ResultQuery = $Self->{EngineObject}->QueryExecute(
+    my $Response = $Self->{EngineObject}->QueryExecute(
         %Param,
-        Query         => $QueryData->{Query},
+        Query         => $PreparedQuery,
         Operation     => "ObjectIndexUpdate",
         ConnectObject => $Self->{ConnectObject},
         Config        => $Self->{Config},
     );
 
-    if ( $ResultQuery->{Error} )
-    {
-        return;
-    }
-
-    return 1;
-}
-
-=head2 ObjectIndexGet()
-
-get object for specified index
-
-=cut
-
-sub ObjectIndexGet {
-    my ( $Self, %Param ) = @_;
-
-    return 1;
+    return $Self->{MappingObject}->ObjectIndexUpdateFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
 }
 
 =head2 ObjectIndexRemove()
@@ -446,35 +424,30 @@ sub ObjectIndexRemove {
         );
     }
 
-    if ( $Self->{Fallback} ) {
-        return;
-    }
+    return if $Self->{Fallback};
 
-    my $QueryData = $SearchObject->QueryPrepare(
+    my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "ObjectIndexRemove",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
     );
 
-    if ( !defined $QueryData->{Query} ) {
-        return;
-    }
+    return if !$PreparedQuery;
 
-    my $ResultQuery = $Self->{EngineObject}->QueryExecute(
+    my $Response = $Self->{EngineObject}->QueryExecute(
         %Param,
-        Query         => $QueryData->{Query},
+        Query         => $PreparedQuery,
         Operation     => "ObjectIndexRemove",
         ConnectObject => $Self->{ConnectObject},
         Config        => $Self->{Config},
     );
 
-    if ( $ResultQuery->{Error} )
-    {
-        return;
-    }
-
-    return 1;
+    return $Self->{MappingObject}->ObjectIndexRemoveFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
 }
 
 =head2 Connect()
@@ -506,16 +479,130 @@ sub Connect {
     return $ConnectObject;
 }
 
-=head2 Disconnect()
+=head2 IndexAdd()
 
-TO-DO
+add index on the search engine side
+
+    my $Result = $SearchObject->IndexAdd(
+        IndexName => "Ticket" # this will create 'ticket' index on the engine side
+    );
 
 =cut
 
-sub Disconnect {
+sub IndexAdd {
     my ( $Self, %Param ) = @_;
 
-    return 1;
+    return if $Self->{Fallback};
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexAdd",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "IndexAdd",
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    return $Self->{MappingObject}->IndexAddFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
+}
+
+=head2 IndexRemove()
+
+delete index on the search engine side
+
+    my $Result = $SearchObject->IndexRemove(
+        IndexName => "Ticket" # this will delete 'ticket' index on the engine side
+    );
+
+=cut
+
+sub IndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    return if $Self->{Fallback};
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexRemove",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "IndexRemove",
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    return $Self->{MappingObject}->IndexRemoveFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
+}
+
+=head2 IndexList()
+
+get list of indexes in engine search for active cluster
+
+    my @IndexList = $SearchObject->IndexList();
+
+=cut
+
+sub IndexList {
+    my ( $Self, %Param ) = @_;
+
+    return () if $Self->{Fallback};
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexList",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    return () if !$PreparedQuery;
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "IndexList",
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    my @FormattedResponse = $Self->{MappingObject}->IndexListFormat(
+        %Param,
+        Result => $Response,
+        Config => $Self->{Config},
+    );
+
+    return @FormattedResponse;
 }
 
 =head2 IndexInit()
@@ -546,7 +633,8 @@ sub IndexInit {
 
     # set mapping
     my $Success = $Self->IndexMappingSet(
-        Index => $Param{Index}
+        %Param,
+        Index => $Param{Index},
     );
 
     if ( !$Success ) {
@@ -558,27 +646,24 @@ sub IndexInit {
     }
 
     return 1;
-
 }
 
-=head2 IndexMappingSet()
+=head2 IndexMappingGet()
 
-set mapping for index depending on configured fields in Object/Index module
+returns actual mapping set for index
 
-    my $Result = $SearchObject->IndexMappingSet(
+    my $Result = $SearchObject->IndexMappingGet(
         Index => $Index,
+        GetAliases => 0 # optional
     );
 
 =cut
 
-sub IndexMappingSet {
+sub IndexMappingGet {
     my ( $Self, %Param ) = @_;
 
+    return if $Self->{Fallback};
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    if ( $Self->{Fallback} ) {
-        return;
-    }
 
     NEEDED:
     for my $Needed (qw(Index)) {
@@ -593,57 +678,46 @@ sub IndexMappingSet {
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
-    my $QueryData = $SearchObject->QueryPrepare(
+    my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
-        Operation     => "IndexMappingSet",
+        Operation     => "IndexMappingGet",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
     );
 
+    return if !$PreparedQuery;
+
     my $Response = $Self->{EngineObject}->QueryExecute(
         %Param,
-        Query         => $QueryData->{Query},
-        Operation     => "IndexMappingSet",
+        Query         => $PreparedQuery,
+        Operation     => "IndexMappingGet",
         ConnectObject => $Self->{ConnectObject},
-        Fallback      => 0,
     );
 
-    return 1 if !$Response->{Error};
-
-    # if there was any problems on index mapping set, then check mapping
-    my $ActualIndexMapping = $Self->IndexMappingGet(
-        Index => $Param{Index}
+    return $Self->{MappingObject}->IndexMappingGetFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
     );
-
-    if ( IsHashRefWithData($ActualIndexMapping) ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "There is already existing mapping for index: '$Param{Index}'. " .
-                "Depending on the engine, the index may need to be reinitialized on the engine side.",
-        );
-    }
-
-    return;
 }
 
-=head2 IndexMappingGet()
+=head2 IndexMappingSet()
 
-returns actual mapping set for index
+set mapping for index depending on configured fields in Object/Index module
 
-    my $Result = $SearchObject->IndexMappingGet(
+    my $Result = $SearchObject->IndexMappingSet(
         Index => $Index,
+        SetAliases => 1, # optional
     );
 
 =cut
 
-sub IndexMappingGet {
+sub IndexMappingSet {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    if ( $Self->{Fallback} ) {
-        return;
-    }
+    return if $Self->{Fallback};
 
     NEEDED:
     for my $Needed (qw(Index)) {
@@ -656,26 +730,29 @@ sub IndexMappingGet {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
-    my $IndexRealName = $IndexObject->{Config}->{IndexRealName};
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexMappingSet",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
 
-    my $Result = $Self->{EngineObject}->QueryExecute(
-        Query => {
-            Index => $IndexRealName
-        },
-        Index         => $Param{Index},
-        Operation     => "IndexMappingGet",
+    return if !$PreparedQuery;
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "IndexMappingSet",
         ConnectObject => $Self->{ConnectObject},
-        Fallback      => 0,
     );
 
-    my $FormattedResult = $Self->{MappingObject}->IndexMappingResultFormat(
-        Result => $Result,
-        Index  => $Param{Index}
+    return $Self->{MappingObject}->IndexMappingSetFormat(
+        %Param,
+        Result => $Response,
+        Config => $Self->{Config},
     );
-
-    return $FormattedResult;
 }
 
 =head2 IndexClear()
@@ -706,23 +783,28 @@ sub IndexClear {
         return 1;
     }
 
-    my $QueryData = $SearchObject->QueryPrepare(
+    my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "IndexClear",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
     );
 
+    return if !$PreparedQuery;
+
     my $Response = $Self->{EngineObject}->QueryExecute(
         %Param,
-        Query         => $QueryData->{Query},
+        Query         => $PreparedQuery,
         Operation     => "IndexClear",
         ConnectObject => $Self->{ConnectObject},
         Config        => $Self->{Config},
     );
 
-    return if $Response->{Error};
-    return 1;
+    return $Self->{MappingObject}->IndexClearFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
 }
 
 =head2 ConfigGet()
@@ -739,15 +821,14 @@ sub ConfigGet {
     my $ConfigObject        = $Kernel::OM->Get('Kernel::Config');
     my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
 
-    my $ActiveEngineConfig = $SearchClusterObject->ActiveClusterGet();
-
+    my $ActiveEngineConfig    = $SearchClusterObject->ActiveClusterGet();
     my $ActiveEngine          = $ActiveEngineConfig->{Engine} || '';
     my $Enabled               = $ConfigObject->Get("SearchEngine");
     my $RegisteredIndexConfig = $ConfigObject->Get("Loader::Search::$ActiveEngine");
     my $RegisteredEngines     = $Self->EngineListGet();
 
     my $Config = {
-        Enabled => $Enabled
+        Enabled => $Enabled,
     };
 
     for my $Key ( sort keys %{$RegisteredEngines} ) {
@@ -762,13 +843,10 @@ sub ConfigGet {
 
     if ( IsHashRefWithData($RegisteredIndexConfig) ) {
         my @RegisteredIndex;
-        for my $RegisteredIndexKey ( sort keys %{$RegisteredIndexConfig} ) {
-            for my $RegisteredIndex ( @{ $RegisteredIndexConfig->{$RegisteredIndexKey} } ) {
-                push @RegisteredIndex, $RegisteredIndex if !grep { $_ eq $RegisteredIndex } @RegisteredIndex;
-            }
-        }
-        $Config->{RegisteredIndexes}
-            = \@RegisteredIndex;    # key: friendly name for calls, value: name in search engine structure
+        $Config->{RegisteredIndexes} = {};
+        for my $RegisteredIndexes ( sort values %{$RegisteredIndexConfig} ) {
+            %{ $Config->{RegisteredIndexes} } = ( %{ $Config->{RegisteredIndexes} }, %{$RegisteredIndexes} );
+        }    # key: friendly name for calls, value: name in search engine structure
     }
 
     return $Config;
@@ -833,22 +911,33 @@ get diagnostic data for active engine
 sub DiagnosticDataGet {
     my ( $Self, %Param ) = @_;
 
+    return if $Self->{Fallback} || !$Self->{MappingObject};
+
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
-    return if $Self->{Fallback} || !$Self->{MappingObject};
-
-    my $Response = $Self->{EngineObject}->DiagnosticDataGet(
-        ConnectObject => $Self->{ConnectObject},
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "DiagnosticDataGet",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
     );
 
-    return if !$Response;
+    return if !$PreparedQuery;
 
-    my $FormattedDiagnosis = $Self->{MappingObject}->DiagnosticFormat(
-        Result => $Response,
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "DiagnosticDataGet",
+        ConnectObject => $Self->{ConnectObject},    #
+        Config        => $Self->{Config},
     );
 
-    return $FormattedDiagnosis;
+    return $Self->{MappingObject}->DiagnosticDataGetFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
 }
 
 =head2 Fallback()
@@ -902,7 +991,7 @@ sub Fallback {
         my $ResultType = delete $Response->{ResultType};
 
         # format reponse per index
-        my $FormattedResult = $Self->_ResultFormat(
+        my $FormattedResult = $Self->SearchFormat(
             Result     => $Response,
             Config     => $Self->{Config},
             IndexName  => $IndexName,
@@ -919,37 +1008,6 @@ sub Fallback {
     }
 
     return \%Result;
-}
-
-=head2 SearchParamsStandardize()
-
-globally standardize search params
-
-    my $Success = $SearchObject->SearchParamsStandardize(
-        %Param,
-    );
-
-=cut
-
-sub SearchParamsStandardize {
-    my ( $Self, %Param ) = @_;
-
-    if ( IsHashRefWithData( $Param{Param} ) ) {
-        if ( IsArrayRefWithData( $Param{Param}->{Objects} ) ) {
-            if ( $Param{Param}->{OrderBy} && !IsArrayRefWithData( $Param{Param}->{OrderBy} ) ) {
-                my $OrderBy = $Param{Param}->{OrderBy};
-                $Param{Param}->{OrderBy} = [];
-                for ( my $i = 0; $i < scalar @{ $Param{Param}->{Objects} }; $i++ ) {
-                    $Param{Param}->{OrderBy}->[$i] = $OrderBy;
-                }
-            }
-            if ( ref( $Param{Param}->{Limit} ) eq 'ARRAY' ) {
-                $Param{Param}->{MultipleLimit} = 1;
-            }
-        }
-    }
-
-    return 1;
 }
 
 =head2 EngineListGet()
@@ -976,17 +1034,17 @@ sub EngineListGet {
     return \%Engines;
 }
 
-=head2 _ResultFormat()
+=head2 SearchFormat()
 
 format response data globally, then format again for index separately
 
-    my $Result = $SearchObject->_ResultFormat(
+    my $Result = $SearchObject->SearchFormat(
         Config => $Self->{Config},
     );
 
 =cut
 
-sub _ResultFormat {
+sub SearchFormat {
     my ( $Self, %Param ) = @_;
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
@@ -1007,7 +1065,7 @@ sub _ResultFormat {
     # Do not use it on fallback response
     # as fallback do not use advanced search engine
     # and should have response formatted globally already.
-    $Param{Result} = $Self->{MappingObject}->ResultFormat(
+    $Param{Result} = $Self->{MappingObject}->SearchFormat(
         Result    => $Param{Result},
         Config    => $Param{Config},
         IndexName => $Param{IndexName},
@@ -1030,6 +1088,37 @@ sub _ResultFormat {
     );
 
     return $IndexFormattedResult;
+}
+
+=head2 _SearchParamsStandardize()
+
+globally standardize search params
+
+    my $Success = $SearchObject->_SearchParamsStandardize(
+        %Param,
+    );
+
+=cut
+
+sub _SearchParamsStandardize {
+    my ( $Self, %Param ) = @_;
+
+    if ( IsHashRefWithData( $Param{Param} ) ) {
+        if ( IsArrayRefWithData( $Param{Param}->{Objects} ) ) {
+            if ( $Param{Param}->{OrderBy} && !IsArrayRefWithData( $Param{Param}->{OrderBy} ) ) {
+                my $OrderBy = $Param{Param}->{OrderBy};
+                $Param{Param}->{OrderBy} = [];
+                for ( my $i = 0; $i < scalar @{ $Param{Param}->{Objects} }; $i++ ) {
+                    $Param{Param}->{OrderBy}->[$i] = $OrderBy;
+                }
+            }
+            if ( ref( $Param{Param}->{Limit} ) eq 'ARRAY' ) {
+                $Param{Param}->{MultipleLimit} = 1;
+            }
+        }
+    }
+
+    return 1;
 }
 
 1;
