@@ -19,6 +19,7 @@ our @ObjectDependencies = (
     'Kernel::Config',
     'Kernel::System::Search',
     'Kernel::System::Search::Object',
+    'Kernel::System::Search::Object::Query',
 );
 
 =head1 NAME
@@ -198,7 +199,7 @@ sub IndexIsValid {
 
     if ( $Param{RealName} ) {
         INDEX:
-        for my $Index ( @{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
+        for my $Index ( sort keys %{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
 
             # get valid modules
             my $Loaded = $SearchChildObject->_LoadModule(
@@ -222,7 +223,7 @@ sub IndexIsValid {
     }
     else {
         # register check
-        my $IsRegistered = grep { $_ eq $Param{IndexName} } @{ $SearchObject->{Config}->{RegisteredIndexes} };
+        my $IsRegistered = $SearchObject->{Config}->{RegisteredIndexes}->{ $Param{IndexName} };
         return if !$IsRegistered;
 
         # module validity check
@@ -416,9 +417,6 @@ sub _QueryPrepareObjectIndexAdd {
 
     my $Data = $IndexQueryObject->ObjectIndexAdd(
         %Param,
-        MappingObject => $Param{MappingObject},
-        Config        => $Param{Config},
-        ObjectID      => $Param{ObjectID},
     );
 
     return $Data;
@@ -466,24 +464,9 @@ sub _QueryPrepareObjectIndexUpdate {
 
     my $Data = $IndexQueryObject->ObjectIndexUpdate(
         %Param,
-        MappingObject => $Param{MappingObject},
-        Config        => $Param{Config},
-        ObjectID      => $Param{ObjectID},
     );
 
     return $Data;
-}
-
-=head2 _QueryPrepareObjectIndexGet()
-
-TO-DO
-
-=cut
-
-sub _QueryPrepareObjectIndexGet {
-    my ( $Self, %Param ) = @_;
-
-    return 1;
 }
 
 =head2 _QueryPrepareObjectIndexRemove()
@@ -528,9 +511,285 @@ sub _QueryPrepareObjectIndexRemove {
 
     my $Data = $IndexQueryObject->ObjectIndexRemove(
         %Param,
-        MappingObject => $Param{MappingObject},
-        Config        => $Param{Config},
-        ObjectID      => $Param{ObjectID},
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareIndexRemove()
+
+prepares query for index remove operation
+
+    my $Result = $SearchChildObject->_QueryPrepareIndexRemove(
+        MappingObject   => $MappingObject,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareIndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( MappingObject Config IndexName )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{IndexName}");
+
+    my $Data = $IndexQueryObject->IndexRemove(
+        %Param
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareIndexAdd()
+
+prepares query for index add operation
+
+    my $Result = $SearchChildObject->_QueryPrepareIndexAdd(
+        MappingObject   => $MappingObject,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareIndexAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( MappingObject Config IndexName )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{IndexName}");
+
+    my $Data = $IndexQueryObject->IndexAdd(
+        %Param
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareIndexList()
+
+prepares query for index list operation
+
+    my $Result = $SearchChildObject->_QueryPrepareIndexList(
+        MappingObject   => $MappingObject,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareIndexList {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query");
+
+    my $Data = $IndexQueryObject->IndexList(
+        %Param,
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareIndexClear()
+
+prepares query for index clear operation
+
+    my $Result = $SearchChildObject->_QueryPrepareIndexClear(
+        MappingObject   => $MappingObject,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareIndexClear {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->IndexClear(
+        %Param,
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareIndexMappingSet()
+
+prepares query for index mapping set operation
+
+    my $Result = $SearchChildObject->_QueryPrepareIndexMappingSet(
+        MappingObject   => $MappingObject,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareIndexMappingSet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->IndexMappingSet(
+        %Param,
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareIndexMappingGet()
+
+prepares query for index mapping set operation
+
+    my $Result = $SearchChildObject->_QueryPrepareIndexMappingGet(
+        MappingObject   => $MappingObject,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareIndexMappingGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->IndexMappingGet(
+        %Param,
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareDiagnosticDataGet()
+
+prepares query for diagnostic data get operation
+
+    my $Result = $SearchChildObject->_QueryPrepareDiagnosticDataGet(
+        MappingObject   => $MappingObject,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareDiagnosticDataGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query");
+
+    my $Data = $IndexQueryObject->DiagnosticDataGet(
+        %Param,
     );
 
     return $Data;
@@ -581,100 +840,6 @@ sub _LoadModule {
         }
     }
     return 1;
-}
-
-=head2 _QueryPrepareIndexClear()
-
-prepares query for index clear operation
-
-    my $Result = $SearchChildObject->_QueryPrepareIndexClear(
-        MappingObject   => $MappingObject,
-        Index           => $Index,
-        Config          => $Config
-    );
-
-=cut
-
-sub _QueryPrepareIndexClear {
-    my ( $Self, %Param ) = @_;
-
-    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
-    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
-
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
-    }
-
-    my $Index = $Param{Index};
-
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
-    );
-
-    return if !$Loaded;
-
-    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
-
-    my $Data = $IndexQueryObject->IndexClear(
-        %Param,
-        MappingObject => $Param{MappingObject},
-        Config        => $Param{Config},
-    );
-
-    return $Data;
-}
-
-=head2 _QueryPrepareIndexMappingSet()
-
-prepares query for index mapping set operation
-
-    my $Result = $SearchChildObject->_QueryPrepareIndexMappingSet(
-        MappingObject   => $MappingObject,
-        Index           => $Index,
-        Config          => $Config
-    );
-
-=cut
-
-sub _QueryPrepareIndexMappingSet {
-    my ( $Self, %Param ) = @_;
-
-    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
-    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
-
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
-    }
-
-    my $Index = $Param{Index};
-
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
-    );
-
-    return if !$Loaded;
-
-    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
-
-    my $Data = $IndexQueryObject->IndexMappingSet(
-        %Param,
-        MappingObject => $Param{MappingObject},
-        Config        => $Param{Config},
-    );
-
-    return $Data;
 }
 
 1;

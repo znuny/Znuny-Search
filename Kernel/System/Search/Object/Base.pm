@@ -333,18 +333,21 @@ sub SearchFormat {
     my $IndexName               = $Self->{Config}->{IndexName};
     my $GloballyFormattedResult = $Param{GloballyFormattedResult};
 
-    OBJECT:
-    for my $ObjectData ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
-        ATTRIBUTE:
-        for my $ObjectAttribute ( sort keys %{$ObjectData} ) {
-            my @AttributeName
-                = grep { $Self->{Fields}->{$_}->{ColumnName} eq $ObjectAttribute } keys %{ $Self->{Fields} };
-            next ATTRIBUTE if !$AttributeName[0];
+    # fallback
+    if ( $Param{Fallback} ) {
+        OBJECT:
+        for my $ObjectData ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
+            ATTRIBUTE:
+            for my $ObjectAttribute ( sort keys %{$ObjectData} ) {
+                my @AttributeName
+                    = grep { $Self->{Fields}->{$_}->{ColumnName} eq $ObjectAttribute } keys %{ $Self->{Fields} };
+                next ATTRIBUTE if !$AttributeName[0];
 
-            $ObjectData->{ $AttributeName[0] } = $ObjectData->{$ObjectAttribute}
-                // $Self->{DefaultValues}->{ $AttributeName[0] };
+                $ObjectData->{ $AttributeName[0] } = $ObjectData->{$ObjectAttribute}
+                    // $Self->{DefaultValues}->{ $AttributeName[0] };
 
-            delete $ObjectData->{$ObjectAttribute};
+                delete $ObjectData->{$ObjectAttribute};
+            }
         }
     }
 

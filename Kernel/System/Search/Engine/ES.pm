@@ -18,7 +18,6 @@ use Kernel::System::VariableCheck qw(IsArrayRefWithData);
 
 our @ObjectDependencies = (
     'Kernel::System::Log',
-    'Kernel::System::Search::Mapping::ES',
     'Kernel::System::Search::Cluster',
     'Kernel::System::Search::Auth::ES',
 );
@@ -154,7 +153,6 @@ executes query for active engine with specified operation
     my $Result = $SearchEngineESObject->QueryExecute(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
-        Index           => $Index,
         Operation       => $Operation,
     );
 
@@ -164,18 +162,15 @@ sub QueryExecute {
     my ( $Self, %Param ) = @_;
 
     my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
-    my $MappingObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
     my $ConnectObject = $Param{ConnectObject};
 
-    for my $Name (qw(Query Index Operation ConnectObject)) {
+    for my $Name (qw(Query Operation ConnectObject)) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
                 Message  => "Need $Name!"
             );
-            return {
-                Error => 1,
-            };
+            return;
         }
     }
 
@@ -197,51 +192,9 @@ sub QueryExecute {
             );
         }
         return {
-            Error => 1,
+            __Error => 1,
         };
     }
-
-    return $Result;
-}
-
-=head2 DiagnosticDataGet()
-
-executes diagnosis query for engine
-
-    my $Result = $SearchEngineESObject->DiagnosticDataGet(
-        ConnectObject   => $ConnectObject,
-    );
-
-=cut
-
-sub DiagnosticDataGet {
-    my ( $Self, %Param ) = @_;
-
-    my $ConnectObject = $Param{ConnectObject};
-    return {} if !$ConnectObject;
-
-    my $ClusterHealth = $ConnectObject->transport()->perform_request(
-        method => 'GET',
-        path   => "_cluster/health",
-    );
-
-    my $NodesStat = $ConnectObject->transport()->perform_request(
-        method => 'GET',
-        path   => "_nodes/stats",
-    );
-
-    my $IndexStat = $ConnectObject->transport()->perform_request(
-        method => 'GET',
-        path   => "_cat/indices",
-    );
-
-    my @Indexes = split( '\n', $IndexStat );
-
-    my $Result = {
-        Cluster => $ClusterHealth,
-        Nodes   => $NodesStat,
-        Indexes => \@Indexes
-    };
 
     return $Result;
 }
@@ -382,13 +335,87 @@ sub _QueryExecuteObjectIndexAdd {
         method => 'POST',
         path   => "/$Param{Query}->{Index}/_create/$Param{ObjectID}",
         body   => {
-            %{ $Param{Query}->{Body} }
+            %{ $Param{Query}->{Body} },
+        },
+        qs => {
+            %{ $Param{Query}->{Refresh} },
         }
     );
 
-    $ConnectObject->transport()->perform_request(
-        method => 'POST',
-        path   => "/$Param{Query}->{Index}/_refresh",
+    return $Result;
+}
+
+=head2 _QueryExecuteIndexAdd()
+
+executes query for active engine with specified "IndexAdd" operation
+
+    my $Result = $SearchEngineESObject->_QueryExecuteIndexAdd(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'PUT',
+        path   => $Param{Query}->{Path},
+        body   => $Param{Query}->{Body},
+    );
+
+    return $Result;
+}
+
+=head2 _QueryExecuteIndexRemove()
+
+executes query for active engine with specified "IndexRemove" operation
+
+    my $Result = $SearchEngineESObject->_QueryExecuteIndexRemove(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'DELETE',
+        path   => $Param{Query}->{Index},
+    );
+
+    return $Result;
+}
+
+=head2 _QueryExecuteIndexList()
+
+executes query for active engine with specified "IndexList" operation
+
+    my $Result = $SearchEngineESObject->_QueryExecuteIndexList(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexList {
+    my ( $Self, %Param ) = @_;
+
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'GET',
+        path   => $Param{Query}->{Path},
+        qs     => {
+            format => $Param{Query}->{Format},
+        }
     );
 
     return $Result;
@@ -415,12 +442,10 @@ sub _QueryExecuteIndexClear {
         path   => "/$Param{Query}->{Index}/_delete_by_query",
         body   => {
             %{ $Param{Query}->{Body} }
+        },
+        qs => {
+            %{ $Param{Query}->{Refresh} },
         }
-    );
-
-    $ConnectObject->transport()->perform_request(
-        method => 'POST',
-        path   => "/$Param{Query}->{Index}/_refresh",
     );
 
     return $Result;
@@ -443,7 +468,6 @@ sub _QueryExecuteObjectIndexUpdate {
 
     my $ConnectObject = $Param{ConnectObject};
 
-    #  TODO: Need to check integration og Age attribute
     my $Result = $ConnectObject->transport()->perform_request(
         method => 'POST',
         path   => "/$Param{Query}->{Index}/_update/$Param{ObjectID}",
@@ -451,12 +475,10 @@ sub _QueryExecuteObjectIndexUpdate {
             doc => {
                 %{ $Param{Query}->{Body} }
             }
+        },
+        qs => {
+            %{ $Param{Query}->{Refresh} },
         }
-    );
-
-    $ConnectObject->transport()->perform_request(
-        method => 'POST',
-        path   => "/$Param{Query}->{Index}/_refresh",
     );
 
     return $Result;
@@ -482,11 +504,9 @@ sub _QueryExecuteObjectIndexRemove {
     my $Result = $ConnectObject->transport()->perform_request(
         method => 'DELETE',
         path   => "/$Param{Query}->{Index}/_doc/$Param{ObjectID}",
-    );
-
-    $ConnectObject->transport()->perform_request(
-        method => 'POST',
-        path   => "/$Param{Query}->{Index}/_refresh",
+        qs     => {
+            %{ $Param{Query}->{Refresh} },
+        }
     );
 
     return $Result;
@@ -537,10 +557,46 @@ sub _QueryExecuteIndexMappingGet {
 
     my $Result = $ConnectObject->transport()->perform_request(
         method => 'GET',
-        path   => "/$Param{Query}->{Index}/_mapping",
+        path   => "/$Param{Query}->{Path}",
     );
 
     return $Result;
+}
+
+=head2 _QueryExecuteDiagnosticDataGet()
+
+executes diagnosis query for engine
+
+    my $Result = $SearchEngineESObject->_QueryExecuteDiagnosticDataGet(
+        ConnectObject   => $ConnectObject,
+    );
+
+=cut
+
+sub _QueryExecuteDiagnosticDataGet {
+    my ( $Self, %Param ) = @_;
+
+    my $ConnectObject = $Param{ConnectObject};
+    return {} if !$ConnectObject;
+
+    my $QueryResult;
+    my $ReturnResult;
+
+    for my $HealthObject (qw(Cluster Nodes Indexes)) {
+        $QueryResult->{$HealthObject} = $ConnectObject->transport()->perform_request(
+            method => 'GET',
+            path   => $Param{Query}->{$HealthObject}->{Path},
+        );
+    }
+
+    $ReturnResult->{Cluster} = $QueryResult->{Cluster};
+    $ReturnResult->{Nodes}   = $QueryResult->{Nodes};
+
+    if ( $QueryResult->{Indexes} ) {
+        @{ $ReturnResult->{Indexes} } = split( '\n', $QueryResult->{Indexes} );
+    }
+
+    return $ReturnResult;
 }
 
 1;

@@ -11,7 +11,6 @@ use warnings;
 use utf8;
 
 use vars (qw($Self));
-
 use Kernel::System::VariableCheck qw(:all);
 
 # this test is not supposed to be executed in gitlab ci
@@ -229,7 +228,9 @@ if ($SupportedOperatorsExists) {
         $Self->IsDeeply(
             $EngineResult,
             $FallbackResult,
-            "Basic ticket (id: $TicketID) engine eq fallback check",
+            "(Engine => SQL response) Basic Ticket (id: $TicketID) check:\n" .
+                "field to check     - TicketID,\n" .
+                "QueryParamValue    - $TicketID,\n"
         );
 
         # revert fallback flag
@@ -273,7 +274,7 @@ if ($SupportedOperatorsExists) {
                 TestName     => 'Empty title',
                 InsertParams => {                # create ticket properties
                     %BasicTicketProperties,
-                    Title => 'asd',
+                    Title => '',
                 },
                 FieldsToCheck => ['Title'],
             },
