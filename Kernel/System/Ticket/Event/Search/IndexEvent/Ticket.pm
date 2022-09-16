@@ -31,7 +31,7 @@ sub Run {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # check needed stuff
+    # check needed parameters
     for my $Needed (qw(Data Event Config)) {
         if ( !$Param{$Needed} ) {
             $LogObject->Log(
@@ -69,10 +69,11 @@ sub Run {
 
     my $FunctionName = $Param{Config}->{FunctionName};
 
-    # Prevent error code 500 when engine index failed.
+    # prevent error code 500 when engine index failed
     eval {
         my $Success = $SearchObject->$FunctionName(
-            %QueryParam
+            %QueryParam,
+            Refresh => 1,    # live indexing should be refreshed every time
         );
 
         if ( !$Success ) {

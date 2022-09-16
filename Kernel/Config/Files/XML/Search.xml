@@ -13,10 +13,10 @@
         <Description Translatable="1">Register search indexes for elastic search engine.</Description>
         <Navigation>Core::Search</Navigation>
         <Value>
-            <Array>
-                <Item>Ticket</Item>
-                <Item>TicketHistory</Item>
-            </Array>
+            <Hash>
+                <Item Key="Ticket">ticket</Item>
+                <Item Key="TicketHistory">ticket_history</Item>
+            </Hash>
         </Value>
     </Setting>
     <!-- TODO: change validity to 0, then enable this on search initialization -->
@@ -145,15 +145,6 @@
         <Navigation>Core::Search</Navigation>
         <Value>
             <Item ValueType="Checkbox">0</Item>
-        </Value>
-    </Setting>
-    <Setting Name="SearchEngine::UnitTest###ResponseEquality" Required="0" Valid="1">
-        <Description Translatable="1">Register which indexes should be check in ResponseEquality unit test.</Description>
-        <Navigation>Core::Search::Unit</Navigation>
-        <Value>
-            <Array>
-                <Item>Ticket</Item>
-            </Array>
         </Value>
     </Setting>
 </otrs_config>

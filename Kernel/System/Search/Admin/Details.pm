@@ -180,7 +180,7 @@ sub BuildDetailsSection {
     }
 
     INDEX:
-    for my $RegisteredIndex ( @{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
+    for my $RegisteredIndex ( sort keys %{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
         my $Loaded = $SearchChildObject->_LoadModule(
             Module => "Kernel::System::Search::Object::$RegisteredIndex",
             Silent => 1,
