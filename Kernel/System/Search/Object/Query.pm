@@ -77,43 +77,11 @@ sub Search {
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     my $ParamSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
 
-    my %SearchParams;
+    my $SearchParams = $Self->_CheckQueryParams(
+        QueryParams => $Param{QueryParams},
+    );
 
-    # apply search params for columns that are supported
-    PARAM:
-    for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
-
-        # check if there is existing mapping between query param and database column
-        next PARAM if !$Self->{IndexFields}->{$SearchParam};
-
-        # do not accept undef values for param
-        next PARAM if !defined $Param{QueryParams}->{$SearchParam};
-        $SearchParams{$SearchParam} = $Param{QueryParams}->{$SearchParam};
-
-        my $QueryParamType = $Self->{IndexFields}->{$SearchParam}->{Type};
-        my $QueryParamValue;
-        my $QueryParamOperator;
-
-        if ( ref $Param{QueryParams}->{$SearchParam} eq "HASH" ) {
-            $QueryParamValue    = $Param{QueryParams}->{$SearchParam}->{Value};
-            $QueryParamOperator = $Param{QueryParams}->{$SearchParam}->{Operator} || '=';
-        }
-        else {
-            $QueryParamValue    = $Param{QueryParams}->{$SearchParam};
-            $QueryParamOperator = "=";
-        }
-
-        if ( !$Self->{IndexSupportedOperators}->{$QueryParamType}->{Operator}->{$QueryParamOperator} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Operator '$QueryParamOperator' is not supported for '$QueryParamType' type.",
-            );
-
-            return {
-                Error => 1,
-            };
-        }
-    }
+    return $SearchParams if $SearchParams->{Error};
 
     my $SortBy;
     if (
@@ -157,7 +125,7 @@ sub Search {
         %Param,
         Fields           => \@Fields,
         FieldsDefinition => $Self->{IndexFields},
-        QueryParams      => \%SearchParams,
+        QueryParams      => $SearchParams,
         SortBy           => $SortBy,
     );
 
@@ -296,10 +264,47 @@ sub ObjectIndexRemove {
 
     return if !$Param{MappingObject};
 
-    # build and return query
-    return $Param{MappingObject}->ObjectIndexRemove(
-        %Param,
-    );
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Config Index)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    if ( $Param{ObjectID} ) {
+
+        # build and return query
+        return $Param{MappingObject}->ObjectIndexRemove(
+            %Param,
+            FieldsDefinition => $Self->{IndexFields},
+        );
+    }
+    elsif ( IsHashRefWithData( $Param{QueryParams} ) ) {
+        my $QueryParams = $Self->_CheckQueryParams(
+            QueryParams => $Param{QueryParams},
+        );
+
+        # build and return query
+        return $Param{MappingObject}->ObjectIndexRemove(
+            %Param,
+            FieldsDefinition => $Self->{IndexFields},
+            QueryParams      => $QueryParams,
+        );
+    }
+    else {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need either ObjectID or QueryParams with data as HASH!",
+        );
+        return;
+    }
 }
 
 =head2 IndexAdd()
@@ -455,6 +460,60 @@ sub IndexMappingSet {
         Fields      => $Self->{IndexFields},
         IndexConfig => $Self->{IndexConfig},
     );
+}
+
+=head2 _CheckQueryParams()
+
+check and set valid query params
+
+    my $QueryParams = $SearchQueryObject->_CheckQueryParams(
+        QueryParams => $Param{QueryParams},
+    );
+
+=cut
+
+sub _CheckQueryParams {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
+    my $ValidParams = {};
+
+    # apply search params for columns that are supported
+    PARAM:
+    for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
+
+        # check if there is existing mapping between query param and database column
+        next PARAM if !$Self->{IndexFields}->{$SearchParam};
+
+        # do not accept undef values for param
+        next PARAM if !defined $Param{QueryParams}->{$SearchParam};
+        $ValidParams->{$SearchParam} = $Param{QueryParams}->{$SearchParam};
+        my $QueryParamType = $Self->{IndexFields}->{$SearchParam}->{Type};
+        my $QueryParamValue;
+        my $QueryParamOperator;
+
+        if ( ref $Param{QueryParams}->{$SearchParam} eq "HASH" ) {
+            $QueryParamValue    = $Param{QueryParams}->{$SearchParam}->{Value};
+            $QueryParamOperator = $Param{QueryParams}->{$SearchParam}->{Operator} || '=';
+        }
+        else {
+            $QueryParamValue    = $Param{QueryParams}->{$SearchParam};
+            $QueryParamOperator = "=";
+        }
+
+        if ( !$Self->{IndexSupportedOperators}->{$QueryParamType}->{Operator}->{$QueryParamOperator} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Operator '$QueryParamOperator' is not supported for '$QueryParamType' type.",
+            );
+
+            return {
+                Error => 1,
+            };
+        }
+    }
+
+    return $ValidParams;
 }
 
 1;

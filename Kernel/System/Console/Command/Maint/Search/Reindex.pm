@@ -76,7 +76,7 @@ sub Run {
     my $ObjectOption = $Self->GetOption('Object');
 
     if ( !IsArrayRefWithData($ObjectOption) ) {
-        @{$ObjectOption} = keys %{ $Self->{SearchObject}->{Config}->{RegisteredIndexes} };
+        @{$ObjectOption} = reverse keys %{ $Self->{SearchObject}->{Config}->{RegisteredIndexes} };
     }
 
     my %IndexObjectStatus = map { $_ => { "Successfull" => 0 } } @{$ObjectOption};

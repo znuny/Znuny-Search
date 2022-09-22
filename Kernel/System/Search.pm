@@ -103,6 +103,8 @@ sub new {
 
 =head2 Search()
 
+TO-DO multiple search query param support in array (for example: TicketID => [1,2,3])
+
 search for specified object data
 
     my $TicketSearch = $SearchObject->Search(
@@ -284,6 +286,8 @@ sub Search {
 
 =head2 ObjectIndexAdd()
 
+TO-DO add update support
+
 add object for specified index
 
     my $Success = $SearchObject->ObjectIndexAdd(
@@ -344,6 +348,8 @@ sub ObjectIndexAdd {
 
 =head2 ObjectIndexUpdate()
 
+TO-DO multiple update support
+
 update object for specified index
 
     my $Success = $SearchObject->ObjectIndexUpdate(
@@ -402,7 +408,15 @@ remove object for specified index
 
     my $Success = $SearchObject->ObjectIndexRemove(
         Index => "Ticket",
-        ObjectID => 1,
+        ObjectID => 1, # possible: single id or ids in array
+                       # for single record id: 1
+                       # for multiple records ids: [1,2,3,4]
+                       # or
+        QueryParams => { # operators are supported
+            TicketID => 1,
+            StateID => { Operator = ''>', Value = '2'},
+            ..,
+        }
     );
 
 =cut
@@ -415,7 +429,7 @@ sub ObjectIndexRemove {
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
     NEEDED:
-    for my $Needed (qw(Index ObjectID)) {
+    for my $Needed (qw(Index)) {
         next NEEDED if $Param{$Needed};
 
         $LogObject->Log(

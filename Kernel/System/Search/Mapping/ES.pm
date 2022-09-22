@@ -61,39 +61,11 @@ process query data to structure that will be used to execute query
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    my %Query = ();
-
-    # build query from parameters
-    PARAM:
-    for my $Field ( sort keys %{ $Param{QueryParams} } ) {
-
-        my $Value;
-        my $Operator;
-
-        if ( ref $Param{QueryParams}->{$Field} eq "HASH" ) {
-            $Operator = $Param{QueryParams}->{$Field}->{Operator} || "=";
-            $Value    = $Param{QueryParams}->{$Field}->{Value} // "";
-        }
-        else {
-            $Operator = "=";
-            $Value    = $Param{QueryParams}->{$Field} // '';
-        }
-
-        next PARAM if !$Field;
-
-        my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
-
-        my $Result = $OperatorModule->OperatorQueryGet(
-            Field    => $Param{FieldsDefinition}->{$Field}->{ColumnName},
-            Value    => $Value,
-            Operator => $Operator,
-            Object   => $Param{Object},
-        );
-
-        my $Query = $Result->{Query};
-
-        push @{ $Query{query}{bool}{ $Result->{Section} } }, $Query;
-    }
+    my %Query = $Self->_BuildQueryBodyFromParams(
+        FieldsDefinition => $Param{FieldsDefinition},
+        QueryParams      => $Param{QueryParams},
+        Object           => $Param{Object},
+    );
 
     # data source won't be "_source" key anymore
     # instead it will be "fields"
@@ -345,25 +317,21 @@ process query data to structure that will be used to execute query
         Config   => $Config,
         Index    => $Index,
         ObjectID => $ObjectID,
+        FieldsDefinition => $FieldsDefinition,
     );
 
 =cut
 
 sub ObjectIndexRemove {
-    my ( $Type, %Param ) = @_;
+    my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    NEEDED:
-    for my $Needed (qw(Config Index ObjectID)) {
-
-        next NEEDED if defined $Param{$Needed};
-
+    if ( !$Param{FieldsDefinition} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "Parameter '$Needed' is needed!",
+            Message  => "Need FieldsDefinition!"
         );
-        return;
     }
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
@@ -376,12 +344,49 @@ sub ObjectIndexRemove {
         };
     }
 
-    my $Result = {
-        Index   => $IndexObject->{Config}->{IndexRealName},
-        Refresh => $Refresh,
-    };
+    if ( $Param{ObjectID} ) {
+        if ( ref( $Param{ObjectID} ) eq 'ARRAY' ) {
+            return {
+                Path   => "/$IndexObject->{Config}->{IndexRealName}/_delete_by_query",
+                QS     => $Refresh,
+                Method => 'POST',
+                Body   => {
+                    query => {
+                        bool => {
+                            must => [
+                                {
+                                    terms => {
+                                        id => $Param{ObjectID},
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+        }
+        else {
+            return {
+                Path   => "/$IndexObject->{Config}->{IndexRealName}/_doc/$Param{ObjectID}",
+                QS     => $Refresh,
+                Method => 'DELETE',
+            };
+        }
+    }
+    elsif ( $Param{QueryParams} ) {
+        my %QueryBody = $Self->_BuildQueryBodyFromParams(
+            QueryParams      => $Param{QueryParams},
+            FieldsDefinition => $Param{FieldsDefinition},
+            Object           => $Param{Index},
+        );
 
-    return $Result;    # Need to use perform_request()
+        return {
+            Path   => "/$IndexObject->{Config}->{IndexRealName}/_delete_by_query",
+            QS     => $Refresh,
+            Method => 'POST',
+            Body   => \%QueryBody,
+        };
+    }
 }
 
 =head2 ObjectIndexRemoveFormat()
@@ -1003,6 +1008,58 @@ sub _ResponseDataFormat {
     }
 
     return \@Objects;
+}
+
+=head2 _BuildQueryBodyFromParams()
+
+build query form params
+
+    my %Query = $SearchMappingESObject->_BuildQueryBodyFromParams(
+        QueryParams     => $QueryParams,
+        FieldDefinition => $FieldDefinition,
+        Object          => $Object,
+    );
+
+=cut
+
+sub _BuildQueryBodyFromParams {
+    my ( $Self, %Param ) = @_;
+
+    my %Query = ();
+
+    # build query from parameters
+    PARAM:
+    for my $Field ( sort keys %{ $Param{QueryParams} } ) {
+
+        my $Value;
+        my $Operator;
+
+        if ( ref $Param{QueryParams}->{$Field} eq "HASH" ) {
+            $Operator = $Param{QueryParams}->{$Field}->{Operator} || "=";
+            $Value    = $Param{QueryParams}->{$Field}->{Value} // "";
+        }
+        else {
+            $Operator = "=";
+            $Value    = $Param{QueryParams}->{$Field} // '';
+        }
+
+        next PARAM if !$Field;
+
+        my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
+
+        my $Result = $OperatorModule->OperatorQueryGet(
+            Field    => $Param{FieldsDefinition}->{$Field}->{ColumnName},
+            Value    => $Value,
+            Operator => $Operator,
+            Object   => $Param{Object},
+        );
+
+        my $Query = $Result->{Query};
+
+        push @{ $Query{query}{bool}{ $Result->{Section} } }, $Query;
+    }
+
+    return %Query;
 }
 
 1;
