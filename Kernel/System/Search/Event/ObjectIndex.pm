@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Ticket::Event::Search::IndexEvent::Ticket;
+package Kernel::System::Search::Event::ObjectIndex;
 
 use strict;
 use warnings;
@@ -29,6 +29,8 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    return if $SearchObject->{Fallback};
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     # check needed parameters
@@ -41,45 +43,40 @@ sub Run {
             return;
         }
     }
-    for my $Needed (qw(TicketID)) {
-        if ( !$Param{Data}->{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed in Data!"
-            );
-            return;
-        }
-    }
-    for my $Needed (qw(FunctionName)) {
+    for my $Needed (qw(FunctionName IndexName)) {
         if ( !$Param{Config}->{$Needed} ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message  => "Need $Needed in Data!"
+                Message  => "Need $Needed in Config!"
             );
             return;
         }
     }
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $IndexSearchObject      = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Config}->{IndexName}");
+    my $ObjectIdentifierColumn = $IndexSearchObject->{Config}->{Identifier};
+
+    if ( !$Param{Data}->{$ObjectIdentifierColumn} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need ObjectID ($ObjectIdentifierColumn) in event Data!"
+        );
+        return;
+    }
 
     my %QueryParam = (
-        Index    => "Ticket",
-        ObjectID => $Param{Data}->{TicketID}
+        Index    => $Param{Config}->{IndexName},
+        ObjectID => $Param{Data}->{$ObjectIdentifierColumn},
     );
 
     my $FunctionName = $Param{Config}->{FunctionName};
 
     # prevent error code 500 when engine index failed
     eval {
-        my $Success = $SearchObject->$FunctionName(
+        $SearchObject->$FunctionName(
             %QueryParam,
             Refresh => 1,    # live indexing should be refreshed every time
         );
-
-        if ( !$Success ) {
-
-            #TODO handle not succesfull event operation
-        }
     };
     if ($@) {
         $LogObject->Log(

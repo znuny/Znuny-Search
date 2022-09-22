@@ -172,7 +172,7 @@ Check if specified index is valid -
 registration with module validity check.
 
     my $IsValid = $SearchChildObject->IndexIsValid(
-        Name => "ticket",
+        IndexName => "ticket",
         RealName => 1, # optional
     );
 
@@ -191,50 +191,32 @@ sub IndexIsValid {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message  => "Need $Name!"
+                Message  => "Need $Name!",
             );
             return;
         }
     }
 
+    my %RegisteredIndexes = %{ $SearchObject->{Config}->{RegisteredIndexes} };
+    my $IndexName = $Param{IndexName};    # this variable will hold friendly name of index (raw/not real)
+
     if ( $Param{RealName} ) {
-        INDEX:
-        for my $Index ( sort keys %{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
-
-            # get valid modules
-            my $Loaded = $SearchChildObject->_LoadModule(
-                Module => "Kernel::System::Search::Object::$Index",
-                Silent => 1
-            );
-
-            next INDEX if !$Loaded;
-
-            # search for index name inside module
-            my $IndexObject   = $Kernel::OM->Get("Kernel::System::Search::Object::$Index");
-            my $IndexRealName = $IndexObject->{Config}->{IndexRealName};
-
-            # index real name check
-            return 1 if $IndexRealName eq $Param{IndexName};
-        }
-        return;
-
-        # TODO later: check if this else section of code will be used at all - if not delete
-        # it checks single index name validity
-    }
-    else {
-        # register check
-        my $IsRegistered = $SearchObject->{Config}->{RegisteredIndexes}->{ $Param{IndexName} };
-        return if !$IsRegistered;
-
-        # module validity check
-        my $Loaded = $SearchChildObject->_LoadModule(
-            Module => "Kernel::System::Search::Object::$Param{IndexName}",
-            Silent => 1
-        );
-
-        return 1 if $Loaded;
+        my %ReverseRegisteredIndexes = reverse %{ $SearchObject->{Config}->{RegisteredIndexes} };
+        $IndexName = $ReverseRegisteredIndexes{ $Param{IndexName} };
     }
 
+    # register check
+    my $IsRegistered = $RegisteredIndexes{$IndexName};
+    return if !$IsRegistered;
+
+    # module validity check
+    my $Loaded = $SearchChildObject->_LoadModule(
+        Module => "Kernel::System::Search::Object::$IndexName",
+        Silent => 1
+    );
+
+    return $IndexName    if $Loaded && $Param{RealName};
+    return $IsRegistered if $Loaded && !$Param{RealName};
     return;
 }
 
@@ -488,7 +470,7 @@ sub _QueryPrepareObjectIndexRemove {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index ObjectID MappingObject Config )) {
+    for my $Name (qw( Index MappingObject Config )) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',

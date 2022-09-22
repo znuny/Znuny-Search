@@ -287,6 +287,30 @@ sub UserInfoStrgBuild {
     return "$Login:$Password";
 }
 
+=head2 QueryExecuteGeneric()
+
+executes generic query for active engine
+
+    my $Result = $SearchEngineESObject->QueryExecuteGeneric(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+        Method          => 'POST',
+        QS              => $QS,
+    );
+
+=cut
+
+sub QueryExecuteGeneric {
+    my ( $Self, %Param ) = @_;
+
+    return $Param{ConnectObject}->transport()->perform_request(
+        method => $Param{Query}->{Method},
+        path   => $Param{Query}->{Path},
+        body   => $Param{Query}->{Body},
+        qs     => $Param{Query}->{QS},
+    );
+}
+
 =head2 _QueryExecuteSearch()
 
 executes query for active engine with specified object "Search" operation
@@ -302,16 +326,12 @@ executes query for active engine with specified object "Search" operation
 sub _QueryExecuteSearch {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->search(
+    return $Param{ConnectObject}->search(
         index => $Param{Index},
         body  => {
             %{ $Param{Query} }
         },
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteObjectIndexAdd()
@@ -329,9 +349,7 @@ executes query for active engine with specified object "Add" operation
 sub _QueryExecuteObjectIndexAdd {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->transport()->perform_request(
+    return $Param{ConnectObject}->transport()->perform_request(
         method => 'POST',
         path   => "/$Param{Query}->{Index}/_create/$Param{ObjectID}",
         body   => {
@@ -341,8 +359,6 @@ sub _QueryExecuteObjectIndexAdd {
             %{ $Param{Query}->{Refresh} },
         }
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteIndexAdd()
@@ -359,15 +375,11 @@ executes query for active engine with specified "IndexAdd" operation
 sub _QueryExecuteIndexAdd {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->transport()->perform_request(
+    return $Param{ConnectObject}->transport()->perform_request(
         method => 'PUT',
         path   => $Param{Query}->{Path},
         body   => $Param{Query}->{Body},
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteIndexRemove()
@@ -384,14 +396,10 @@ executes query for active engine with specified "IndexRemove" operation
 sub _QueryExecuteIndexRemove {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->transport()->perform_request(
+    return $Param{ConnectObject}->transport()->perform_request(
         method => 'DELETE',
         path   => $Param{Query}->{Index},
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteIndexList()
@@ -408,17 +416,13 @@ executes query for active engine with specified "IndexList" operation
 sub _QueryExecuteIndexList {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->transport()->perform_request(
+    return $Param{ConnectObject}->transport()->perform_request(
         method => 'GET',
         path   => $Param{Query}->{Path},
         qs     => {
             format => $Param{Query}->{Format},
         }
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteIndexClear()
@@ -435,9 +439,7 @@ executes query for active engine with specified "IndexClear" operation
 sub _QueryExecuteIndexClear {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->transport()->perform_request(
+    return $Param{ConnectObject}->transport()->perform_request(
         method => 'POST',
         path   => "/$Param{Query}->{Index}/_delete_by_query",
         body   => {
@@ -447,8 +449,6 @@ sub _QueryExecuteIndexClear {
             %{ $Param{Query}->{Refresh} },
         }
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteObjectIndexUpdate()
@@ -466,9 +466,7 @@ executes query for active engine with specified "Update" operation
 sub _QueryExecuteObjectIndexUpdate {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->transport()->perform_request(
+    return $Param{ConnectObject}->transport()->perform_request(
         method => 'POST',
         path   => "/$Param{Query}->{Index}/_update/$Param{ObjectID}",
         body   => {
@@ -480,8 +478,6 @@ sub _QueryExecuteObjectIndexUpdate {
             %{ $Param{Query}->{Refresh} },
         }
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteObjectIndexRemove()
@@ -499,17 +495,10 @@ executes query for active engine with specified "Remove" operation
 sub _QueryExecuteObjectIndexRemove {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->transport()->perform_request(
-        method => 'DELETE',
-        path   => "/$Param{Query}->{Index}/_doc/$Param{ObjectID}",
-        qs     => {
-            %{ $Param{Query}->{Refresh} },
-        }
+    return $Self->QueryExecuteGeneric(
+        ConnectObject => $Param{ConnectObject},
+        Query         => $Param{Query},
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteIndexMappingSet()
@@ -526,17 +515,13 @@ executes query for active engine to set data mapping for specified index
 sub _QueryExecuteIndexMappingSet {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->transport()->perform_request(
+    return $Param{ConnectObject}->transport()->perform_request(
         method => 'POST',
         path   => "/$Param{Query}->{Index}/_mapping",
         body   => {
             %{ $Param{Query}->{Body} }
         }
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteIndexMappingGet()
@@ -553,14 +538,10 @@ executes query for active engine with mapping set operation
 sub _QueryExecuteIndexMappingGet {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-
-    my $Result = $ConnectObject->transport()->perform_request(
+    return $Param{ConnectObject}->transport()->perform_request(
         method => 'GET',
         path   => "/$Param{Query}->{Path}",
     );
-
-    return $Result;
 }
 
 =head2 _QueryExecuteDiagnosticDataGet()
@@ -576,14 +557,13 @@ executes diagnosis query for engine
 sub _QueryExecuteDiagnosticDataGet {
     my ( $Self, %Param ) = @_;
 
-    my $ConnectObject = $Param{ConnectObject};
-    return {} if !$ConnectObject;
+    return {} if !$Param{ConnectObject};
 
     my $QueryResult;
     my $ReturnResult;
 
     for my $HealthObject (qw(Cluster Nodes Indexes)) {
-        $QueryResult->{$HealthObject} = $ConnectObject->transport()->perform_request(
+        $QueryResult->{$HealthObject} = $Param{ConnectObject}->transport()->perform_request(
             method => 'GET',
             path   => $Param{Query}->{$HealthObject}->{Path},
         );

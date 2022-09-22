@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::Query::Ticket;
+package Kernel::System::Search::Object::Query::ArticleDataMIME;
 
 use strict;
 use warnings;
@@ -14,12 +14,12 @@ use warnings;
 use parent qw( Kernel::System::Search::Object::Query );
 
 our @ObjectDependencies = (
-    'Kernel::System::Search::Object::Ticket',
+    'Kernel::System::Search::Object::ArticleDataMIME',
 );
 
 =head1 NAME
 
-Kernel::System::Search::Object::Query::Ticket - Functions to build query for specified operations
+Kernel::System::Search::Object::Query::ArticleDataMIME - Functions to build query for specified operations
 
 =head1 DESCRIPTION
 
@@ -31,7 +31,7 @@ Common search engine query backend functions.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $QueryTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Query::Ticket');
+    my $QueryArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Query::ArticleDataMIME');
 
 =cut
 
@@ -40,7 +40,7 @@ sub new {
 
     my $Self = {};
 
-    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Ticket');
+    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::ArticleDataMIME');
 
     # get index specified fields
     $Self->{IndexFields}               = $IndexObject->{Fields};
