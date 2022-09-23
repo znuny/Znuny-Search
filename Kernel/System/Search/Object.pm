@@ -56,6 +56,8 @@ sub new {
         "IS NOT EMPTY"   => 'IsNotEmpty',
         "IS DEFINED"     => 'IsDefined',
         "IS NOT DEFINED" => 'IsNotDefined',
+        "FULLTEXT"       => 'FullText',
+        "PATTERN"        => 'Pattern',
     };
 
     return $Self;
