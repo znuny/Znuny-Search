@@ -222,6 +222,7 @@ sub SQLObjectSearch {
             );
 
             if ( $Result->{Bindable} ) {
+                $QueryParamValue = $Result->{BindableValue} if $Result->{BindableValue};
                 push @QueryParamValues, \$QueryParamValue;
             }
 
@@ -564,6 +565,8 @@ sub DefaultConfigGet {
                 "IS NOT EMPTY"   => 1,
                 "IS DEFINED"     => 1,
                 "IS NOT DEFINED" => 1,
+                "FULLTEXT"       => 1,
+                "PATTERN"        => 1,
             }
         },
         Integer => {
