@@ -49,6 +49,7 @@ sub new {
     $Self->{IndexOperatorMapping}      = $IndexObject->{OperatorMapping};
     $Self->{IndexDefaultSearchLimit}   = $IndexObject->{DefaultSearchLimit};
     $Self->{IndexSupportedResultTypes} = $IndexObject->{SupportedResultTypes};
+    $Self->{IndexConfig}               = $IndexObject->{Config};
 
     bless( $Self, $Type );
 
