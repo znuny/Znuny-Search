@@ -208,8 +208,8 @@ sub IndexIsValid {
     }
 
     # register check
+    return if !$IndexName || !$RegisteredIndexes{$IndexName};
     my $IsRegistered = $RegisteredIndexes{$IndexName};
-    return if !$IsRegistered;
 
     # module validity check
     my $Loaded = $SearchChildObject->_LoadModule(

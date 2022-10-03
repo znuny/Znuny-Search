@@ -197,14 +197,28 @@ sub ObjectIndexAdd {
         my $BlackListedValues = $IndexObject->{DataTypeValuesBlackList}->{$DataTypeWithBlackList};
         my @ColumnsWithBlackListedType
             = grep { $IndexObject->{Fields}->{$_}->{Type} eq $DataTypeWithBlackList } keys %{ $IndexObject->{Fields} };
-
-        COLUMN:
-        for my $Column (@ColumnsWithBlackListedType) {
-            my $ColumnName = $IndexObject->{Fields}->{$Column}->{ColumnName};
-            if ( $Param{Body}->{$ColumnName} && grep { $Param{Body}->{$ColumnName} eq $_ } @{$BlackListedValues} ) {
-                $Param{Body}->{$ColumnName} = undef;
+        for my $Object ( @{ $Param{Body} } ) {
+            COLUMN:
+            for my $Column (@ColumnsWithBlackListedType) {
+                my $ColumnName = $IndexObject->{Fields}->{$Column}->{ColumnName};
+                if ( $Object->{$ColumnName} && grep { $Object->{$ColumnName} eq $_ } @{$BlackListedValues} ) {
+                    $Object->{$ColumnName} = undef;
+                }
             }
         }
+    }
+
+    my $IndexConfig = $IndexObject->{Config};
+
+    my $BodyForBulkRequest;
+    for my $Object ( @{ $Param{Body} } ) {
+        my $IdentifierRealName = $IndexObject->{Fields}->{ $IndexConfig->{Identifier} }->{ColumnName};
+
+        push @{$BodyForBulkRequest},
+            {
+            id     => $Object->{$IdentifierRealName},
+            source => $Object
+            };
     }
 
     my $Refresh = {};
@@ -217,7 +231,7 @@ sub ObjectIndexAdd {
 
     my $Result = {
         Index   => $IndexObject->{Config}->{IndexRealName},
-        Body    => $Param{Body},
+        Body    => $BodyForBulkRequest,
         Refresh => $Refresh,
     };
 
@@ -274,6 +288,21 @@ sub ObjectIndexUpdate {
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
+    my $IndexConfig = $IndexObject->{Config};
+
+    my $BodyForBulkRequest;
+    for my $Object ( @{ $Param{Body} } ) {
+        my $IdentifierRealName = $IndexObject->{Fields}->{ $IndexConfig->{Identifier} }->{ColumnName};
+
+        push @{$BodyForBulkRequest},
+            {
+            id  => $Object->{$IdentifierRealName},
+            doc => {
+                %{$Object}
+            }
+            };
+    }
+
     my $Refresh = {};
 
     if ( $Param{Refresh} ) {
@@ -284,7 +313,7 @@ sub ObjectIndexUpdate {
 
     my $Result = {
         Index   => $IndexObject->{Config}->{IndexRealName},
-        Body    => $Param{Body},
+        Body    => $BodyForBulkRequest,
         Refresh => $Refresh,
     };
 
