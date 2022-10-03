@@ -175,22 +175,16 @@ sub ObjectIndexAdd {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-    my $SearchParams = {
-        $Identifier => $Param{ObjectID},
-    };
-
-    # search for object with specified id
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
-        QueryParams => $SearchParams,
+        QueryParams => {
+            $Identifier => $Param{ObjectID},
+        },
     );
-
-    # result should contain one object within array
-    my $ObjectData = $SQLSearchResult->[0];
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexAdd(
         %Param,
-        Body => $ObjectData,
+        Body => $SQLSearchResult,
     );
 }
 
@@ -226,22 +220,16 @@ sub ObjectIndexUpdate {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-    my $SearchParams = {
-        $Identifier => $Param{ObjectID},
-    };
-
-    # search for object with specified id
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
-        QueryParams => $SearchParams,
+        QueryParams => {
+            $Identifier => $Param{ObjectID},
+        },
     );
-
-    # result should contain one object within array
-    my $ObjectData = $SQLSearchResult->[0];
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexUpdate(
         %Param,
-        Body => $ObjectData,
+        Body => $SQLSearchResult,
     );
 }
 

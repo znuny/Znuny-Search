@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::Operators::Equal::Fallback::Default;
 
 use strict;
 use warnings;
+use Kernel::System::VariableCheck qw(IsArrayRefWithData);
 
 our @ObjectDependencies = ();
 
@@ -25,9 +26,14 @@ sub new {
 sub QueryBuild {
     my ( $Self, %Param ) = @_;
 
+    my @ParamValue = IsArrayRefWithData( $Param{Value} ) ? @{ $Param{Value} } : ( $Param{Value} );
+
+    @ParamValue = map {"'$_'"} @ParamValue;
+
+    my $Value = join( ', ', @ParamValue );
     return {
-        Query    => "$Param{Field} = ?",
-        Bindable => 1,
+        Query    => "$Param{Field} IN ($Value)",
+        Bindable => 0,
     };
 }
 

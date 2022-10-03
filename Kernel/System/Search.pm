@@ -114,7 +114,7 @@ search for specified object data
                          # Kernel::System::Search::Object::"ObjectName" module
             SLAID => 2,
             Title => 'New Title!',
-            TicketID => 1,
+            TicketID => [1,2,3,4,5],
             TicketHistoryID => 2, # this property does not exists inside index "Ticket"
                                   # and will not be applied for it as search param
 
@@ -125,7 +125,7 @@ search for specified object data
             # every field type can be seen in
             # Kernel::System::Search::Object::"ObjectName" module
             LockID => {
-                Operator => 'IS NOT DEFINED'
+                Operator => 'IS NOT DEFINED',
             },
             StateID => {
                 Operator => '>',
@@ -146,6 +146,7 @@ search for specified object data
         # [["TicketColumnName1", "TicketColumnName2"], ["TicketHistoryColumnName1", "TicketHistoryColumnName2"]]
         # - for only selected filtering on objects:
         # [[],["TicketHistoryColumn1", "TicketHistoryColumn2"]]
+        UseSQLSearch => 1 # define if sql search should be used
     );
 
     # simple call for all of single ticket history
@@ -160,7 +161,7 @@ search for specified object data
     my $Search = $SearchObject->Search(
         Objects => ["Ticket", "TicketHistory"],
         QueryParams => {
-            TicketID => 2,
+            TicketID => [1,2,3],
             SLAID => {
                 Operator => 'IS NOT EMPTY'
             },
@@ -168,7 +169,6 @@ search for specified object data
                 Operator => '>=', Value => 1000,
             },
         },
-
         ResultType => "ARRAY",
         SortBy => ['TicketID', 'TicketHistoryID'],
         OrderBy => ['Down', 'Up'],
@@ -201,7 +201,7 @@ sub Search {
     $Self->_SearchParamsStandardize( Param => $Params );
 
     # if there was an error, fallback all of the objects with given search parameters
-    return $Self->Fallback( %{$Params} ) if $Self->{Fallback};
+    return $Self->Fallback( %{$Params} ) if $Self->{Fallback} || $Param{UseSQLSearch};
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
@@ -286,13 +286,13 @@ sub Search {
 
 =head2 ObjectIndexAdd()
 
-TO-DO add update support
-
 add object for specified index
 
     my $Success = $SearchObject->ObjectIndexAdd(
         Index    => "Ticket",
-        ObjectID => 1,
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
@@ -348,13 +348,17 @@ sub ObjectIndexAdd {
 
 =head2 ObjectIndexUpdate()
 
-TO-DO multiple update support
-
 update object for specified index
 
     my $Success = $SearchObject->ObjectIndexUpdate(
         Index => "Ticket",
-        ObjectID => 1,
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
     );
 
 =cut
@@ -416,7 +420,11 @@ remove object for specified index
             TicketID => 1,
             StateID => { Operator = ''>', Value = '2'},
             ..,
-        }
+        },
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
     );
 
 =cut
