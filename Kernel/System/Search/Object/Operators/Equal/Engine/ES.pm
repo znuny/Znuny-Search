@@ -25,9 +25,13 @@ sub new {
 sub QueryBuild {
     my ( $Self, %Param ) = @_;
 
+    if ( ref $Param{Value} ne "ARRAY" ) {
+        $Param{Value} = [ $Param{Value} ];
+    }
+
     return {
         Query => {
-            term => {
+            terms => {
                 $Param{Field} . ".keyword" => $Param{Value}
             }
         },

@@ -349,16 +349,16 @@ executes query for active engine with specified object "Add" operation
 sub _QueryExecuteObjectIndexAdd {
     my ( $Self, %Param ) = @_;
 
-    return $Param{ConnectObject}->transport()->perform_request(
-        method => 'POST',
-        path   => "/$Param{Query}->{Index}/_create/$Param{ObjectID}",
-        body   => {
-            %{ $Param{Query}->{Body} },
-        },
-        qs => {
-            %{ $Param{Query}->{Refresh} },
-        }
+    my $BulkHelper = $Param{ConnectObject}->bulk_helper(
+        index => $Param{Query}->{Index},
+        %{ $Param{Query}->{Refresh} },
     );
+
+    for my $Object ( @{ $Param{Query}->{Body} } ) {
+        $BulkHelper->create($Object);
+    }
+
+    return $BulkHelper->flush();
 }
 
 =head2 _QueryExecuteIndexAdd()
@@ -466,18 +466,16 @@ executes query for active engine with specified "Update" operation
 sub _QueryExecuteObjectIndexUpdate {
     my ( $Self, %Param ) = @_;
 
-    return $Param{ConnectObject}->transport()->perform_request(
-        method => 'POST',
-        path   => "/$Param{Query}->{Index}/_update/$Param{ObjectID}",
-        body   => {
-            doc => {
-                %{ $Param{Query}->{Body} }
-            }
-        },
-        qs => {
-            %{ $Param{Query}->{Refresh} },
-        }
+    my $BulkHelper = $Param{ConnectObject}->bulk_helper(
+        index => $Param{Query}->{Index},
+        %{ $Param{Query}->{Refresh} },
     );
+
+    for my $Object ( @{ $Param{Query}->{Body} } ) {
+        $BulkHelper->update($Object);
+    }
+
+    return $BulkHelper->flush();
 }
 
 =head2 _QueryExecuteObjectIndexRemove()
