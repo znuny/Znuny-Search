@@ -684,8 +684,6 @@ sub DiagnosticDataGetFormat {
         $Nodes{ $Node->{name} } = {
             TransportAddress => $Node->{transport_address},
             Shards           => $Node->{indices}->{shard_stats}->{total_count},
-            ObjectType       => $Node->{attributes}->{objectType},
-            Name             => $Node->{attributes}->{objectType},
             IP               => $Node->{ip}
         };
     }
@@ -951,10 +949,7 @@ sub IndexMappingGetFormat {
 
 get default remote settings
 
-    my %DefaultRemoteSettings = $Object->DefaultRemoteSettingsGet(
-        RoutingAllocation => 'ticket' # optional, need to have nodes
-                                      # with objectType attribute to work correctly
-    );
+    my %DefaultRemoteSettings = $Object->DefaultRemoteSettingsGet();
 
 =cut
 
@@ -968,10 +963,6 @@ sub DefaultRemoteSettingsGet {
             }
         }
     );
-
-    if ( $Param{RoutingAllocation} ) {
-        $Result{settings}->{index}->{routing}->{allocation}->{include}->{objectType} = $Param{RoutingAllocation};
-    }
 
     return %Result;
 }

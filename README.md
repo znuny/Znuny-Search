@@ -48,7 +48,7 @@ echo -Xmx2g>>$FILE
 
 **path.data/path.logs** - Optional destination of data/logs.
 
-**node.attr.objectType** - way of distribute document into indexes with their objectType, this helps with creating structure that allocates data into nodes of specified type.
+**node.attr.objectType** (optional, use with care and knowledge) - way of distribute document into indexes with their objectType, this helps with creating structure that allocates data into nodes of specified type.
 
 **There is possibility to use only one elasticsearch.yml per server**
 

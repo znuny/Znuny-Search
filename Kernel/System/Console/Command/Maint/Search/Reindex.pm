@@ -166,8 +166,7 @@ sub Run {
                     );
 
                     my $AddSuccess = $Self->{SearchObject}->IndexAdd(
-                        IndexName            => $Object->{Index},
-                        SetRoutingAllocation => 1,
+                        IndexName => $Object->{Index},
                     );
                 }
                 elsif ($Recreate) {
@@ -183,8 +182,7 @@ sub Run {
                     }
 
                     my $AddSuccess = $Self->{SearchObject}->IndexAdd(
-                        IndexName            => $Object->{Index},
-                        SetRoutingAllocation => 1,
+                        IndexName => $Object->{Index},
                     );
 
                     if ( !$AddSuccess ) {
