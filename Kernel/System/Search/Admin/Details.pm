@@ -127,7 +127,6 @@ sub BuildDetailsSection {
                 Name             => $NodeName,
                 Shards           => $NodeData->{Shards},
                 TransportAddress => $NodeData->{TransportAddress},
-                ObjectType       => $NodeData->{ObjectType},
                 IP               => $NodeData->{IP},
                 Style            => $Changes,
                 Changes          => IsHashRefWithData($Changes) ? 1 : 0,

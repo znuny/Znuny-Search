@@ -75,7 +75,6 @@
                             <th>[% Translate("IP") | html %]</th>
                             <th>[% Translate("Transport address") | html %]</th>
                             <th>[% Translate("Shards") | html %]</th>
-                            <th>[% Translate("Object type") | html %]</th>
                             <th style="width:50px;">[% Translate("Integrity") | html %]</th>
                         </tr>
                     </thead>
@@ -86,7 +85,6 @@
                             <td class="[% Data.Style.IP | html %]">[% Translate(Data.IP) | html %]</td>
                             <td class="[% Data.Style.TransportAddress | html %]">[% Translate(Data.TransportAddress) | html %]</td>
                             <td class="[% Data.Style.Shards | html %]">[% Translate(Data.Shards) | html %]</td>
-                            <td class="[% Data.Style.ObjectType | html %]">[% Translate(Data.ObjectType) | html %]</td>
                             <td>
                                 [% IF !Data.Changes %]
                                     <i style="color:green" class="fa fa-check"></i>
@@ -147,7 +145,7 @@
                             <td class="[% Data.Style.Size | html %]">[% Translate(Data.Size) | html %]</td>
                             <td class="[% Data.Style.PrimaryShards | html %]">[% Translate(Data.PrimaryShards) | html %]</td>
                             <td class="[% Data.Style.RecoveryShards | html %]">[% Translate(Data.RecoveryShards) | html %]</td>
-                            <td class="[% Data.Style.ObjectType | html %]">
+                            <td>
                                 [% IF Data.IsIntegral %]
                                     <i style="color:green" class="fa fa-check"></i>
                                 [% ELSE %]
