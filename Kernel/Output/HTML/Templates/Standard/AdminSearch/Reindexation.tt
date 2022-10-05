@@ -1,0 +1,138 @@
+# --
+# Copyright (C) 2012-2022 Znuny GmbH, http://znuny.com/
+# --
+# This software comes with ABSOLUTELY NO WARRANTY. For details, see
+# the enclosed file COPYING for license information (AGPL). If you
+# did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
+# --
+
+<div class="MainBox ARIARoleMain LayoutFixedSidebar SidebarFirst">
+    <h1 class="InvisibleText">[% Translate("Reindexing Management") | html %]</h1>
+
+    [% BreadcrumbPath = [
+            {
+                Name => Translate('Search Engine Management'),
+                Link => Env("Action"),
+            },
+        ]
+    %]
+
+    [% INCLUDE "Breadcrumb.tt" Path = BreadcrumbPath %]
+
+    <div class="Clear"></div>
+
+    <div class="SidebarColumn">
+        <div class="WidgetSimple">
+            <div class="Header">
+                <h2>[% Translate("Actions") | html %]</h2>
+            </div>
+            <div class="Content">
+                <ul class="ActionList">
+                    <li>
+                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID | uri %];Nav=[% Data.Nav | uri %]" class="CallForAction Fullsize Center"><span><i class="fa fa-caret-left"></i>[% Translate("Go to overview") | html %]</span></a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="Hidden" id="ReindexConfirmation">
+        <div id="ReindexConfirmationContainer" class="InnerContent GenericInterfaceDialog">
+            <div class="Content">
+                [% Translate("Are you sure you want to reindex search engine indexes ?") | html %]
+            </div>
+        <div class="SpacingTop"></div>
+        </div>
+    </div>
+    <div class="ContentColumn">
+        <form id="CommunicationNode" action="[% Env("CGIHandle") %]" method="post" class="Validate PreventMultipleSubmits">
+            <input type="hidden" name="Action" value="[% Env("Action") %]"/>
+            <input type="hidden" name="ClusterID" value="[% Data.ClusterID | html %]" id="ClusterID"/>
+            [% IF Data.ClusterID || Data.NodeID %]
+                <div class="WidgetSimple">
+                    <div class="Header">
+                         <h2>[% Translate("Reindexing section") | html %]</h2>
+                    </div>
+                    <div class="Content">
+                        <div class="LayoutGrid ColumnsWithSpacing CommunicationNode">
+                            <table class="DataTable VariableWidth" id="ReindexTable">
+                                <thead>
+                                    <th>[% Translate("Index Name") | html %]</th>
+                                    <th>[% Translate("Data Equality") | html %]</th>
+                                    <th>
+[% IF !Data.ReindexingOngoing && Data.EngineConnection %]
+                                        <input type="checkbox" id="IndexSelectAll" name="IndexSelectAll"/>
+[% END %]
+                                    </th>
+                                </thead>
+                                <tbody>
+[% RenderBlockStart("Index") %]
+                                    <tr>
+                                        <td>[% Data.IndexName %]</td>
+                                        <td>[% Data.DisplayData %]</td>
+                                        <td>
+[% IF !Data.ReindexingOngoing && Data.EngineConnection %]
+                                            <input type="checkbox" class="IndexSelect" name="[% Data.IndexName %]" value="[% Data.IndexName %]"/>
+[% ELSE %]
+                                            <i class="ReindexingStatus fa [% Data.Icon %]" value="[% Data.IndexName %]"></i>
+[% END %]
+                                        </td>
+                                    </tr>
+[% RenderBlockEnd("Index") %]
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="WidgetSimple">
+                    <div class="Header">
+                        <h2>[% Translate(Data.ActionLabel) | html %]</h2>
+                    </div>
+                    <div class="Content" style="height:100px">
+                        <fieldset class="TableLike">
+                            <div class="Field SpacingTop">
+[% IF !Data.ReindexingOngoing && Data.ActiveCluster && Data.EngineConnection %]
+                            <div class="ActionButtons" style="margin-top:20px">
+                                <button class="CallForAction Primary" id="Reindex" type="submit" value="[% Translate("Reindex") | html %]"><span>[% Translate("Reindex") | html %]</span></button>
+
+                                [% Translate("or") | html %]
+
+                                <button class="CallForAction Primary" id="CheckEquality" type="submit" value="[% Translate("CheckEquality") | html %]"><span>[% Translate("Check Data Equality") | html %]</span></button>
+
+                                [% Translate("or") | html %]
+
+                                <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]"><span>[% Translate("Cancel") | html %]</span></a>
+                            </div>
+[% ELSIF !Data.ActiveCluster %]
+                                [% Translate("Cluster is not active, cannot perform any action on invalid cluster.") | html %]
+[% ELSIF !Data.EngineConnection %]
+                                [% Translate("Cannot connect to engine, please check your connection.") | html %]
+[% ELSE %]
+                                <div id="ReindexationProcessContainer">
+                                    [% Translate("Reindexing is already ongoing, please wait for the end of the process...") | html %]
+                                    <fieldset class="GridTable">
+[% RenderBlockStart("ProgressBar") %]
+                                        <div style="height:10px;width:380px;background-color:#d9d7d7;text-align:center">
+                                            <div id="ProgressBarFill" style="height:10px;width:[% Data.InitialWidth %]px;background-color:[% Data.ProgressBarColor %];"></div>
+                                            <div style="width:380px;text-align:center;display:inline-block" id="PercentageDescription">
+[% IF Data.Percentage %]
+                                            [% Data.Percentage %]%
+[% ELSE %]
+                                            [% Translate("Preparing...") | html %]
+[% END %]
+                                            </div>
+                                        <button class="CallForAction Primary" id="StopReindexation" type="submit" style="text-align:center"><span>Stop reindexation</span></button>
+                                    </div>
+[% RenderBlockEnd("ProgressBar") %]
+                                </fieldset>
+                                </div>
+[% END %]
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
+            [% ELSE %]
+                [% Translate("Need ClusterID") | html %]
+            [% END %]
+        </form>
+    </div>
+</div>

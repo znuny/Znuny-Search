@@ -39,6 +39,7 @@ sub Run {
     my $ValidObject         = $Kernel::OM->Get('Kernel::System::Valid');
     my $JSONObject          = $Kernel::OM->Get('Kernel::System::JSON');
     my $ParamObject         = $Kernel::OM->Get('Kernel::System::Web::Request');
+    my $CacheObject         = $Kernel::OM->Get('Kernel::System::Cache');
 
     my $ClusterID = $ParamObject->GetParam( Param => 'ClusterID' ) || '';
 
@@ -300,6 +301,136 @@ sub Run {
         );
 
     }
+    elsif ( $Self->{Subaction} eq 'Reindexation' ) {
+
+        return $Self->_ShowReindexation(
+            ClusterID => $ClusterID,
+        );
+
+    }
+    elsif ( $Self->{Subaction} eq 'ReindexationAction' ) {
+
+        # challenge token check for write action
+        $LayoutObject->ChallengeTokenCheck();
+
+        my @IndexArray = $ParamObject->GetArray( Param => 'IndexArray[]' );
+
+        my @Params;
+        for my $Index (@IndexArray) {
+            push @Params, '--Object';
+            push @Params, $Index;
+        }
+
+        my $CommandObject = $Kernel::OM->Get('Kernel::System::Console::Command::Maint::Search::Reindex');
+        my ( $Result, $ExitCode );
+        {
+            local *STDOUT;
+            open STDOUT, '>:utf8', \$Result;    ## no critic
+            $ExitCode = $CommandObject->Execute(@Params);
+        }
+
+        my $JSON = $LayoutObject->JSONEncode(
+            Data => {
+                Success => $ExitCode
+            }
+        );
+
+        # send JSON response
+        return $LayoutObject->Attachment(
+            ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
+            Content     => $JSON,
+            Type        => 'inline',
+            NoCache     => 1,
+        );
+    }
+    elsif ( $Self->{Subaction} eq 'StopReindexationAction' ) {
+
+        # challenge token check for write action
+        $LayoutObject->ChallengeTokenCheck();
+
+        my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
+
+        my $Status = $ReindexationObject->StopReindexation();
+
+        my $JSON = $LayoutObject->JSONEncode(
+            Data => {
+                Success => $Status ? 1 : 0
+            }
+        );
+
+        # send JSON response
+        return $LayoutObject->Attachment(
+            ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
+            Content     => $JSON,
+            Type        => 'inline',
+            NoCache     => 1,
+        );
+    }
+    elsif ( $Self->{Subaction} eq 'ReindexingProcessPercentage' ) {
+
+        my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
+
+        my $ReindexationQuery = $ReindexationObject->IndexReindexationStatus();
+
+        my $Percentage = $CacheObject->Get(
+            Type => 'ReindexingProcess',
+            Key  => 'Percentage',
+        );
+
+        my %ResponseData;
+        if ( !defined $Percentage ) {
+            %ResponseData = (
+                Finished => 1,
+            );
+        }
+        else {
+            %ResponseData = (
+                Percentage        => $Percentage,
+                ReindexationQueue => $ReindexationQuery,
+            );
+        }
+
+        my $JSON = $LayoutObject->JSONEncode(
+            Data => {
+                %ResponseData
+            },
+        );
+
+        return $LayoutObject->Attachment(
+            ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
+            Content     => $JSON,
+            Type        => 'inline',
+            NoCache     => 1,
+        );
+    }
+    elsif ( $Self->{Subaction} eq 'CheckEqualityAction' ) {
+
+        # challenge token check for write action
+        $LayoutObject->ChallengeTokenCheck();
+
+        my @IndexArray = $ParamObject->GetArray( Param => 'IndexArray[]' );
+
+        my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
+
+        my $Result = $ReindexationObject->DataEqualitySet(
+            Indexes   => \@IndexArray,
+            ClusterID => $ClusterID,
+        );
+
+        my $JSON = $LayoutObject->JSONEncode(
+            Data => {
+                Success => $Result ? 1 : 0
+            }
+        );
+
+        # send JSON response
+        return $LayoutObject->Attachment(
+            ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
+            Content     => $JSON,
+            Type        => 'inline',
+            NoCache     => 1,
+        );
+    }
     elsif ( $Self->{Subaction} eq 'NodeAdd' ) {
         return $Self->_ShowNodeSection(
             ClusterID => $ClusterID,
@@ -538,6 +669,7 @@ sub Run {
             NoCache     => 1,
         );
     }
+
     if ( $Self->{Subaction} eq 'TestNodeConnection' ) {
 
         my $ParamObject  = $Kernel::OM->Get('Kernel::System::Web::Request');
@@ -1205,6 +1337,13 @@ sub _ShowEdit {
         );
     }
 
+    $LayoutObject->Block(
+        Name => 'ActionReindexation',
+        Data => {
+            ClusterID => $ClusterData->{ClusterID}
+        },
+    );
+
     $Output .= $LayoutObject->Output(
         TemplateFile => 'AdminSearch',
         Data         => {
@@ -1214,6 +1353,18 @@ sub _ShowEdit {
 
     $Output .= $LayoutObject->Footer();
     return $Output;
+}
+
+sub _ShowReindexation {
+    my ( $Self, %Param ) = @_;
+
+    my $LayoutObject       = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
+    my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
+
+    return $ReindexationObject->BuildReindexationSection(
+        ClusterID => $Param{ClusterID},
+        UserID    => $Self->{UserID},
+    );
 }
 
 sub _GetBaseClusterParams {
