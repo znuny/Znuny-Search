@@ -19,6 +19,11 @@ our @ObjectDependencies = (
     'Kernel::Config',
     'Kernel::System::Search',
     'Kernel::System::Search::Object',
+    'Kernel::System::PID',
+    'Kernel::System::Cache',
+    'Kernel::System::JSON',,
+    'Kernel::System::Search::Admin::Reindexation',
+    'Kernel::System::Search::Cluster',
 );
 
 sub Configure {
@@ -33,11 +38,24 @@ sub Configure {
         ValueRegex  => qr/.*/smx,
         Multiple    => 1,
     );
-
+    $Self->AddOption(
+        Name        => 'Force',
+        Description => "Reindex even when there is another reindexation process in progress.",
+        Required    => 0,
+        HasValue    => 0,
+    );
     $Self->AddOption(
         Name => 'Recreate',
         Description =>
             "Before reindexing delete and add all specified indexes again with default settings instead of clearing it's data.",
+        Required => 0,
+        HasValue => 0,
+        Multiple => 0,
+    );
+    $Self->AddOption(
+        Name => 'Check-Data-Equality',
+        Description =>
+            "Before reindexing check if Search engine indexes are equal with DB.",
         Required => 0,
         HasValue => 0,
         Multiple => 0,
@@ -50,6 +68,7 @@ sub PreRun {
     my ( $Self, %Param ) = @_;
 
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
     $Self->{SearchObject} = $Kernel::OM->Get('Kernel::System::Search');
 
     if ( !$Self->{SearchObject} || $Self->{SearchObject}->{Error} ) {
@@ -70,19 +89,83 @@ sub PreRun {
 sub Run {
     my ( $Self, %Param ) = @_;
 
-    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $SearchChildObject  = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $PIDObject          = $Kernel::OM->Get('Kernel::System::PID');
+    my $CacheObject        = $Kernel::OM->Get('Kernel::System::Cache');
+    my $JSONObject         = $Kernel::OM->Get('Kernel::System::JSON');
+    my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
+    my $ClusterObject      = $Kernel::OM->Get('Kernel::System::Search::Cluster');
 
-    my $Recreate     = $Self->GetOption('Recreate');
-    my $ObjectOption = $Self->GetOption('Object');
+    my $CheckDataEquality = $Self->GetOption('Check-Data-Equality');
+    my $Recreate          = $Self->GetOption('Recreate');
+    my $ObjectOption      = $Self->GetOption('Object');
 
     if ( !IsArrayRefWithData($ObjectOption) ) {
-        @{$ObjectOption} = reverse keys %{ $Self->{SearchObject}->{Config}->{RegisteredIndexes} };
+        @{$ObjectOption} = sort keys %{ $Self->{SearchObject}->{Config}->{RegisteredIndexes} };
+
+        if ( !IsArrayRefWithData($ObjectOption) ) {
+            $Self->Print("No index found in Loader::Search config.\n");
+            return $Self->ExitCodeError();
+        }
     }
 
-    my %IndexObjectStatus = map { $_ => { "Successfull" => 0 } } @{$ObjectOption};
+    my $ForcePID = $Self->GetOption('Force') // 0;
 
+    %{ $Self->{ReindexingProcess} } = $PIDObject->PIDGet(
+        Name => 'SearchEngineReindex',
+    );
+
+    if ( IsHashRefWithData( $Self->{ReindexingProcess} ) ) {
+        $Self->Print("<yellow>There is already locked process for reindexing process\n</yellow>");
+        return $Self->ExitCodeError() if !$ForcePID;
+
+        $Self->Print("Are you sure about trying to stop process and continue ? (y/n)\n");
+
+        my $Agreement = <STDIN>;    ## no critic
+        chomp $Agreement;
+
+        if ( $Agreement && $Agreement ne 'y' ) {
+            return $Self->ExitCodeOk();
+        }
+
+        $Self->Print(
+            "<yellow>Used force flag, trying to remove ongoing process PID: $Self->{ReindexingProcess}->{PID}</yellow>\n"
+        );
+
+        my $Success = kill 9, $Self->{ReindexingProcess}->{PID};
+        if ($Success) {
+            $Self->Print("<yellow>Process was stopped</yellow>\n");
+        }
+        else {
+            $Self->Print("Could not stop process, are you about to continue ? (y/n)\n");
+
+            $Agreement = <STDIN>;    ## no critic
+            chomp $Agreement;
+
+            if ( $Agreement && $Agreement ne 'y' ) {
+                return $Self->ExitCodeOk();
+            }
+        }
+    }
+
+    my $ClusterConfig = $ClusterObject->ActiveClusterGet();
+
+    my $Success = $ReindexationObject->DataEqualitySet(
+        ClusterID => $ClusterConfig->{ClusterID},
+        Indexes   => $ObjectOption
+    );
+
+    $Self->{SearchObject} = $Kernel::OM->Get('Kernel::System::Search');
+
+    my $EqualityDataStatus = $ReindexationObject->DataEqualityGet(
+        ClusterID => $ClusterConfig->{ClusterID}
+    );
+
+    my %IndexObjectStatus;
     my @Objects;
     if ( IsArrayRefWithData($ObjectOption) ) {
+
+        my $Counter = 0;
         OBJECT_LOAD:
         for my $IndexName ( @{$ObjectOption} ) {
 
@@ -94,42 +177,53 @@ sub Run {
 
             if ( !$Result ) {
                 $Self->Print("<red>Index: $IndexName is not valid! Ignoring reindexation for that index.\n</red>");
+                $Counter++;
                 next OBJECT_LOAD;
             }
 
             my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$IndexName");
 
             $IndexObject->{Index} = $IndexName;
-            push @Objects, $IndexObject;
-        }
-    }
 
-    else {
-        my $RegisteredIndexes = $Self->{SearchObject}->{Config}->{RegisteredIndexes} // {};
-
-        if ( !IsHashRefWithData($RegisteredIndexes) ) {
-            $Self->Print("No index found in Loader::Search config.\n");
-            return $Self->ExitCodeError();
-        }
-
-        for my $IndexName ( sort keys %{$RegisteredIndexes} ) {
-
-            # check index validity on otrs side
-            my $Result = $SearchChildObject->IndexIsValid(
-                IndexName => $IndexName,
-                RealName  => 0,
-            );
-
-            if ( !$Result ) {
-                $Self->Print("<red>Index: $IndexName is not valid! Ignoring reindexation for that index.\n</red>");
+            if (
+                $EqualityDataStatus->{$IndexName}->{Percentage}
+                && $EqualityDataStatus->{$IndexName}->{Percentage} == 100
+                && $CheckDataEquality
+                )
+            {
+                $Self->Print("<green>Index: $IndexName has 100% data equality, skipping...\n</green>");
+                $Counter++;
                 next OBJECT_LOAD;
             }
 
-            my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$IndexName");
-            $IndexObject->{Index} = $IndexName;
+            $Counter++;
+
+            # add index to reindex query
+            $IndexObjectStatus{$IndexName} = {
+                Successfull => 0
+            };
+
             push @Objects, $IndexObject;
         }
     }
+
+    $Self->{Started} = 1;
+
+    $PIDObject->PIDCreate(
+        Name  => 'SearchEngineReindex',
+        Force => $ForcePID,
+    );
+
+    my $ObjectQueueJSON = $JSONObject->Encode(
+        Data => \%IndexObjectStatus
+    );
+
+    $CacheObject->Set(
+        Type  => 'ReindexingProcess',
+        Key   => 'ReindexingQueue',
+        Value => $ObjectQueueJSON,
+        TTL   => 24 * 60 * 60,
+    );
 
     # list all indexes on remote (engine) side
     my @ActiveClusterRemoteIndexList = $Self->{SearchObject}->IndexList();
@@ -148,9 +242,23 @@ sub Run {
 
         eval {
             EVAL_SCOPE: {
+                $CacheObject->Set(
+                    Type  => 'ReindexingProcess',
+                    Key   => 'Percentage',
+                    Value => 0,
+                    TTL   => 24 * 60 * 60,
+                );
+
                 my $ObjectIDs = $Object->ObjectListIDs(
                     OrderBy    => 'Down',
                     ResultType => 'ARRAY'
+                );
+
+                $CacheObject->Set(
+                    Type  => 'ReindexingProcess',
+                    Key   => 'ReindexedIndex',
+                    Value => $Object->{Index},
+                    TTL   => 24 * 60 * 60,
                 );
 
                 last EVAL_SCOPE if !( IsArrayRefWithData($ObjectIDs) );
@@ -235,10 +343,46 @@ sub Run {
                     );
 
                     $Count++;
+                    my $Percent;
+                    if ( $Count % 100 == 0 ) {
+                        $Percent = int( $Count / ( $#ObjectIDsArr / 100 ) );
+
+                        my $ReindexingQueue = $CacheObject->Get(
+                            Type => 'ReindexingProcess',
+                            Key  => 'ReindexingQueue',
+                        );
+
+                        if ( !$ReindexingQueue ) {
+                            my $ObjectQueueJSON = $JSONObject->Encode(
+                                Data => \%IndexObjectStatus
+                            );
+
+                            $CacheObject->Set(
+                                Type  => 'ReindexingProcess',
+                                Key   => 'ReindexingQueue',
+                                Value => $ObjectQueueJSON,
+                                TTL   => 24 * 60 * 60,
+                            );
+
+                            $CacheObject->Set(
+                                Type  => 'ReindexingProcess',
+                                Key   => 'ReindexedIndex',
+                                Value => $Object->{Index},
+                                TTL   => 24 * 60 * 60,
+                            );
+                        }
+
+                        $CacheObject->Set(
+                            Type  => 'ReindexingProcess',
+                            Key   => 'Percentage',
+                            Value => $Percent,
+                            TTL   => 24 * 60 * 60,
+                        );
+                    }
 
                     # show progress every 500 indexes
                     if ( $Count % 500 == 0 ) {
-                        my $Percent = int( $Count / ( $#ObjectIDsArr / 100 ) );
+
                         $Self->Print(
                             "<yellow>$Count</yellow> of <yellow>$#ObjectIDsArr</yellow> processed (<yellow>$Percent %</yellow> done).\n"
                         );
@@ -247,6 +391,13 @@ sub Run {
                     push @{ $IndexObjectStatus{ $Object->{Index} }{ObjectFails} }, $ObjectID
                         if !$Result;
                 }
+
+                $CacheObject->Set(
+                    Type  => 'ReindexingProcess',
+                    Key   => 'Percentage',
+                    Value => 100,
+                    TTL   => 24 * 60 * 60,
+                );
 
                 $Self->Print("<green>Done.</green>\n");
                 $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
@@ -285,6 +436,27 @@ sub Run {
     }
     else {
         $Self->Print("\n<yellow>No data to reindex found.</yellow>\n");
+    }
+
+    return $Self->ExitCodeOk();
+}
+
+sub PostRun {
+    my ( $Self, %Param ) = @_;
+
+    my $CacheObject = $Kernel::OM->Get('Kernel::System::Cache');
+    my $PIDObject   = $Kernel::OM->Get('Kernel::System::PID');
+
+    if ( $Self->{Started} ) {
+        $CacheObject->CleanUp(
+            Type => 'ReindexingProcess',
+        );
+
+        $PIDObject->PIDDelete(
+            Name => 'SearchEngineReindex',
+        );
+
+        $Self->Print("<red>Cleaned up Cache and PID for reindexing process</red>\n");
     }
 
     return $Self->ExitCodeOk();

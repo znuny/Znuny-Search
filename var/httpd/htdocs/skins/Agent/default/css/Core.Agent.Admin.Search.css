@@ -73,3 +73,11 @@
     padding: 4px 0 3px 8px;
     line-height: 1.9em;
 }
+
+.ReindexingStatus.fa-check{
+    color: green;
+}
+
+.ReindexingStatus.fa-refresh{
+    color: navy;
+}

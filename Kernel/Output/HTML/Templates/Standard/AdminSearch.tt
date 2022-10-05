@@ -86,6 +86,11 @@
                         <button id="SynchronizeButton" class="CallForAction Fullsize Center" type="button"><span><i class="fa fa-refresh"></i> [% Translate("Synchronize cluster") | html %]</span></button>
                     </li>
 [% RenderBlockEnd("ActionSynchronize") %]
+[% RenderBlockStart("ActionReindexation") %]
+                    <li>
+                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Reindexation;ClusterID=[% Data.ClusterID | uri %]"><button id="ReindexationButton" class="CallForAction Fullsize Center" type="button"><span><i class="fa fa-cloud-upload"></i> [% Translate("Reindexation") | html %]</span></button></a>
+                    </li>
+[% RenderBlockEnd("ActionReindexation") %]
                 </ul>
             </div>
         </div>

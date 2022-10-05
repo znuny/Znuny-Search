@@ -66,11 +66,13 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/FullText/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/FullText/Fallback/Default.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Admin/Reindexation.pm"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES/Node.tt"/>
+        <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/Reindexation.tt"/>
         <File Permission="660" Location="var/httpd/htdocs/js/Core.Agent.Admin.Search.js"/>
         <File Permission="660" Location="var/httpd/htdocs/skins/Agent/default/css/Core.Agent.Admin.Search.css"/>
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
@@ -122,10 +124,18 @@
             <Column Name="create_by" Required="false" Type="INTEGER" />
             <Column Name="create_time" Required="false" Type="DATE" />
         </TableCreate>
+        <TableCreate Name="search_cluster_data_equality">
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
+            <Column Name="cluster_id" Required="true" Type="INTEGER" />
+            <Column Name="index_name" Required="true" Size="255" Type="VARCHAR" />
+            <Column Name="percentage" Required="true" Type="DECIMAL" />
+            <Column Name="create_time" Required="true" Type="DATE" />
+        </TableCreate>
     </DatabaseInstall>
     <DatabaseUninstall>
         <TableDrop Name="search_clusters"/>
         <TableDrop Name="search_cluster_states"/>
         <TableDrop Name="search_cluster_nodes"/>
+        <TableDrop Name="search_cluster_data_equality"/>
     </DatabaseUninstall>
 </otrs_package>
