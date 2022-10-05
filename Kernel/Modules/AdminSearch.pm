@@ -159,6 +159,47 @@ sub Run {
             return $LayoutObject->Redirect( OP => "Action=$Self->{Action}" );
         }
     }
+    elsif ( $Self->{Subaction} eq 'IndexRemoveAction' ) {
+
+        # challenge token check for write action
+        $LayoutObject->ChallengeTokenCheck();
+
+        my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+
+        my $IndexRealName = $ParamObject->GetParam( Param => 'IndexRealName' ) || '';
+
+        my $JSON;
+
+        # check for valid cluster configuration
+        if ( !$IndexRealName ) {
+            $JSON = $LayoutObject->JSONEncode(
+                Data => {
+                    Success => 0
+                }
+            );
+
+        }
+        else {
+            my $Success = $SearchObject->IndexRemove(
+                IndexRealName => $IndexRealName
+            );
+
+            $JSON = $LayoutObject->JSONEncode(
+                Data => {
+                    Success => $Success
+                }
+            );
+        }
+
+        # send JSON response
+        return $LayoutObject->Attachment(
+            ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
+            Content     => $JSON,
+            Type        => 'inline',
+            NoCache     => 1,
+        );
+
+    }
 
     if ( $Self->{Subaction} eq 'Add' ) {
         return $Self->_ShowEdit(

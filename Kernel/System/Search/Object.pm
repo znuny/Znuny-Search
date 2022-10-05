@@ -517,7 +517,7 @@ sub _QueryPrepareIndexRemove {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( MappingObject Config IndexName )) {
+    for my $Name (qw( MappingObject Config )) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -527,7 +527,21 @@ sub _QueryPrepareIndexRemove {
         }
     }
 
-    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{IndexName}");
+    if ( !$Param{IndexName} && !$Param{IndexRealName} || $Param{IndexName} && $Param{IndexRealName} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need IndexName or IndexRealName!"
+        );
+        return;
+    }
+
+    my $IndexQueryObject;
+    if ( $Param{IndexRealName} ) {
+        $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query");
+    }
+    else {
+        $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{IndexName}");
+    }
 
     my $Data = $IndexQueryObject->IndexRemove(
         %Param
@@ -824,6 +838,50 @@ sub _LoadModule {
         }
     }
     return 1;
+}
+
+=head2 _QueryPrepareIndexInitialSettingsGet()
+
+prepares query for index remove operation
+
+    my $Result = $SearchChildObject->_QueryPrepareIndexInitialSettingsGet(
+        MappingObject   => $MappingObject,
+        Config          => $Config,
+    );
+
+=cut
+
+sub _QueryPrepareIndexInitialSettingsGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->IndexInitialSettingsGet(
+        %Param,
+    );
+
+    return $Data;
 }
 
 1;

@@ -29,7 +29,9 @@ our @ObjectDependencies = (
 sub Configure {
     my ( $Self, %Param ) = @_;
 
-    $Self->Description('Reindex all data for specified indexes. This includes deleting data at the beginning.');
+    $Self->Description(
+        'Reindex all data for specified indexes. This includes deleting all specified index data first.'
+    );
     $Self->AddOption(
         Name        => 'Object',
         Description => "Use to specify which index to reindex.",
@@ -47,15 +49,16 @@ sub Configure {
     $Self->AddOption(
         Name => 'Recreate',
         Description =>
-            "Before reindexing delete and add all specified indexes again with default settings instead of clearing it's data.",
-        Required => 0,
-        HasValue => 0,
-        Multiple => 0,
+            "(default|latest) Before reindexing delete and add all specified indexes again with default or latest settings instead of clearing it's data.",
+        Required   => 0,
+        HasValue   => 1,
+        ValueRegex => qr/\A(default|latest)\z/,
+        Multiple   => 0,
     );
     $Self->AddOption(
         Name => 'Check-Data-Equality',
         Description =>
-            "Before reindexing check if Search engine indexes are equal with DB.",
+            "Before reindexing check if search engine indexes are equal with SQL DB.",
         Required => 0,
         HasValue => 0,
         Multiple => 0,
@@ -278,6 +281,13 @@ sub Run {
                     );
                 }
                 elsif ($Recreate) {
+                    my $IndexSettings = {};
+                    if ( $Recreate eq 'latest' ) {
+                        $IndexSettings = $Self->{SearchObject}->IndexInitialSettingsGet(
+                            Index => $Object->{Index}
+                        );
+                    }
+
                     my $RemoveSuccess = $Self->{SearchObject}->IndexRemove(
                         IndexName => $Object->{Index},
                     );
@@ -291,6 +301,7 @@ sub Run {
 
                     my $AddSuccess = $Self->{SearchObject}->IndexAdd(
                         IndexName => $Object->{Index},
+                        Settings  => $IndexSettings,
                     );
 
                     if ( !$AddSuccess ) {

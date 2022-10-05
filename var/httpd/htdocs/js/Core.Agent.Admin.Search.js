@@ -27,6 +27,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         $('#CommunicationNodeAuthRequired').on('change', TargetNS.ShowHideNodeAuth);
         $('#TestConnection').on('click', TargetNS.TestNodeConnection);
         $('#SubmitAndContinue').on('click', TargetNS.SubmitAndContinue);
+        $('.IndexRemove').on('click', TargetNS.IndexRemove);
         $('#StopReindexation').on('click', TargetNS.StopReindexation);
 
         if(Core.Config.Get('Subaction') == "Reindexation"){
@@ -439,6 +440,48 @@ Core.Agent.Admin.Search = (function (TargetNS) {
 
         Event.stopPropagation();
         Event.preventDefault();
+    }
+
+    TargetNS.IndexRemove = function() {
+        var IndexRealName = $(this).attr('value');
+
+        Core.UI.Dialog.ShowDialog({
+            Modal: true,
+            Title: Core.Language.Translate('Remove index ?'),
+            HTML: $('#IndexRemoveContainer'),
+            PositionTop: '100px',
+            PositionLeft: 'Center',
+            CloseOnEscape: true,
+            AllowAutoGrow: true,
+            Buttons: [
+                {
+                    Type: 'Confirm',
+                    Label: Core.Language.Translate("Remove"),
+                    Function: function() {
+                        var Data = {
+                            Action: 'AdminSearch',
+                            Subaction: 'IndexRemoveAction',
+                            IndexRealName: IndexRealName
+                        };
+
+                        Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function (Response) {
+                            if (Response) {
+                                window.location.reload()
+                            }
+                        });
+                        return true;
+                    }
+                },
+                {
+                    Type: 'Close',
+                    Label: Core.Language.Translate("Close this dialog"),
+                    Function: function() {
+                        Core.UI.Dialog.CloseDialog($('.Dialog:visible'));
+                        return false;
+                    }
+                }
+            ]
+        });
     }
 
     Core.Init.RegisterNamespace(TargetNS, 'APP_MODULE');

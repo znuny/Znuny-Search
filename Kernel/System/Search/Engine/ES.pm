@@ -577,4 +577,28 @@ sub _QueryExecuteDiagnosticDataGet {
     return $ReturnResult;
 }
 
+=head2 _QueryExecuteIndexInitialSettingsGet()
+
+executes query for receiving initial settings for engine index
+
+    my $Result = $SearchEngineESObject->_QueryExecuteIndexInitialSettingsGet(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexInitialSettingsGet {
+    my ( $Self, %Param ) = @_;
+
+    my $ConnectObject = $Param{ConnectObject};
+
+    my $Result = $ConnectObject->transport()->perform_request(
+        method => 'GET',
+        path   => $Param{Query}->{Path},
+    );
+
+    return $Result;
+}
+
 1;

@@ -449,7 +449,7 @@ returns query for engine to add specified index
 sub IndexAdd {
     my ( $Self, %Param ) = @_;
 
-    my %Settings = $Param{Settings} ? $Param{Settings} : $Self->DefaultRemoteSettingsGet(
+    my %Settings = IsHashRefWithData( $Param{Settings} ) ? %{ $Param{Settings} } : $Self->DefaultRemoteSettingsGet(
         RoutingAllocation => $Param{SetRoutingAllocation} ? $Param{IndexRealName} : undef,
     );
 
@@ -1029,6 +1029,61 @@ sub _ResponseDataFormat {
     }
 
     return \@Objects;
+}
+
+=head2 IndexInitialSettingsGet()
+
+create query for index initial setting receive
+
+    my $Result = $SearchQueryObject->IndexInitialSettingsGet(
+        IndexRealName => 'ticket',
+        FieldDefinition => $FieldDefinition,
+        Object          => $Object,
+    );
+
+=cut
+
+sub IndexInitialSettingsGet {
+    my ( $Self, %Param ) = @_;
+
+    my $Query = {
+        Path => $Param{IndexRealName} . '/_settings',
+    };
+
+    return $Query;
+}
+
+=head2 IndexInitialSettingsGetFormat()
+
+format response of initial settings get to ready to go form
+
+    my $Result = $SearchQueryObject->IndexInitialSettingsGetFormat(
+        Response => $Response,
+    );
+
+=cut
+
+sub IndexInitialSettingsGetFormat {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+
+    return {} if !$Param{Response};
+
+    my $Response = $Param{Response};
+
+    # Attributes which needs to be removed from response.
+    my @BlackListedValues = ( 'uuid', 'creation_date', 'version', 'provided_name' );
+
+    my $IndexSettings = {};
+    if ( $Response->{ $SearchObject->{Config}->{RegisteredIndexes}->{ $Param{Index} } } ) {
+        $IndexSettings = $Response->{ $SearchObject->{Config}->{RegisteredIndexes}->{ $Param{Index} } };
+        for my $BlackListedValue (@BlackListedValues) {
+            delete $IndexSettings->{settings}->{index}->{$BlackListedValue};
+        }
+    }
+
+    return $IndexSettings;
 }
 
 =head2 _BuildQueryBodyFromParams()
