@@ -27,6 +27,58 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         $('#CommunicationNodeAuthRequired').on('change', TargetNS.ShowHideNodeAuth);
         $('#TestConnection').on('click', TargetNS.TestNodeConnection);
         $('#SubmitAndContinue').on('click', TargetNS.SubmitAndContinue);
+        $('#StopReindexation').on('click', TargetNS.StopReindexation);
+
+        if(Core.Config.Get('Subaction') == "Reindexation"){
+            $('#Reindex').on('click', TargetNS.Reindex);
+            $('#CheckEquality').on('click', TargetNS.CheckEquality);
+
+            $('#IndexSelectAll').change(function(){
+                $.each($('.IndexSelect'),function(){
+                    $(this).prop("checked", $('#IndexSelectAll').prop("checked") ? true : false);
+                })
+            })
+
+            if(Core.Config.Get('IsReindexingOngoing')){
+                var Data = {
+                    Action: 'AdminSearch',
+                    Subaction: 'ReindexingProcessPercentage'
+                };
+
+                setInterval(function(){
+                    Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function (Response) {
+                        var ReindexingStatusObjects = $('.ReindexingStatus'),
+                        IconClass = {
+                            Done: 'fa fa-check',
+                            Ongoing: 'fa fa-refresh fa-spin',
+                            Queued: 'fa fa-hourglass-half'
+                        },
+                        ProgressBarColor;
+
+                        if(Response.Finished){
+                            Response.Percentage = 100;
+                            window.location.reload();
+                            return true;
+                        }
+
+                        ProgressBarColor = Response.Percentage < 30 ? 'red' : Response.Percentage < 50 ? 'yellow' : 'green';
+
+                        $.each(ReindexingStatusObjects,function(Index){
+                            var IconObject = $(ReindexingStatusObjects[Index]);
+
+                            if(Response.ReindexationQueue && Response.ReindexationQueue[IconObject.attr('value')]){
+                                IconObject.attr('class','ReindexingStatus ' + IconClass[Response.ReindexationQueue[IconObject.attr('value')].Status])
+                            }
+                        })
+
+                        $('#ProgressBarFill').css('width', Response.Percentage * 3.8);
+                        $('#ProgressBarFill').css('background-color', ProgressBarColor);
+                        $('#PercentageDescription').html(Response.Percentage + "%");
+                    })
+                }, 2000)
+            }
+        }
+
         TargetNS.ShowHideNodeAuth();
     };
 
@@ -276,6 +328,117 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         });
 
         Event.stopPropagation();
+    }
+
+    TargetNS.Reindex = function(Event){
+        Core.UI.Dialog.ShowDialog({
+            Modal: true,
+            Title: Core.Language.Translate('Confirm reindexation action.'),
+            HTML: $('#ReindexConfirmation'),
+            PositionTop: '100px',
+            PositionLeft: 'Center',
+            CloseOnEscape: true,
+            AllowAutoGrow: true,
+            Buttons: [
+                {
+                    Type: 'Confirm',
+                    Label: Core.Language.Translate("Confirm reindexation"),
+                    Function: function() {
+                        var Data = {
+                            Action: 'AdminSearch',
+                            Subaction: 'ReindexationAction',
+                            ClusterID: TargetNS.ClusterID,
+                            IndexArray: []
+                        },
+                        ReindexationCallData = {
+                            Action: 'AdminSearch',
+                            Subaction: 'ReindexingProcessPercentage'
+                        }
+
+                        $.each($('.IndexSelect'), function(){
+                            if($(this).prop("checked")){
+                                Data.IndexArray.push($(this).val());
+                            }
+                        })
+
+                        if(Data.IndexArray.length > 0){
+                            Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function(){
+                                window.location.reload();
+                            });
+                            Core.UI.Dialog.CloseDialog($('#ReindexConfirmationContainer'));
+                            $('.ActionButtons').html(Core.Language.Translate("Reindexation process initializated, waiting for response from server..."));
+                            // check every second if reindexation started
+                            setInterval(function(){
+                                Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), ReindexationCallData, function(Response){
+                                    if(Response.ReindexationQueue){
+                                        window.location.reload();
+                                    }
+                                });
+                            }, 1000);
+                        }
+
+                        return true;
+                    }
+                },
+                {
+                    Type: 'Close',
+                    Label: Core.Language.Translate("Close this dialog"),
+                    Function: function() {
+                        Core.UI.Dialog.CloseDialog($('.Dialog:visible'));
+                        return false;
+                    }
+                }
+            ]
+        });
+
+        Event.stopPropagation();
+        Event.preventDefault();
+    }
+
+    TargetNS.CheckEquality = function(Event){
+        var Data = {
+            Action: 'AdminSearch',
+            Subaction: 'CheckEqualityAction',
+            ClusterID: TargetNS.ClusterID,
+            IndexArray: []
+        };
+
+        $.each($('.IndexSelect'), function(){
+            if($(this).prop("checked")){
+                Data.IndexArray.push($(this).val());
+            }
+        })
+
+        $('.ActionButtons').html(Core.Language.Translate("Checking equality is already ongoing, please wait for the end of the process."));
+
+        Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function () {
+            window.location.reload();
+        });
+
+        Event.stopPropagation();
+        Event.preventDefault();
+    }
+
+    TargetNS.StopReindexation = function(Event){
+        var Data = {
+            Action: 'AdminSearch',
+            Subaction: 'StopReindexationAction',
+        };
+
+        $('#ReindexationProcessContainer').html(Core.Language.Translate("Stopping currently ongoing reindexing process, please wait for the end of operation."));
+
+        Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function (Response) {
+            if(!Response.Success){
+                Core.UI.Dialog.ShowAlert("", Core.Language.Translate("Unable to stop the process within the GUI!"), function(){
+                    window.location.reload();
+                });
+            }else{
+                window.location.reload();
+            }
+        });
+
+        Event.stopPropagation();
+        Event.preventDefault();
     }
 
     Core.Init.RegisterNamespace(TargetNS, 'APP_MODULE');

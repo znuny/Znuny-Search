@@ -959,7 +959,8 @@ sub DefaultRemoteSettingsGet {
     my %Result = (
         settings => {
             index => {
-                number_of_shards => 6,
+                number_of_shards  => 6,
+                max_result_window => 2000000,
             }
         }
     );
