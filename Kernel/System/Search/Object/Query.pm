@@ -336,7 +336,7 @@ sub IndexRemove {
     # build and return query
     return $Param{MappingObject}->IndexRemove(
         %Param,
-        IndexRealName => $Self->{IndexConfig}->{IndexRealName},
+        IndexRealName => $Self->{IndexConfig}->{IndexRealName} // $Param{IndexRealName},
     );
 }
 
@@ -447,6 +447,29 @@ sub IndexMappingSet {
         %Param,
         Fields      => $Self->{IndexFields},
         IndexConfig => $Self->{IndexConfig},
+    );
+}
+
+=head2 IndexInitialSettingsGet()
+
+create query for index initial setting receive
+
+    my $Result = $SearchQueryObject->IndexInitialSettingsGet(
+        MappingObject   => $MappingObject,
+        Index => $Index,
+);
+
+=cut
+
+sub IndexInitialSettingsGet {
+    my ( $Self, %Param ) = @_;
+
+    return if !$Param{MappingObject};
+
+    # returns the query
+    return $Param{MappingObject}->IndexInitialSettingsGet(
+        %Param,
+        IndexRealName => $Self->{IndexConfig}->{IndexRealName},
     );
 }
 

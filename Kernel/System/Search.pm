@@ -549,6 +549,8 @@ delete index on the search engine side
 
     my $Result = $SearchObject->IndexRemove(
         IndexName => "Ticket" # this will delete 'ticket' index on the engine side
+        # or
+        IndexRealName => "ticket" # this will also delete 'ticket' index on the engine side
     );
 
 =cut
@@ -1141,6 +1143,48 @@ sub _SearchParamsStandardize {
     }
 
     return 1;
+}
+
+=head2 IndexInitialSettingsGet()
+
+get initial configuration of index
+
+    my $Result = $SearchObject->IndexInitialSettingsGet(
+        Index => 'Index',
+    );
+
+=cut
+
+sub IndexInitialSettingsGet {
+    my ( $Self, %Param ) = @_;
+
+    return if $Self->{Fallback};
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexInitialSettingsGet",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "IndexInitialSettingsGet",
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    return $Self->{MappingObject}->IndexInitialSettingsGetFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
 }
 
 1;
