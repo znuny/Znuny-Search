@@ -50,7 +50,7 @@
                                 </td>
                                 <td class="[% Data.Changes.Cluster.NumberOfNodes | html %]">[% Data.Cluster.NumberOfNodes | html %]</td>
                                 <td class="[% Data.Changes.Cluster.NumberOfPrimaryShards | html %]">[% Data.Cluster.NumberOfPrimaryShards | html %]</td>
-                                <td>
+                                <td class="Center">
                                 [% IF !Data.Changes.Cluster %]
                                     <i style="color:green" class="fa fa-check"></i>
                                 [% ELSE %]
@@ -113,6 +113,7 @@
                             <th>[% Translate("Primary shards") | html %]</th>
                             <th>[% Translate("Recovery shards") | html %]</th>
                             <th style="width:50px;">[% Translate("Integrity") | html %]</th>
+                            <th style="width:50px;">Delete</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -152,10 +153,25 @@
                                     <i style="color:red" class="fa fa-times"></i>
                                 [% END %]
                             </td>
+[% IF Data.Style.Index != 'Missing' AND Data.Style.Index != 'Removed' %]
+                            <td class="Center">
+                                <i title="[% Translate("Click, to remove index from engine site") | html %]" class="fa fa-trash-o IndexRemove" value="[% Translate(Data.Name) | html %]"></i>
+                            </td>
+[% ELSE %]
+                            <td class="Center"></td>
+[% END %]
                         </tr>
 [% RenderBlockEnd("Index") %]
                     </tbody>
 </table>
+
+        <div class="Hidden" id="IndexRemoveContainer">
+            <div id="IndexRemoveContainer" class="InnerContent GenericInterfaceDialog">
+                <span class="WarningDialog ">&nbsp;</span>
+                <p class="Center Warning">[% Translate("Do you really want to remove index from engine side?") | html %]</p>
+                <div class="SpacingTop"></div>
+            </div>
+        </div>
     </div>
 </div>
 

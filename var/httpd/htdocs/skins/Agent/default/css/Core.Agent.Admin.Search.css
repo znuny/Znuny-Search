@@ -81,3 +81,7 @@
 .ReindexingStatus.fa-refresh{
     color: navy;
 }
+
+i.fa-trash-o.IndexRemove{
+    cursor:pointer;
+}
