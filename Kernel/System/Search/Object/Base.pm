@@ -148,30 +148,33 @@ sub SQLObjectSearch {
         }
     }
 
-    my $IndexRealName           = $Self->{Config}->{IndexRealName};
-    my $Fields                  = $Self->{Fields};
-    my $DefaultValues           = $Self->{DefaultValues};
-    my $SupportedOperators      = $Self->{SupportedOperators};
-    my $DataTypeOperatorMapping = $Self->{DataTypeOperatorMapping};
-
-    my @TableColumns;
-
-    # set columns that will be retrieved
-    if ( IsArrayRefWithData( $Param{Fields} ) ) {
-        @TableColumns = @{ $Param{Fields} };
-
-        for ( my $i = 0; $i < scalar @TableColumns; $i++ ) {
-            $TableColumns[$i] = $Fields->{ $TableColumns[$i] }->{ColumnName};
-        }
-    }
-    else {
-        for my $Field ( sort keys %{$Fields} ) {
-            push @TableColumns, $Fields->{$Field}->{ColumnName};
-        }
-    }
+    my $IndexRealName      = $Self->{Config}->{IndexRealName};
+    my $Fields             = $Self->{Fields};
+    my $SupportedOperators = $Self->{SupportedOperators};
+    my $ResultType         = $Param{ResultType} || 'ARRAY';
 
     # prepare sql statement
-    my $SQL = 'SELECT ' . join( ',', @TableColumns ) . ' FROM ' . $IndexRealName;
+    my $SQL;
+    my @TableColumns;
+    if ( $ResultType eq 'COUNT' ) {
+        $SQL = 'SELECT COUNT(*) FROM ' . $IndexRealName;
+    }
+    else {
+        # set columns that will be retrieved
+        if ( IsArrayRefWithData( $Param{Fields} ) ) {
+            @TableColumns = @{ $Param{Fields} };
+
+            for ( my $i = 0; $i < scalar @TableColumns; $i++ ) {
+                $TableColumns[$i] = $Fields->{ $TableColumns[$i] }->{ColumnName};
+            }
+        }
+        else {
+            for my $Field ( sort keys %{$Fields} ) {
+                push @TableColumns, $Fields->{$Field}->{ColumnName};
+            }
+        }
+        $SQL = 'SELECT ' . join( ',', @TableColumns ) . ' FROM ' . $IndexRealName;
+    }
 
     my @QueryParamValues = ();
     if ( IsHashRefWithData( $Param{QueryParams} ) ) {
@@ -244,7 +247,7 @@ sub SQLObjectSearch {
     {
         # check if specified result type can be sorted
         my $Sortable = $Self->IsSortableResultType(
-            ResultType => $Param{ResultType},
+            ResultType => $ResultType,
         );
 
         # apply sort query
@@ -264,7 +267,7 @@ sub SQLObjectSearch {
                 $LogObject->Log(
                     Priority => 'error',
                     Message  => "Can't sort table: \"$Self->{Config}->{IndexRealName}\" with result type:" .
-                        " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
+                        " \"$ResultType\" by field: \"$Param{SortBy}\"." .
                         " Specified result type is not sortable!\n" .
                         " Sort operation won't be applied."
                 );
@@ -284,15 +287,21 @@ sub SQLObjectSearch {
 
     my @Result;
 
-    # save data in format: sql column name => sql column value
-    while ( my @Row = $DBObject->FetchrowArray() ) {
-        my %Data;
-        my $DataCounter = 0;
-        for my $RealNameColumn (@TableColumns) {
-            $Data{$RealNameColumn} = $Row[$DataCounter];
-            $DataCounter++;
+    if ( $ResultType eq 'COUNT' ) {
+        my @Count = $DBObject->FetchrowArray();
+        return $Count[0];
+    }
+    else {
+        # save data in format: sql column name => sql column value
+        while ( my @Row = $DBObject->FetchrowArray() ) {
+            my %Data;
+            my $DataCounter = 0;
+            for my $RealNameColumn (@TableColumns) {
+                $Data{$RealNameColumn} = $Row[$DataCounter];
+                $DataCounter++;
+            }
+            push @Result, \%Data;
         }
-        push @Result, \%Data;
     }
 
     return \@Result;
@@ -334,25 +343,29 @@ sub SearchFormat {
     my $IndexName               = $Self->{Config}->{IndexName};
     my $GloballyFormattedResult = $Param{GloballyFormattedResult};
 
+    # return only number of records without formatting its attribute
+    if ( $Param{ResultType} eq "COUNT" ) {
+        return {
+            $IndexName => $GloballyFormattedResult->{$IndexName}->{ObjectData},
+        };
+    }
+
+    my $IndexResponse;
+
+    my @AttributeNames = keys %{ $Self->{Fields} };
+
+    my @ColumnNames;
+    for my $FieldName ( sort keys %{ $Self->{Fields} } ) {
+        push @ColumnNames, $Self->{Fields}->{$FieldName}->{ColumnName};
+    }
+
     # fallback
     if ( $Param{Fallback} ) {
         OBJECT:
         for my $ObjectData ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
-            ATTRIBUTE:
-            for my $ObjectAttribute ( sort keys %{$ObjectData} ) {
-                my @AttributeName
-                    = grep { $Self->{Fields}->{$_}->{ColumnName} eq $ObjectAttribute } keys %{ $Self->{Fields} };
-                next ATTRIBUTE if !$AttributeName[0];
-
-                $ObjectData->{ $AttributeName[0] } = $ObjectData->{$ObjectAttribute}
-                    // $Self->{DefaultValues}->{ $AttributeName[0] };
-
-                delete $ObjectData->{$ObjectAttribute};
-            }
+            @$ObjectData{@AttributeNames} = delete @$ObjectData{@ColumnNames};
         }
     }
-
-    my $IndexResponse;
 
     if ( $Param{ResultType} eq "ARRAY" ) {
         $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData};
@@ -387,9 +400,6 @@ sub SearchFormat {
 
             $IndexResponse->{$IndexName}->{ $Data->{$Identifier} } = $Data;
         }
-    }
-    elsif ( $Param{ResultType} eq "COUNT" ) {
-        $IndexResponse->{$IndexName} = scalar @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} };
     }
 
     return $IndexResponse;
@@ -494,15 +504,14 @@ sub CustomFieldsConfig {
     );
 
     my %CustomFieldsMapping = (
-        Fields        => {},
-        DefaultValues => {},
+        Fields => {},
     );
 
     for my $CustomPackageConfig ( sort keys %{$CustomPackageModuleConfigList} ) {
         my $Module        = $CustomPackageModuleConfigList->{$CustomPackageConfig};
         my $PackageModule = $Kernel::OM->Get("$Module->{Module}");
 
-        for my $Type (qw( Fields DefaultValues )) {
+        for my $Type (qw( Fields )) {
             %{ $CustomFieldsMapping{$Type} } = ( %{ $PackageModule->{$Type} }, %{ $CustomFieldsMapping{$Type} } );
         }
     }
@@ -617,7 +626,6 @@ load fields, custom field mapping
 
     my %FunctionResult = $SearchBaseObject->_Load(
         Fields => $Fields,
-        DefaultValues => $DefaultValues,
     );
 
 =cut
@@ -629,8 +637,7 @@ sub _Load {
     my $Config       = $Self->CustomFieldsConfig();
 
     # load custom field mapping
-    %{ $Self->{Fields} }        = ( %{ $Param{Fields} },        %{ $Config->{Fields} } );
-    %{ $Self->{DefaultValues} } = ( %{ $Param{DefaultValues} }, %{ $Config->{DefaultValues} } );
+    %{ $Self->{Fields} } = ( %{ $Param{Fields} }, %{ $Config->{Fields} } );
 
     $Self->{OperatorMapping} = $SearchObject->{DefaultOperatorMapping};
 

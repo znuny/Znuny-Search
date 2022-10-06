@@ -154,22 +154,12 @@ sub new {
         },
     };
 
-    # Define default values. It applies when
-    # specified column value is empty (undefined).
-    my $DefaultValues = {
-        ResponsibleID => 1,
-        TypeID        => 1,
-        ServiceID     => '',
-        SLAID         => '',
-    };
-
     # get default config
     $Self->DefaultConfigGet();
 
     # load fields with custom field mapping
     $Self->_Load(
-        Fields        => $FieldMapping,
-        DefaultValues => $DefaultValues,
+        Fields => $FieldMapping,
     );
 
     return $Self;

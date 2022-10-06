@@ -203,11 +203,11 @@ sub Search {
     # if there was an error, fallback all of the objects with given search parameters
     return $Self->Fallback( %{$Params} ) if $Self->{Fallback} || $Param{UseSQLSearch};
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
 
     # prepare query for engine
-    my $PreparedQuery = $SearchObject->QueryPrepare(
+    my $PreparedQuery = $SearchChildObject->QueryPrepare(
         %{$Params},
         Operation     => "Search",
         Config        => $Self->{Config},
@@ -238,11 +238,9 @@ sub Search {
     # execute all valid queries
     QUERY:
     for my $Query (@ValidQueries) {
-        my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Query->{Object}");
-
         my $Response = $Self->{EngineObject}->QueryExecute(
-            Query         => $Query->{Query},
-            Index         => $IndexObject->{Config}->{IndexRealName},
+            Query => $Query->{Query},
+
             Operation     => 'Search',
             ConnectObject => $Self->{ConnectObject},
             Config        => $Self->{Config},

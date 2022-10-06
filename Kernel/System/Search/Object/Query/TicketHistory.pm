@@ -44,7 +44,6 @@ sub new {
 
     # get index specified fields
     $Self->{IndexFields}               = $IndexObject->{Fields};
-    $Self->{IndexDefaultValues}        = $IndexObject->{DefaultValues};
     $Self->{IndexSupportedOperators}   = $IndexObject->{SupportedOperators};
     $Self->{IndexOperatorMapping}      = $IndexObject->{OperatorMapping};
     $Self->{IndexDefaultSearchLimit}   = $IndexObject->{DefaultSearchLimit};
