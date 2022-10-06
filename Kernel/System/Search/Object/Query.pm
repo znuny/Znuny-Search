@@ -161,7 +161,7 @@ sub ObjectIndexAdd {
     my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
 
     NEEDED:
-    for my $Needed (qw(MappingObject ObjectID)) {
+    for my $Needed (qw(MappingObject)) {
 
         next NEEDED if defined $Param{$Needed};
 
@@ -172,14 +172,38 @@ sub ObjectIndexAdd {
         return;
     }
 
+    if ( $Param{ObjectID} && $Param{QueryParams} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter ObjectID and QueryParams cannot be used together!",
+        );
+        return;
+    }
+    elsif ( !$Param{ObjectID} && !$Param{QueryParams} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter ObjectID or QueryParams is needed!",
+        );
+        return;
+    }
+
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
+        {
+        $Identifier => $Param{ObjectID}
+        };
+
+    if ( $Param{QueryParams} ) {
+        $QueryParams = $Self->_CheckQueryParams(
+            QueryParams => $Param{QueryParams},
+        );
+    }
+
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
-        QueryParams => {
-            $Identifier => $Param{ObjectID},
-        },
-        ResultType => $Param{SQLSearchResultType} || 'ARRAY',
+        QueryParams => $QueryParams,
+        ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
     );
 
     # build and return query
@@ -207,7 +231,7 @@ sub ObjectIndexUpdate {
     my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
 
     NEEDED:
-    for my $Needed (qw(MappingObject ObjectID)) {
+    for my $Needed (qw(MappingObject)) {
 
         next NEEDED if defined $Param{$Needed};
 
@@ -218,13 +242,37 @@ sub ObjectIndexUpdate {
         return;
     }
 
+    if ( $Param{ObjectID} && $Param{QueryParams} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter ObjectID and QueryParams cannot be used together!",
+        );
+        return;
+    }
+    elsif ( !$Param{ObjectID} && !$Param{QueryParams} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter ObjectID or QueryParams is needed!",
+        );
+        return;
+    }
+
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
+        {
+        $Identifier => $Param{ObjectID}
+        };
+
+    if ( $Param{QueryParams} ) {
+        $QueryParams = $Self->_CheckQueryParams(
+            QueryParams => $Param{QueryParams},
+        );
+    }
+
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
-        QueryParams => {
-            $Identifier => $Param{ObjectID},
-        },
+        QueryParams => $QueryParams,
     );
 
     # build and return query

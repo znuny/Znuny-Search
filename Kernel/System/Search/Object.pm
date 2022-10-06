@@ -379,7 +379,7 @@ sub _QueryPrepareObjectIndexAdd {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index ObjectID MappingObject Config )) {
+    for my $Name (qw( Index MappingObject Config )) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -426,7 +426,7 @@ sub _QueryPrepareObjectIndexUpdate {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index ObjectID MappingObject Config )) {
+    for my $Name (qw( Index MappingObject Config )) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
