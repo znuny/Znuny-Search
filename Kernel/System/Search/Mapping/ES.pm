@@ -61,47 +61,61 @@ process query data to structure that will be used to execute query
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    my %Query = $Self->_BuildQueryBodyFromParams(
+    my %Body = $Self->_BuildQueryBodyFromParams(
         FieldsDefinition => $Param{FieldsDefinition},
         QueryParams      => $Param{QueryParams},
         Object           => $Param{Object},
     );
 
-    # data source won't be "_source" key anymore
-    # instead it will be "fields"
-    $Query{_source} = "false";
-    @{ $Query{fields} } = @{ $Param{Fields} };
+    my $QueryPath = "$Param{RealIndexName}/";
 
-    # TO-DO start sort:
-    # datetimes won't work
-    # for now text/integer type fields sorting works
+    if ( $Param{ResultType} && $Param{ResultType} eq 'COUNT' ) {
+        $QueryPath .= '_count';
+    }
+    else {
+        # data source won't be "_source" key anymore
+        # instead it will be "fields"
+        $Body{_source} = "false";
+        $QueryPath .= '_search';
+        @{ $Body{fields} } = @{ $Param{Fields} };
 
-    # set sorting field
-    if ( $Param{SortBy} ) {
+        # TO-DO start sort:
+        # datetimes won't work
+        # for now text/integer type fields sorting works
 
-        # not specified
-        my $OrderBy     = $Param{OrderBy} || "Up";
-        my $OrderByStrg = $OrderBy eq 'Up' ? 'asc' : 'desc';
+        # set sorting field
+        if ( $Param{SortBy} ) {
 
-        if ( $Param{SortBy}->{Type} && $Param{SortBy}->{Type} eq 'Integer' ) {
-            $Query{sort}->[0]->{ $Param{SortBy}->{ColumnName} } = {
-                order => $OrderByStrg,
-            };
+            # not specified
+            my $OrderBy     = $Param{OrderBy} || "Up";
+            my $OrderByStrg = $OrderBy eq 'Up' ? 'asc' : 'desc';
+
+            if ( $Param{SortBy}->{Type} && $Param{SortBy}->{Type} eq 'Integer' ) {
+                $Body{sort}->[0]->{ $Param{SortBy}->{ColumnName} } = {
+                    order => $OrderByStrg,
+                };
+            }
+            else {
+                $Body{sort}->[0]->{ $Param{SortBy}->{ColumnName} . ".keyword" } = {
+                    order => $OrderByStrg,
+                };
+            }
         }
-        else {
-            $Query{sort}->[0]->{ $Param{SortBy}->{ColumnName} . ".keyword" } = {
-                order => $OrderByStrg,
-            };
+
+        if ( $Param{Limit} ) {
+            $Body{size} = $Param{Limit};
         }
+
+        # TO-DO end: sort
     }
 
-    # TO-DO end: sort
+    my $Query = {
+        Body   => \%Body,
+        Method => 'GET',
+        Path   => $QueryPath,
+    };
 
-    if ( $Param{Limit} ) {
-        $Query{size} = $Param{Limit};
-    }
-
-    return \%Query;
+    return $Query;
 }
 
 =head2 SearchFormat()
@@ -141,10 +155,17 @@ sub SearchFormat {
         Type   => $Result->{type}
     } if $Result->{status};
 
-    my $GloballyFormattedObjData = $Self->_ResponseDataFormat(
-        Hits => $Result->{hits}->{hits},
-        %Param,
-    );
+    my $GloballyFormattedObjData;
+    if ( $Param{ResultType} ne 'COUNT' ) {
+
+        $GloballyFormattedObjData = $Self->_ResponseDataFormat(
+            Hits => $Result->{hits}->{hits},
+            %Param,
+        );
+    }
+    else {
+        $GloballyFormattedObjData = $Result->{count};
+    }
 
     return {
         "$IndexName" => {
@@ -1004,17 +1025,16 @@ sub _ResponseDataFormat {
 
     my @Objects;
 
-    my $DefaultValues    = $IndexObject->{DefaultValues};
     my $FieldsDefinition = $IndexObject->{Fields};
     my @Fields           = keys %{$FieldsDefinition};
 
     # when specified fields are filtered response
     # contains them inside "fields" key
-    if ( $Param{QueryData}->{Query}->{_source} && $Param{QueryData}->{Query}->{_source} eq 'false' ) {
+    if ( $Param{QueryData}->{Query}->{Body}->{_source} && $Param{QueryData}->{Query}->{Body}->{_source} eq 'false' ) {
         for my $Hit ( @{$Hits} ) {
             my %Data;
             for my $Field (@Fields) {
-                $Data{$Field} = $Hit->{fields}->{$Field}->[0] // $DefaultValues->{$Field};
+                $Data{$Field} = $Hit->{fields}->{$Field}->[0];
             }
             push @Objects, \%Data;
         }
