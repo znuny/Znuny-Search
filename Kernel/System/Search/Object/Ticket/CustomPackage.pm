@@ -25,8 +25,7 @@ sub new {
         TicketID => 'TicketID'
     };
 
-    $Self->{Fields}        = $FieldMapping;
-    $Self->{DefaultValues} = {};
+    $Self->{Fields} = $FieldMapping;
 
     return $Self;
 }

@@ -179,6 +179,7 @@ sub ObjectIndexAdd {
         QueryParams => {
             $Identifier => $Param{ObjectID},
         },
+        ResultType => $Param{SQLSearchResultType} || 'ARRAY',
     );
 
     # build and return query

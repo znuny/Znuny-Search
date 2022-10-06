@@ -326,11 +326,9 @@ executes query for active engine with specified object "Search" operation
 sub _QueryExecuteSearch {
     my ( $Self, %Param ) = @_;
 
-    return $Param{ConnectObject}->search(
-        index => $Param{Index},
-        body  => {
-            %{ $Param{Query} }
-        },
+    return $Self->QueryExecuteGeneric(
+        ConnectObject => $Param{ConnectObject},
+        Query         => $Param{Query},
     );
 }
 

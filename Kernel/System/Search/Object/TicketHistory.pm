@@ -109,17 +109,12 @@ sub new {
         },
     };
 
-    # Define default values. It applies when
-    # specified property is empty (undefined).
-    my $DefaultValues = {};
-
     # get default config
     $Self->DefaultConfigGet();
 
     # load fields with custom field mapping
     $Self->_Load(
-        Fields        => $FieldMapping,
-        DefaultValues => $DefaultValues,
+        Fields => $FieldMapping,
     );
     return $Self;
 }

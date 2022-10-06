@@ -342,6 +342,7 @@ sub _QueryPrepareSearch {
             QueryParams   => $Param{QueryParams},
             MappingObject => $Param{MappingObject},
             Config        => $Param{Config},
+            RealIndexName => $IndexQueryObject->{IndexConfig}->{IndexRealName},
             Object        => $Index,
             ResultType    => $ValidResultType,
             Fields        => $Fields,
