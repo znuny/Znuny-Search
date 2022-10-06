@@ -197,7 +197,7 @@ sub ObjectIndexAdd {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(Config Index ObjectID Body)) {
+    for my $Needed (qw(Config Index Body)) {
 
         next NEEDED if defined $Param{$Needed};
 
@@ -296,7 +296,7 @@ sub ObjectIndexUpdate {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(Config Index ObjectID Body)) {
+    for my $Needed (qw(Config Index Body)) {
 
         next NEEDED if defined $Param{$Needed};
 
