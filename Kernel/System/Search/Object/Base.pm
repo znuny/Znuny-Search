@@ -351,11 +351,10 @@ sub SearchFormat {
     }
 
     my $IndexResponse;
-
     my @AttributeNames = keys %{ $Self->{Fields} };
 
     my @ColumnNames;
-    for my $FieldName ( sort keys %{ $Self->{Fields} } ) {
+    for my $FieldName (@AttributeNames) {
         push @ColumnNames, $Self->{Fields}->{$FieldName}->{ColumnName};
     }
 
@@ -556,6 +555,7 @@ sub DefaultConfigGet {
             Operator => {
                 ">="             => 1,
                 "="              => 1,
+                "!="             => 1,
                 "<="             => 1,
                 "<"              => 1,
                 ">"              => 1,
@@ -566,6 +566,7 @@ sub DefaultConfigGet {
         String => {
             Operator => {
                 "="              => 1,
+                "!="             => 1,
                 ">="             => 1,
                 "<="             => 1,
                 "<"              => 1,
@@ -582,6 +583,7 @@ sub DefaultConfigGet {
             Operator => {
                 ">="             => 1,
                 "="              => 1,
+                "!="             => 1,
                 "<="             => 1,
                 "<"              => 1,
                 ">"              => 1,
