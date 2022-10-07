@@ -49,6 +49,7 @@ sub new {
     $Self->{DefaultOperatorMapping} = {
         ">="             => 'GreaterEqualThan',
         "="              => 'Equal',
+        "!="             => 'NotEqual',
         "<="             => 'LowerEqualThan',
         ">"              => 'GreaterThan',
         "<"              => 'LowerThan',
