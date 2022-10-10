@@ -110,20 +110,11 @@ sub Search {
         }
     }
 
-    my @Fields;
-
-    if ( IsArrayRefWithData() ) {
-        @Fields = @{ $Param{Fields} };
-    }
-    else {
-        @Fields = keys %{ $ParamSearchObject->{Fields} };
-    }
-
     # return the query
     my $Query = $Param{MappingObject}->Search(
         Limit => $Self->{IndexDefaultSearchLimit},    # default limit or override with limit from param
         %Param,
-        Fields           => \@Fields,
+        Fields           => $Param{Fields},
         FieldsDefinition => $Self->{IndexFields},
         QueryParams      => $SearchParams,
         SortBy           => $SortBy,
