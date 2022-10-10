@@ -199,16 +199,28 @@ sub Search {
 
     # standardize params
     $Self->_SearchParamsStandardize( Param => $Params );
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    # set valid fields for either fallback and advanced search
+    # no fields param will get all valid fields for specified object
+    OBJECT:
+    for ( my $i = 0; $i < scalar @{ $Param{Objects} }; $i++ ) {
+        $Param{Fields}->[$i] = $SearchChildObject->ValidFieldsGet(
+            Fields => $Param{Fields}->[$i],
+            Object => $Param{Objects}->[$i],
+        );
+    }
 
     # if there was an error, fallback all of the objects with given search parameters
     return $Self->Fallback( %{$Params} ) if $Self->{Fallback} || $Param{UseSQLSearch};
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
-    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
+    my $Fields = $Params->{Fields};
 
     # prepare query for engine
     my $PreparedQuery = $SearchChildObject->QueryPrepare(
         %{$Params},
+        Fields        => $Fields,
         Operation     => "Search",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
@@ -237,10 +249,11 @@ sub Search {
 
     # execute all valid queries
     QUERY:
-    for my $Query (@ValidQueries) {
-        my $Response = $Self->{EngineObject}->QueryExecute(
-            Query => $Query->{Query},
+    for ( my $i = 0; $i < scalar @ValidQueries; $i++ ) {
 
+        my $Query    = $ValidQueries[$i];
+        my $Response = $Self->{EngineObject}->QueryExecute(
+            Query         => $Query->{Query},
             Operation     => 'Search',
             ConnectObject => $Self->{ConnectObject},
             Config        => $Self->{Config},
@@ -257,6 +270,7 @@ sub Search {
         my $FormattedResult = $Self->SearchFormat(
             %{$Params},
             Result     => $Response,
+            Fields     => $Fields->[$i],
             Config     => $Self->{Config},
             IndexName  => $Query->{Object},
             Operation  => "Search",
@@ -288,13 +302,21 @@ add object for specified index
 
     my $Success = $SearchObject->ObjectIndexAdd(
         Index    => "Ticket",
-        ObjectID => 1, # possible:
-                       # - for single object indexing: 1
-                       # - for multiple object indexing: [1,2,3]
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
                        # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
     );
 
 =cut
@@ -350,13 +372,21 @@ update object for specified index
 
     my $Success = $SearchObject->ObjectIndexUpdate(
         Index => "Ticket",
-        ObjectID => 1, # possible:
-                       # - for single object indexing: 1
-                       # - for multiple object indexing: [1,2,3]
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
                        # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
     );
 
 =cut
@@ -410,19 +440,20 @@ remove object for specified index
 
     my $Success = $SearchObject->ObjectIndexRemove(
         Index => "Ticket",
-        ObjectID => 1, # possible: single id or ids in array
-                       # for single record id: 1
-                       # for multiple records ids: [1,2,3,4]
-                       # or
-        QueryParams => { # operators are supported
-            TicketID => 1,
-            StateID => { Operator = ''>', Value = '2'},
-            ..,
-        },
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
                        # indexing (for example in elastic search engine)
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
     );
 
 =cut
@@ -976,8 +1007,8 @@ fallback from using advanced search
 sub Fallback {
     my ( $Self, %Param ) = @_;
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     NEEDED:
     for my $Needed (qw(Objects QueryParams)) {
 
@@ -996,7 +1027,7 @@ sub Fallback {
         my $IndexName = $Param{Objects}->[$i];
 
         # get globally formatted fallback response
-        my $Response = $SearchObject->Fallback(
+        my $Response = $SearchChildObject->Fallback(
             %Param,
             IndexName     => $IndexName,
             IndexCounter  => $i,
@@ -1021,6 +1052,7 @@ sub Fallback {
             ResultType => $ResultType,
             Fallback   => 1,
             Silent     => $Param{Silent},
+            Fields     => $Param{Fields}->[$i],
         );
 
         # merge response into return data

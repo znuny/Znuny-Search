@@ -266,6 +266,51 @@ sub ValidResultType {
     return $ResultType;
 }
 
+=head2 ValidFieldsGet()
+
+validate fields for object and return only valid ones
+
+    my $Fields = $SearchChildObject->ValidFieldsGet(
+        Fields => $Fields, # optional
+        Object => $ObjectName,
+    );
+
+=cut
+
+sub ValidFieldsGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Name (qw(Object)) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
+
+    my $Fields      = $IndexSearchObject->{Fields};
+    my @ValidFields = ();
+
+    if ( !IsArrayRefWithData( $Param{Fields} ) ) {
+        @ValidFields = keys %{$Fields};
+        return \@ValidFields;
+    }
+
+    for my $ParamField ( @{ $Param{Fields} } ) {
+        if ( $Fields->{$ParamField} ) {
+            push @ValidFields, $ParamField,;
+        }
+    }
+
+    return \@ValidFields;
+}
+
 =head2 _QueryPrepareSearch()
 
 prepares query for active engine with specified object "Search" operation
@@ -312,14 +357,6 @@ sub _QueryPrepareSearch {
 
         my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
 
-        my $Fields;
-
-        if ( $Param{Fields} ) {
-            for my $Field ( @{ $Param{Fields}->[$i] } ) {
-                push @{$Fields}, $IndexQueryObject->{IndexFields}->{$Field};
-            }
-        }
-
         # check/set valid result type
         my $ValidResultType = $Self->ValidResultType(
             SupportedResultTypes => $IndexQueryObject->{IndexSupportedResultTypes},
@@ -346,7 +383,7 @@ sub _QueryPrepareSearch {
             RealIndexName => $IndexQueryObject->{IndexConfig}->{IndexRealName},
             Object        => $Index,
             ResultType    => $ValidResultType,
-            Fields        => $Fields,
+            Fields        => $Param{Fields}->[$i],
             SortBy        => $Param{SortBy}->[$i],
             OrderBy       => $Param{OrderBy}->[$i] || $Param{OrderBy},
             Limit         => $Limit || $IndexQueryObject->{IndexDefaultSearchLimit},
