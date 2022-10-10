@@ -79,10 +79,6 @@ sub Search {
         $QueryPath .= '_search';
         @{ $Body{fields} } = @{ $Param{Fields} };
 
-        # TO-DO start sort:
-        # datetimes won't work
-        # for now text/integer type fields sorting works
-
         # set sorting field
         if ( $Param{SortBy} ) {
 
@@ -90,7 +86,15 @@ sub Search {
             my $OrderBy     = $Param{OrderBy} || "Up";
             my $OrderByStrg = $OrderBy eq 'Up' ? 'asc' : 'desc';
 
-            if ( $Param{SortBy}->{Type} && $Param{SortBy}->{Type} eq 'Integer' ) {
+            # supported sorting types: integer, datetime, string
+            if (
+                $Param{SortBy}->{Type}
+                && (
+                    $Param{SortBy}->{Type} eq 'Integer'
+                    || $Param{SortBy}->{Type} eq 'Date'
+                )
+                )
+            {
                 $Body{sort}->[0]->{ $Param{SortBy}->{ColumnName} } = {
                     order => $OrderByStrg,
                 };
@@ -105,8 +109,6 @@ sub Search {
         if ( $Param{Limit} ) {
             $Body{size} = $Param{Limit};
         }
-
-        # TO-DO end: sort
     }
 
     my $Query = {
@@ -981,7 +983,7 @@ sub DefaultRemoteSettingsGet {
         settings => {
             index => {
                 number_of_shards  => 6,
-                max_result_window => 2000000,
+                max_result_window => 10001,
             }
         }
     );
@@ -1001,54 +1003,6 @@ sub ResponseIsSuccess {
     my ( $Self, %Param ) = @_;
 
     return $Param{Response}->{__Error} ? undef : 1;
-}
-
-=head2  _ResponseDataFormat()
-
-globally formats response data from engine
-
-    my $Result = $SearchMappingESObject->_ResponseDataFormat(
-        Hits => $Hits,
-        QueryData => $QueryData,
-    );
-
-=cut
-
-sub _ResponseDataFormat {
-    my ( $Self, %Param ) = @_;
-
-    return [] if !IsArrayRefWithData( $Param{Hits} );
-
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
-
-    my $Hits = $Param{Hits};
-
-    my @Objects;
-
-    my $FieldsDefinition = $IndexObject->{Fields};
-    my @Fields           = keys %{$FieldsDefinition};
-
-    # when specified fields are filtered response
-    # contains them inside "fields" key
-    if ( $Param{QueryData}->{Query}->{Body}->{_source} && $Param{QueryData}->{Query}->{Body}->{_source} eq 'false' ) {
-        for my $Hit ( @{$Hits} ) {
-            my %Data;
-            for my $Field (@Fields) {
-                $Data{$Field} = $Hit->{fields}->{$Field}->[0];
-            }
-            push @Objects, \%Data;
-        }
-    }
-
-    # ES engine response stores objects inside "_source" key by default
-    # IMPORTANT: not used anymore!
-    elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
-        for my $Hit ( @{$Hits} ) {
-            push @Objects, $Hit->{_source};
-        }
-    }
-
-    return \@Objects;
 }
 
 =head2 IndexInitialSettingsGet()
@@ -1104,6 +1058,52 @@ sub IndexInitialSettingsGetFormat {
     }
 
     return $IndexSettings;
+}
+
+=head2  _ResponseDataFormat()
+
+globally formats response data from engine
+
+    my $Result = $SearchMappingESObject->_ResponseDataFormat(
+        Hits => $Hits,
+        QueryData => $QueryData,
+    );
+
+=cut
+
+sub _ResponseDataFormat {
+    my ( $Self, %Param ) = @_;
+
+    return [] if !IsArrayRefWithData( $Param{Hits} );
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
+
+    my @Objects;
+
+    my $Hits   = $Param{Hits};
+    my @Fields = @{ $Param{Fields} };
+
+    # when specified fields are filtered response
+    # contains them inside "fields" key
+    if ( $Param{QueryData}->{Query}->{Body}->{_source} && $Param{QueryData}->{Query}->{Body}->{_source} eq 'false' ) {
+        for my $Hit ( @{$Hits} ) {
+            my %Data;
+            for my $Field (@Fields) {
+                $Data{$Field} = $Hit->{fields}->{$Field}->[0];
+            }
+            push @Objects, \%Data;
+        }
+    }
+
+    # ES engine response stores objects inside "_source" key by default
+    # IMPORTANT: not used anymore!
+    elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
+        for my $Hit ( @{$Hits} ) {
+            push @Objects, $Hit->{_source};
+        }
+    }
+
+    return \@Objects;
 }
 
 =head2 _BuildQueryBodyFromParams()

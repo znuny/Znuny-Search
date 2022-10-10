@@ -118,8 +118,8 @@ search in sql database for objects index related
         QueryParams => {
             TicketID => 1,
         },
-        Fields      => ['id', 'sla_id'] # optional, returns all
-                                        # fields if not specified
+        Fields      => ['TicketID', 'SLAID'] # optional, returns all
+                                             # fields if not specified
         SortBy      => $IdentifierSQL,
         OrderBy     => "Down",  # possible: "Down", "Up",
         ResultType  => $ResultType,
@@ -162,12 +162,14 @@ sub SQLObjectSearch {
     else {
         # set columns that will be retrieved
         if ( IsArrayRefWithData( $Param{Fields} ) ) {
-            @TableColumns = @{ $Param{Fields} };
-
-            for ( my $i = 0; $i < scalar @TableColumns; $i++ ) {
-                $TableColumns[$i] = $Fields->{ $TableColumns[$i] }->{ColumnName};
+            my @ParamFields = @{ $Param{Fields} };
+            for ( my $i = 0; $i < scalar @ParamFields; $i++ ) {
+                $TableColumns[$i] = $Fields->{ $ParamFields[$i] }->{ColumnName};
             }
         }
+
+        # not used anymore
+        # TODO delete if really not used
         else {
             for my $Field ( sort keys %{$Fields} ) {
                 push @TableColumns, $Fields->{$Field}->{ColumnName};
@@ -284,7 +286,6 @@ sub SQLObjectSearch {
         SQL  => $SQL,
         Bind => \@QueryParamValues
     );
-
     my @Result;
 
     if ( $ResultType eq 'COUNT' ) {
@@ -351,7 +352,7 @@ sub SearchFormat {
     }
 
     my $IndexResponse;
-    my @AttributeNames = keys %{ $Self->{Fields} };
+    my @AttributeNames = @{ $Param{Fields} };
 
     my @ColumnNames;
     for my $FieldName (@AttributeNames) {
