@@ -513,6 +513,29 @@ sub IndexInitialSettingsGet {
     );
 }
 
+=head2 IndexRefresh()
+
+create query for refreshing index index data
+
+    my $Result = $SearchQueryObject->IndexRefresh(
+        MappingObject   => $MappingObject,
+        Index => $Index,
+);
+
+=cut
+
+sub IndexRefresh {
+    my ( $Self, %Param ) = @_;
+
+    return if !$Param{MappingObject};
+
+    # returns the query
+    return $Param{MappingObject}->IndexRefresh(
+        %Param,
+        IndexRealName => $Self->{IndexConfig}->{IndexRealName},
+    );
+}
+
 =head2 _CheckQueryParams()
 
 check and set valid query params

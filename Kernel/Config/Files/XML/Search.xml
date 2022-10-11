@@ -203,4 +203,13 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="Reindexation###ReindexationSettings" Required="1" Valid="1">
+        <Description Translatable="1">Define settings used in reindexation command.</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="ReindexationStep" ValueType="String" ValueRegex="^[0-9]{1,6}$">500</Item>
+            </Hash>
+        </Value>
+    </Setting>
 </otrs_config>
