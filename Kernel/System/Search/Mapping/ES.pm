@@ -1060,6 +1060,25 @@ sub IndexInitialSettingsGetFormat {
     return $IndexSettings;
 }
 
+=head2 IndexRefresh()
+
+refresh index data on engine side
+
+    my $Result = $SearchMappingESObject->IndexRefresh(
+        IndexRealName => $IndexRealName,
+    );
+
+=cut
+
+sub IndexRefresh {
+    my ( $Self, %Param ) = @_;
+
+    return {
+        Path   => $Param{IndexRealName} . '/_refresh',
+        Method => 'POST',
+    };
+}
+
 =head2  _ResponseDataFormat()
 
 globally formats response data from engine

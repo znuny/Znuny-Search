@@ -1144,37 +1144,6 @@ sub SearchFormat {
     return $IndexFormattedResult;
 }
 
-=head2 _SearchParamsStandardize()
-
-globally standardize search params
-
-    my $Success = $SearchObject->_SearchParamsStandardize(
-        %Param,
-    );
-
-=cut
-
-sub _SearchParamsStandardize {
-    my ( $Self, %Param ) = @_;
-
-    if ( IsHashRefWithData( $Param{Param} ) ) {
-        if ( IsArrayRefWithData( $Param{Param}->{Objects} ) ) {
-            if ( $Param{Param}->{OrderBy} && !IsArrayRefWithData( $Param{Param}->{OrderBy} ) ) {
-                my $OrderBy = $Param{Param}->{OrderBy};
-                $Param{Param}->{OrderBy} = [];
-                for ( my $i = 0; $i < scalar @{ $Param{Param}->{Objects} }; $i++ ) {
-                    $Param{Param}->{OrderBy}->[$i] = $OrderBy;
-                }
-            }
-            if ( ref( $Param{Param}->{Limit} ) eq 'ARRAY' ) {
-                $Param{Param}->{MultipleLimit} = 1;
-            }
-        }
-    }
-
-    return 1;
-}
-
 =head2 IndexInitialSettingsGet()
 
 get initial configuration of index
@@ -1215,6 +1184,75 @@ sub IndexInitialSettingsGet {
         Response => $Response,
         Config   => $Self->{Config},
     );
+}
+
+=head2 IndexRefresh()
+
+refreshes index on engine side
+
+    my $Success = $SearchObject->IndexRefresh(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexRefresh {
+    my ( $Self, %Param ) = @_;
+
+    return if $Self->{Fallback};
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexRefresh",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "IndexRefresh",
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    return $Response;
+}
+
+=head2 _SearchParamsStandardize()
+
+globally standardize search params
+
+    my $Success = $SearchObject->_SearchParamsStandardize(
+        %Param,
+    );
+
+=cut
+
+sub _SearchParamsStandardize {
+    my ( $Self, %Param ) = @_;
+
+    if ( IsHashRefWithData( $Param{Param} ) ) {
+        if ( IsArrayRefWithData( $Param{Param}->{Objects} ) ) {
+            if ( $Param{Param}->{OrderBy} && !IsArrayRefWithData( $Param{Param}->{OrderBy} ) ) {
+                my $OrderBy = $Param{Param}->{OrderBy};
+                $Param{Param}->{OrderBy} = [];
+                for ( my $i = 0; $i < scalar @{ $Param{Param}->{Objects} }; $i++ ) {
+                    $Param{Param}->{OrderBy}->[$i] = $OrderBy;
+                }
+            }
+            if ( ref( $Param{Param}->{Limit} ) eq 'ARRAY' ) {
+                $Param{Param}->{MultipleLimit} = 1;
+            }
+        }
+    }
+
+    return 1;
 }
 
 1;

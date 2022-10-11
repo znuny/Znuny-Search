@@ -599,4 +599,24 @@ sub _QueryExecuteIndexInitialSettingsGet {
     return $Result;
 }
 
+=head2 _QueryExecuteIndexRefresh()
+
+executes query for active engine with specified index refresh operation
+
+    my $Result = $SearchEngineESObject->_QueryExecuteSearch(
+        ConnectObject    => $ConnectObject,
+        Query            => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexRefresh {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->QueryExecuteGeneric(
+        ConnectObject => $Param{ConnectObject},
+        Query         => $Param{Query},
+    );
+}
+
 1;

@@ -22,6 +22,7 @@ our @ObjectDependencies = (
     'Kernel::System::Search::Cluster',
     'Kernel::System::Cache',
     'Kernel::System::JSON',
+    'Kernel::System::Search::Object',
 );
 
 =head1 NAME
@@ -194,9 +195,10 @@ set information about data equality for given cluster
 sub DataEqualitySet {
     my ( $Self, %Param ) = @_;
 
-    my $DBObject      = $Kernel::OM->Get('Kernel::System::DB');
-    my $SearchObject  = $Kernel::OM->Get('Kernel::System::Search');
-    my $ClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
+    my $DBObject          = $Kernel::OM->Get('Kernel::System::DB');
+    my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ClusterObject     = $Kernel::OM->Get('Kernel::System::Search::Cluster');
 
     return if !IsArrayRefWithData( $Param{Indexes} );
 
@@ -204,20 +206,44 @@ sub DataEqualitySet {
 
     return if $Param{ClusterID} && $ClusterConfig->{ClusterID} != $Param{ClusterID};
 
+    my @IndexList = $SearchObject->IndexList();
+
+    my @ActiveIndexes;
+    INDEX:
+    for my $Index ( @{ $Param{Indexes} } ) {
+
+        my $IsValid = $SearchChildObject->IndexIsValid(
+            IndexName => $Index,
+            RealName  => 0,
+        );
+
+        if ($IsValid) {
+            push @ActiveIndexes, $Index;
+            next INDEX;
+        }
+
+        # cannot find index on engine side, set it percentage on 0%
+        return if !$DBObject->Do(
+            SQL =>
+                "INSERT INTO search_cluster_data_equality (cluster_id, index_name, percentage, create_time) VALUES (?, ?, 0, current_timestamp)",
+            Bind => [ \$Param{ClusterID}, \$Index ]
+        );
+    }
+
     my %QueryParams = (
-        Objects     => $Param{Indexes},
+        Objects     => \@ActiveIndexes,
         QueryParams => {},
         ResultType  => "COUNT",
     );
 
     my $EngineResponse = $SearchObject->Search(
         %QueryParams,
-    ) // 0;
+    ) || {};
 
     my $DBResponse = $SearchObject->Search(
         %QueryParams,
         UseSQLSearch => 1,
-    ) // 0;
+    ) || {};
 
     $Kernel::OM->ObjectsDiscard(
         Objects => ['Kernel::System::Search'],
@@ -226,6 +252,7 @@ sub DataEqualitySet {
     my $IndexEqualityPercentage;
 
     for my $Index ( sort keys %{$EngineResponse} ) {
+        $EngineResponse->{$Index} //= 0;
         $IndexEqualityPercentage->{$Index} = ( $EngineResponse->{$Index} * 100 ) / $DBResponse->{$Index};
 
         return if !$DBObject->Do(
@@ -325,8 +352,11 @@ stop re-indexing process
 sub StopReindexation {
     my ( $Self, %Param ) = @_;
 
-    my $PIDObject   = $Kernel::OM->Get('Kernel::System::PID');
-    my $CacheObject = $Kernel::OM->Get('Kernel::System::Cache');
+    my $PIDObject     = $Kernel::OM->Get('Kernel::System::PID');
+    my $CacheObject   = $Kernel::OM->Get('Kernel::System::Cache');
+    my $SearchObject  = $Kernel::OM->Get('Kernel::System::Search');
+    my $ClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
+    my $JSONObject    = $Kernel::OM->Get('Kernel::System::JSON');
 
     my %PID = $PIDObject->PIDGet(
         Name => 'SearchEngineReindex',
@@ -360,12 +390,38 @@ sub StopReindexation {
         Force => $Param{Force},
     );
 
-    # cleanup cache type of reindexing process
-    my $CacheDeleteSuccess = $CacheObject->CleanUp(
-        Type => 'ReindexingProcess',
-    );
+    if ($PIDDeleteSuccess) {
+        my $ActiveCluster = $ClusterObject->ActiveClusterGet();
 
-    return 1 if $PIDDeleteSuccess && $CacheDeleteSuccess;
+        my $ReindexingQueue = $CacheObject->Get(
+            Type => 'ReindexingProcess',
+            Key  => 'ReindexingQueue',
+        );
+
+        $ReindexingQueue = $JSONObject->Decode(
+            Data => $ReindexingQueue
+        );
+
+        my @ReindexedIndexList = keys %{$ReindexingQueue};
+        for my $Index (@ReindexedIndexList) {
+            my $Result = $SearchObject->IndexRefresh(
+                Index => $Index
+            );
+        }
+
+        my $DataEqualitySetSuccess = $Self->DataEqualitySet(
+            ClusterID => $ActiveCluster->{ClusterID},
+            Indexes   => \@ReindexedIndexList,
+        );
+
+        # cleanup cache type of reindexing process
+        my $CacheDeleteSuccess = $CacheObject->CleanUp(
+            Type => 'ReindexingProcess',
+        );
+
+        return 1 if $CacheDeleteSuccess && $DataEqualitySetSuccess;
+    }
+
     return;
 }
 
