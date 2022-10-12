@@ -58,10 +58,6 @@ create query for specified operation
         QueryParams     => $QueryParams,
     );
 
-TO-DO: delete later
-Developer note: most conditions needs to be met with fallback
-alternative (Kernel::System::Search::Object::Base->SQLObjectSearch()).
-
 =cut
 
 sub Search {
@@ -186,12 +182,6 @@ sub ObjectIndexAdd {
         $Identifier => $Param{ObjectID}
         };
 
-    if ( $Param{QueryParams} ) {
-        $QueryParams = $Self->_CheckQueryParams(
-            QueryParams => $Param{QueryParams},
-        );
-    }
-
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         QueryParams => $QueryParams,
         ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
@@ -256,11 +246,9 @@ sub ObjectIndexUpdate {
         $Identifier => $Param{ObjectID}
         };
 
-    if ( $Param{QueryParams} ) {
-        $QueryParams = $Self->_CheckQueryParams(
-            QueryParams => $Param{QueryParams},
-        );
-    }
+    $QueryParams = $Self->_CheckQueryParams(
+        QueryParams => $QueryParams,
+    );
 
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         QueryParams => $QueryParams,
@@ -306,33 +294,24 @@ sub ObjectIndexRemove {
         return;
     }
 
-    if ( $Param{ObjectID} ) {
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-        # build and return query
-        return $Param{MappingObject}->ObjectIndexRemove(
-            %Param,
-            FieldsDefinition => $Self->{IndexFields},
-        );
-    }
-    elsif ( IsHashRefWithData( $Param{QueryParams} ) ) {
-        my $QueryParams = $Self->_CheckQueryParams(
-            QueryParams => $Param{QueryParams},
-        );
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
+        {
+        $Identifier => $Param{ObjectID}
+        };
 
-        # build and return query
-        return $Param{MappingObject}->ObjectIndexRemove(
-            %Param,
-            FieldsDefinition => $Self->{IndexFields},
-            QueryParams      => $QueryParams,
-        );
-    }
-    else {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Need either ObjectID or QueryParams with data as HASH!",
-        );
-        return;
-    }
+    $QueryParams = $Self->_CheckQueryParams(
+        QueryParams => $QueryParams,
+    );
+
+    # build and return query
+    return $Param{MappingObject}->ObjectIndexRemove(
+        %Param,
+        FieldsDefinition => $Self->{IndexFields},
+        QueryParams      => $QueryParams,
+    );
 }
 
 =head2 IndexAdd()
@@ -561,30 +540,48 @@ sub _CheckQueryParams {
 
         # do not accept undef values for param
         next PARAM if !defined $Param{QueryParams}->{$SearchParam};
-        $ValidParams->{$SearchParam} = $Param{QueryParams}->{$SearchParam};
         my $QueryParamType = $Self->{IndexFields}->{$SearchParam}->{Type};
-        my $QueryParamValue;
-        my $QueryParamOperator;
+        my @Operators;
 
         if ( ref $Param{QueryParams}->{$SearchParam} eq "HASH" ) {
-            $QueryParamValue    = $Param{QueryParams}->{$SearchParam}->{Value};
-            $QueryParamOperator = $Param{QueryParams}->{$SearchParam}->{Operator} || '=';
+            @Operators = (
+                {
+                    Operator => $Param{QueryParams}->{$SearchParam}->{Operator} || '=',
+                    Value    => $Param{QueryParams}->{$SearchParam}->{Value},
+                }
+            );
+        }
+        elsif (
+            ref $Param{QueryParams}->{$SearchParam} eq "ARRAY"
+            &&
+            ref $Param{QueryParams}->{$SearchParam}->[0] eq 'HASH'
+            )
+        {
+            @Operators = @{ $Param{QueryParams}->{$SearchParam} };
         }
         else {
-            $QueryParamValue    = $Param{QueryParams}->{$SearchParam};
-            $QueryParamOperator = "=";
-        }
-
-        if ( !$Self->{IndexSupportedOperators}->{$QueryParamType}->{Operator}->{$QueryParamOperator} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Operator '$QueryParamOperator' is not supported for '$QueryParamType' type.",
+            @Operators = (
+                {
+                    Operator => '=',
+                    Value    => $Param{QueryParams}->{$SearchParam},
+                }
             );
-
-            return {
-                Error => 1,
-            };
         }
+
+        for my $OperatorData (@Operators) {
+            if ( !$Self->{IndexSupportedOperators}->{$QueryParamType}->{Operator}->{ $OperatorData->{Operator} } ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Operator '$OperatorData->{Operator}' is not supported for '$QueryParamType' type.",
+                );
+
+                return {
+                    Error => 1,
+                    Type  => 'OperatorNotSupported'
+                };
+            }
+        }
+        push @{ $ValidParams->{$SearchParam}->{Operators} }, @Operators;
     }
 
     return $ValidParams;

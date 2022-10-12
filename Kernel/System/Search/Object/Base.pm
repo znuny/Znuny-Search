@@ -123,12 +123,8 @@ search in sql database for objects index related
         SortBy      => $IdentifierSQL,
         OrderBy     => "Down",  # possible: "Down", "Up",
         ResultType  => $ResultType,
-        Limit       => 10
+        Limit       => 10,
     );
-
-TO-DO: delete later
-Developer note: most conditions needs to be met with engine
-alternative (Kernel/System/Search/Object/Query->Search()).
 
 =cut
 
@@ -147,6 +143,8 @@ sub SQLObjectSearch {
             return;
         }
     }
+
+    my $QueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
 
     my $IndexRealName      = $Self->{Config}->{IndexRealName};
     my $Fields             = $Self->{Fields};
@@ -178,60 +176,39 @@ sub SQLObjectSearch {
         $SQL = 'SELECT ' . join( ',', @TableColumns ) . ' FROM ' . $IndexRealName;
     }
 
+    my @Result;
+
     my @QueryParamValues = ();
     if ( IsHashRefWithData( $Param{QueryParams} ) ) {
+        my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
         my @QueryConditions;
+
+        my $SearchParams = $QueryObject->_CheckQueryParams(
+            QueryParams => $Param{QueryParams},
+        );
+
+        return if $SearchParams->{Error};
 
         # apply search params for columns that are supported
         PARAM:
-        for my $QueryParam ( sort keys %{ $Param{QueryParams} } ) {
-
-            # check if there is existing mapping between query param and database column
-            next PARAM if !$Fields->{$QueryParam};
-
-            # do not accept undef values for param
-            next PARAM if !defined $Param{QueryParams}->{$QueryParam};
-
-            my $QueryParamColumnName = $Fields->{$QueryParam}->{ColumnName};
-
-            my $QueryParamType = $Fields->{$QueryParam}->{Type};
-
-            my $QueryParamValue;
-            my $QueryParamOperator;
-
-            if ( ref $Param{QueryParams}->{$QueryParam} eq "HASH" ) {
-                $QueryParamValue    = $Param{QueryParams}->{$QueryParam}->{Value};
-                $QueryParamOperator = $Param{QueryParams}->{$QueryParam}->{Operator} || '=';
-            }
-            else {
-                $QueryParamValue    = $Param{QueryParams}->{$QueryParam};
-                $QueryParamOperator = "=";
-            }
-
-            if ( !$SupportedOperators->{$QueryParamType}->{Operator}->{$QueryParamOperator} ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Operator '$QueryParamOperator' is not supported for '$QueryParamType' type.",
+        for my $FieldName ( sort keys %{$SearchParams} ) {
+            for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Operators} } ) {
+                my $OperatorValue = $OperatorData->{Value};
+                my $Result        = $OperatorModule->OperatorQueryGet(
+                    Field    => $Fields->{$FieldName}->{ColumnName},
+                    Value    => $OperatorValue,
+                    Operator => $OperatorData->{Operator},
+                    Object   => $Self->{Config}->{IndexName},
+                    Fallback => 1,
                 );
-                return;
+
+                if ( $Result->{Bindable} ) {
+                    $OperatorValue = $Result->{BindableValue} if $Result->{BindableValue};
+                    push @QueryParamValues, \$OperatorValue;
+                }
+
+                push @QueryConditions, $Result->{Query};
             }
-
-            my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
-
-            my $Result = $OperatorModule->OperatorQueryGet(
-                Field    => $QueryParamColumnName,
-                Value    => $QueryParamValue,
-                Operator => $QueryParamOperator,
-                Object   => $Self->{Config}->{IndexName},
-                Fallback => 1,
-            );
-
-            if ( $Result->{Bindable} ) {
-                $QueryParamValue = $Result->{BindableValue} if $Result->{BindableValue};
-                push @QueryParamValues, \$QueryParamValue;
-            }
-
-            push @QueryConditions, $Result->{Query};
         }
 
         # apply WHERE clause only when there are
@@ -286,7 +263,6 @@ sub SQLObjectSearch {
         SQL  => $SQL,
         Bind => \@QueryParamValues
     );
-    my @Result;
 
     if ( $ResultType eq 'COUNT' ) {
         my @Count = $DBObject->FetchrowArray();
