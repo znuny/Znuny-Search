@@ -199,16 +199,28 @@ sub Search {
 
     # standardize params
     $Self->_SearchParamsStandardize( Param => $Params );
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    # set valid fields for either fallback and advanced search
+    # no fields param will get all valid fields for specified object
+    OBJECT:
+    for ( my $i = 0; $i < scalar @{ $Param{Objects} }; $i++ ) {
+        $Param{Fields}->[$i] = $SearchChildObject->ValidFieldsGet(
+            Fields => $Param{Fields}->[$i],
+            Object => $Param{Objects}->[$i],
+        );
+    }
 
     # if there was an error, fallback all of the objects with given search parameters
     return $Self->Fallback( %{$Params} ) if $Self->{Fallback} || $Param{UseSQLSearch};
-
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
+    my $Fields = $Params->{Fields};
+
     # prepare query for engine
-    my $PreparedQuery = $SearchObject->QueryPrepare(
+    my $PreparedQuery = $SearchChildObject->QueryPrepare(
         %{$Params},
+        Fields        => $Fields,
         Operation     => "Search",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
@@ -237,12 +249,11 @@ sub Search {
 
     # execute all valid queries
     QUERY:
-    for my $Query (@ValidQueries) {
-        my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Query->{Object}");
+    for ( my $i = 0; $i < scalar @ValidQueries; $i++ ) {
 
+        my $Query    = $ValidQueries[$i];
         my $Response = $Self->{EngineObject}->QueryExecute(
             Query         => $Query->{Query},
-            Index         => $IndexObject->{Config}->{IndexRealName},
             Operation     => 'Search',
             ConnectObject => $Self->{ConnectObject},
             Config        => $Self->{Config},
@@ -259,6 +270,7 @@ sub Search {
         my $FormattedResult = $Self->SearchFormat(
             %{$Params},
             Result     => $Response,
+            Fields     => $Fields->[$i],
             Config     => $Self->{Config},
             IndexName  => $Query->{Object},
             Operation  => "Search",
@@ -290,13 +302,21 @@ add object for specified index
 
     my $Success = $SearchObject->ObjectIndexAdd(
         Index    => "Ticket",
-        ObjectID => 1, # possible:
-                       # - for single object indexing: 1
-                       # - for multiple object indexing: [1,2,3]
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
                        # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
     );
 
 =cut
@@ -309,7 +329,7 @@ sub ObjectIndexAdd {
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
     NEEDED:
-    for my $Needed (qw(Index ObjectID)) {
+    for my $Needed (qw(Index)) {
         next NEEDED if $Param{$Needed};
 
         $LogObject->Log(
@@ -346,19 +366,97 @@ sub ObjectIndexAdd {
     );
 }
 
+=head2 ObjectIndexSet()
+
+set (update if exists or create if not exists) object for specified index
+
+    my $Success = $SearchObject->ObjectIndexSet(
+        Index    => "Ticket",
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
+    );
+
+=cut
+
+sub ObjectIndexSet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
+    NEEDED:
+    for my $Needed (qw(Index)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing param: $Needed",
+        );
+
+        return;
+    }
+
+    return if $Self->{Fallback};
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "ObjectIndexSet",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Operation     => "ObjectIndexSet",
+        Query         => $PreparedQuery,
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    return $Self->{MappingObject}->ObjectIndexSetFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
+}
+
 =head2 ObjectIndexUpdate()
 
 update object for specified index
 
     my $Success = $SearchObject->ObjectIndexUpdate(
         Index => "Ticket",
-        ObjectID => 1, # possible:
-                       # - for single object indexing: 1
-                       # - for multiple object indexing: [1,2,3]
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
                        # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
     );
 
 =cut
@@ -371,7 +469,7 @@ sub ObjectIndexUpdate {
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
     NEEDED:
-    for my $Needed (qw(Index ObjectID)) {
+    for my $Needed (qw(Index)) {
         next NEEDED if $Param{$Needed};
 
         $LogObject->Log(
@@ -412,19 +510,20 @@ remove object for specified index
 
     my $Success = $SearchObject->ObjectIndexRemove(
         Index => "Ticket",
-        ObjectID => 1, # possible: single id or ids in array
-                       # for single record id: 1
-                       # for multiple records ids: [1,2,3,4]
-                       # or
-        QueryParams => { # operators are supported
-            TicketID => 1,
-            StateID => { Operator = ''>', Value = '2'},
-            ..,
-        },
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
                        # indexing (for example in elastic search engine)
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
     );
 
 =cut
@@ -978,8 +1077,8 @@ fallback from using advanced search
 sub Fallback {
     my ( $Self, %Param ) = @_;
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     NEEDED:
     for my $Needed (qw(Objects QueryParams)) {
 
@@ -998,7 +1097,7 @@ sub Fallback {
         my $IndexName = $Param{Objects}->[$i];
 
         # get globally formatted fallback response
-        my $Response = $SearchObject->Fallback(
+        my $Response = $SearchChildObject->Fallback(
             %Param,
             IndexName     => $IndexName,
             IndexCounter  => $i,
@@ -1023,6 +1122,7 @@ sub Fallback {
             ResultType => $ResultType,
             Fallback   => 1,
             Silent     => $Param{Silent},
+            Fields     => $Param{Fields}->[$i],
         );
 
         # merge response into return data
@@ -1114,37 +1214,6 @@ sub SearchFormat {
     return $IndexFormattedResult;
 }
 
-=head2 _SearchParamsStandardize()
-
-globally standardize search params
-
-    my $Success = $SearchObject->_SearchParamsStandardize(
-        %Param,
-    );
-
-=cut
-
-sub _SearchParamsStandardize {
-    my ( $Self, %Param ) = @_;
-
-    if ( IsHashRefWithData( $Param{Param} ) ) {
-        if ( IsArrayRefWithData( $Param{Param}->{Objects} ) ) {
-            if ( $Param{Param}->{OrderBy} && !IsArrayRefWithData( $Param{Param}->{OrderBy} ) ) {
-                my $OrderBy = $Param{Param}->{OrderBy};
-                $Param{Param}->{OrderBy} = [];
-                for ( my $i = 0; $i < scalar @{ $Param{Param}->{Objects} }; $i++ ) {
-                    $Param{Param}->{OrderBy}->[$i] = $OrderBy;
-                }
-            }
-            if ( ref( $Param{Param}->{Limit} ) eq 'ARRAY' ) {
-                $Param{Param}->{MultipleLimit} = 1;
-            }
-        }
-    }
-
-    return 1;
-}
-
 =head2 IndexInitialSettingsGet()
 
 get initial configuration of index
@@ -1185,6 +1254,75 @@ sub IndexInitialSettingsGet {
         Response => $Response,
         Config   => $Self->{Config},
     );
+}
+
+=head2 IndexRefresh()
+
+refreshes index on engine side
+
+    my $Success = $SearchObject->IndexRefresh(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexRefresh {
+    my ( $Self, %Param ) = @_;
+
+    return if $Self->{Fallback};
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexRefresh",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "IndexRefresh",
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    return $Response;
+}
+
+=head2 _SearchParamsStandardize()
+
+globally standardize search params
+
+    my $Success = $SearchObject->_SearchParamsStandardize(
+        %Param,
+    );
+
+=cut
+
+sub _SearchParamsStandardize {
+    my ( $Self, %Param ) = @_;
+
+    if ( IsHashRefWithData( $Param{Param} ) ) {
+        if ( IsArrayRefWithData( $Param{Param}->{Objects} ) ) {
+            if ( $Param{Param}->{OrderBy} && !IsArrayRefWithData( $Param{Param}->{OrderBy} ) ) {
+                my $OrderBy = $Param{Param}->{OrderBy};
+                $Param{Param}->{OrderBy} = [];
+                for ( my $i = 0; $i < scalar @{ $Param{Param}->{Objects} }; $i++ ) {
+                    $Param{Param}->{OrderBy}->[$i] = $OrderBy;
+                }
+            }
+            if ( ref( $Param{Param}->{Limit} ) eq 'ARRAY' ) {
+                $Param{Param}->{MultipleLimit} = 1;
+            }
+        }
+    }
+
+    return 1;
 }
 
 1;

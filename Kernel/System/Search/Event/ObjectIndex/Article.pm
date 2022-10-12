@@ -139,6 +139,36 @@ sub Run {
         ObjectID => $ObjectIDData,
     );
 
+    my $UpdateLinkedTables = 1;
+
+    if ( $Param{Event} eq 'TicketMerge' ) {
+        my $ArticleData = $SearchObject->Search(
+            Objects     => ['Article'],
+            QueryParams => {
+                TicketID => $Param{Data}->{TicketID},
+            },
+            Fields     => [ ['ArticleID'] ],
+            ResultType => 'ARRAY',
+            SortBy     => ['ArticleID'],
+            OrderBy    => 'Up',
+        );
+
+        # temporary workaround untill support for "OR" connection in search
+        if ( IsArrayRefWithData( $ArticleData->{Article} ) ) {
+            @{ $ArticleData->{Article} } = grep { $_->{ArticleID} } @{ $ArticleData->{Article} };
+        }
+
+        # ticket merge event change relation for id of merged ticket articles
+        # to main ticket
+        # but afterwards creates one article in merged ticket
+        # it is needed to be ignored as it will be indexed
+        # via ArticleCreate event itselves, not here
+        delete $ArticleData->{Article}[-1];
+
+        @{ $QueryParam{ObjectID} } = map { $_->{ArticleID} } @{ $ArticleData->{Article} };
+        undef $UpdateLinkedTables;
+    }
+
     my $FunctionName = $Param{Config}->{FunctionName};
 
     # prevent error code 500 when engine index failed
@@ -148,7 +178,7 @@ sub Run {
             Refresh => 1,    # live indexing should be refreshed every time
         );
 
-        if ($Success) {
+        if ( $Success && $UpdateLinkedTables ) {
             my $ArticlesToPerformAction = $SearchObject->Search(
                 Objects     => ['Article'],
                 QueryParams => {
@@ -164,7 +194,7 @@ sub Run {
                 IndexName    => $IndexName,
             );
         }
-        else {
+        elsif ($UpdateLinkedTables) {
             $LogObject->Log(
                 Priority => 'error',
                 Message  => "The $FunctionName operation could not be performed for Article with id: $ObjectIDData",

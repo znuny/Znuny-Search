@@ -16,9 +16,7 @@ use Kernel::System::VariableCheck qw(:all);
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Main',
-    'Kernel::Config',
     'Kernel::System::Search',
-    'Kernel::System::Search::Object',
     'Kernel::System::Search::Object::Query',
 );
 
@@ -49,6 +47,7 @@ sub new {
     $Self->{DefaultOperatorMapping} = {
         ">="             => 'GreaterEqualThan',
         "="              => 'Equal',
+        "!="             => 'NotEqual',
         "<="             => 'LowerEqualThan',
         ">"              => 'GreaterThan',
         "<"              => 'LowerThan',
@@ -183,11 +182,8 @@ registration with module validity check.
 sub IndexIsValid {
     my ( $Self, %Param ) = @_;
 
-    my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
-    my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
-    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $MainObject        = $Kernel::OM->Get('Kernel::System::Main');
-    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
 
     for my $Name (qw(IndexName)) {
         if ( !$Param{$Name} ) {
@@ -212,7 +208,7 @@ sub IndexIsValid {
     my $IsRegistered = $RegisteredIndexes{$IndexName};
 
     # module validity check
-    my $Loaded = $SearchChildObject->_LoadModule(
+    my $Loaded = $Self->_LoadModule(
         Module => "Kernel::System::Search::Object::$IndexName",
         Silent => 1
     );
@@ -265,6 +261,51 @@ sub ValidResultType {
     return $ResultType;
 }
 
+=head2 ValidFieldsGet()
+
+validate fields for object and return only valid ones
+
+    my $Fields = $SearchChildObject->ValidFieldsGet(
+        Fields => $Fields, # optional
+        Object => $ObjectName,
+    );
+
+=cut
+
+sub ValidFieldsGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Name (qw(Object)) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
+
+    my $Fields      = $IndexSearchObject->{Fields};
+    my @ValidFields = ();
+
+    if ( !IsArrayRefWithData( $Param{Fields} ) ) {
+        @ValidFields = keys %{$Fields};
+        return \@ValidFields;
+    }
+
+    for my $ParamField ( @{ $Param{Fields} } ) {
+        if ( $Fields->{$ParamField} ) {
+            push @ValidFields, $ParamField,;
+        }
+    }
+
+    return \@ValidFields;
+}
+
 =head2 _QueryPrepareSearch()
 
 prepares query for active engine with specified object "Search" operation
@@ -311,14 +352,6 @@ sub _QueryPrepareSearch {
 
         my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
 
-        my $Fields;
-
-        if ( $Param{Fields} ) {
-            for my $Field ( @{ $Param{Fields}->[$i] } ) {
-                push @{$Fields}, $IndexQueryObject->{IndexFields}->{$Field};
-            }
-        }
-
         # check/set valid result type
         my $ValidResultType = $Self->ValidResultType(
             SupportedResultTypes => $IndexQueryObject->{IndexSupportedResultTypes},
@@ -342,9 +375,10 @@ sub _QueryPrepareSearch {
             QueryParams   => $Param{QueryParams},
             MappingObject => $Param{MappingObject},
             Config        => $Param{Config},
+            RealIndexName => $IndexQueryObject->{IndexConfig}->{IndexRealName},
             Object        => $Index,
             ResultType    => $ValidResultType,
-            Fields        => $Fields,
+            Fields        => $Param{Fields}->[$i],
             SortBy        => $Param{SortBy}->[$i],
             OrderBy       => $Param{OrderBy}->[$i] || $Param{OrderBy},
             Limit         => $Limit || $IndexQueryObject->{IndexDefaultSearchLimit},
@@ -378,7 +412,7 @@ sub _QueryPrepareObjectIndexAdd {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index ObjectID MappingObject Config )) {
+    for my $Name (qw( Index MappingObject Config )) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -406,6 +440,52 @@ sub _QueryPrepareObjectIndexAdd {
     return $Data;
 }
 
+=head2 _QueryPrepareObjectIndexSet()
+
+prepares query for active engine with specified object "Set" operation
+
+    my $Result = $SearchChildObject->_QueryPrepareObjectIndexSet(
+        MappingObject   => $MappingObject,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareObjectIndexSet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    # TODO support for not loaded module
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
+
+    my $Data = $IndexQueryObject->ObjectIndexSet(
+        %Param,
+    );
+
+    return $Data;
+}
+
 =head2 _QueryPrepareObjectIndexUpdate()
 
 prepares query for active engine with specified object "Update" operation
@@ -425,7 +505,7 @@ sub _QueryPrepareObjectIndexUpdate {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index ObjectID MappingObject Config )) {
+    for my $Name (qw( Index MappingObject Config )) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -847,6 +927,7 @@ prepares query for index remove operation
     my $Result = $SearchChildObject->_QueryPrepareIndexInitialSettingsGet(
         MappingObject   => $MappingObject,
         Config          => $Config,
+        Index           => $Index,
     );
 
 =cut
@@ -878,6 +959,51 @@ sub _QueryPrepareIndexInitialSettingsGet {
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
 
     my $Data = $IndexQueryObject->IndexInitialSettingsGet(
+        %Param,
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareIndexRefresh()
+
+prepares query for index remove operation
+
+    my $Result = $SearchChildObject->_QueryPrepareIndexRefresh(
+        Index           => $Index,
+        MappingObject   => $MappingObject,
+        Config          => $Config,
+    );
+
+=cut
+
+sub _QueryPrepareIndexRefresh {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->IndexRefresh(
         %Param,
     );
 

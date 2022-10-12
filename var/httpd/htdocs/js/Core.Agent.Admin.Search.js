@@ -328,6 +328,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             ]
         });
 
+        Event.preventDefault();
         Event.stopPropagation();
     }
 

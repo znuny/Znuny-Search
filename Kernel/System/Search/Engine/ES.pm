@@ -326,11 +326,9 @@ executes query for active engine with specified object "Search" operation
 sub _QueryExecuteSearch {
     my ( $Self, %Param ) = @_;
 
-    return $Param{ConnectObject}->search(
-        index => $Param{Index},
-        body  => {
-            %{ $Param{Query} }
-        },
+    return $Self->QueryExecuteGeneric(
+        ConnectObject => $Param{ConnectObject},
+        Query         => $Param{Query},
     );
 }
 
@@ -356,6 +354,33 @@ sub _QueryExecuteObjectIndexAdd {
 
     for my $Object ( @{ $Param{Query}->{Body} } ) {
         $BulkHelper->create($Object);
+    }
+
+    return $BulkHelper->flush();
+}
+
+=head2 _QueryExecuteObjectIndexSet()
+
+executes query for active engine with specified object "Set" operation
+
+    my $Result = $SearchEngineESObject->_QueryExecuteObjectIndexSet(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+        ObjectID        => $ObjectID,
+    );
+
+=cut
+
+sub _QueryExecuteObjectIndexSet {
+    my ( $Self, %Param ) = @_;
+
+    my $BulkHelper = $Param{ConnectObject}->bulk_helper(
+        index => $Param{Query}->{Index},
+        %{ $Param{Query}->{Refresh} },
+    );
+
+    for my $Object ( @{ $Param{Query}->{Body} } ) {
+        $BulkHelper->index($Object);
     }
 
     return $BulkHelper->flush();
@@ -599,6 +624,26 @@ sub _QueryExecuteIndexInitialSettingsGet {
     );
 
     return $Result;
+}
+
+=head2 _QueryExecuteIndexRefresh()
+
+executes query for active engine with specified index refresh operation
+
+    my $Result = $SearchEngineESObject->_QueryExecuteSearch(
+        ConnectObject    => $ConnectObject,
+        Query            => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexRefresh {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->QueryExecuteGeneric(
+        ConnectObject => $Param{ConnectObject},
+        Query         => $Param{Query},
+    );
 }
 
 1;
