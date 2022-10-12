@@ -28,7 +28,7 @@
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
                 <Item Key="Event">TicketCreate</Item>
-                <Item Key="FunctionName">ObjectIndexAdd</Item>
+                <Item Key="FunctionName">ObjectIndexSet</Item>
                 <Item Key="IndexName">Ticket</Item>
             </Hash>
         </Value>
@@ -39,8 +39,20 @@
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
-                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketCustomerUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime</Item>
-                <Item Key="FunctionName">ObjectIndexUpdate</Item>
+                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime</Item>
+                <Item Key="FunctionName">ObjectIndexAdd</Item>
+                <Item Key="IndexName">Ticket</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###001-Ticket-ObjectIndexUpdate" Required="0" Valid="1">
+        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
+                <Item Key="Event">TicketCustomerUpdate</Item>
+                <Item Key="FunctionName">ObjectIndexSet</Item>
                 <Item Key="IndexName">Ticket</Item>
             </Hash>
         </Value>
