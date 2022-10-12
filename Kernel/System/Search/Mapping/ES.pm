@@ -61,47 +61,63 @@ process query data to structure that will be used to execute query
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    my %Query = $Self->_BuildQueryBodyFromParams(
+    my %Body = $Self->_BuildQueryBodyFromParams(
         FieldsDefinition => $Param{FieldsDefinition},
         QueryParams      => $Param{QueryParams},
         Object           => $Param{Object},
     );
 
-    # data source won't be "_source" key anymore
-    # instead it will be "fields"
-    $Query{_source} = "false";
-    @{ $Query{fields} } = @{ $Param{Fields} };
+    my $QueryPath = "$Param{RealIndexName}/";
 
-    # TO-DO start sort:
-    # datetimes won't work
-    # for now text/integer type fields sorting works
+    if ( $Param{ResultType} && $Param{ResultType} eq 'COUNT' ) {
+        $QueryPath .= '_count';
+    }
+    else {
+        # data source won't be "_source" key anymore
+        # instead it will be "fields"
+        $Body{_source} = "false";
+        $QueryPath .= '_search';
+        @{ $Body{fields} } = @{ $Param{Fields} };
 
-    # set sorting field
-    if ( $Param{SortBy} ) {
+        # set sorting field
+        if ( $Param{SortBy} ) {
 
-        # not specified
-        my $OrderBy     = $Param{OrderBy} || "Up";
-        my $OrderByStrg = $OrderBy eq 'Up' ? 'asc' : 'desc';
+            # not specified
+            my $OrderBy     = $Param{OrderBy} || "Up";
+            my $OrderByStrg = $OrderBy eq 'Up' ? 'asc' : 'desc';
 
-        if ( $Param{SortBy}->{Type} && $Param{SortBy}->{Type} eq 'Integer' ) {
-            $Query{sort}->[0]->{ $Param{SortBy}->{ColumnName} } = {
-                order => $OrderByStrg,
-            };
+            # supported sorting types: integer, datetime, string
+            if (
+                $Param{SortBy}->{Type}
+                && (
+                    $Param{SortBy}->{Type} eq 'Integer'
+                    || $Param{SortBy}->{Type} eq 'Date'
+                )
+                )
+            {
+                $Body{sort}->[0]->{ $Param{SortBy}->{ColumnName} } = {
+                    order => $OrderByStrg,
+                };
+            }
+            else {
+                $Body{sort}->[0]->{ $Param{SortBy}->{ColumnName} . ".keyword" } = {
+                    order => $OrderByStrg,
+                };
+            }
         }
-        else {
-            $Query{sort}->[0]->{ $Param{SortBy}->{ColumnName} . ".keyword" } = {
-                order => $OrderByStrg,
-            };
+
+        if ( $Param{Limit} ) {
+            $Body{size} = $Param{Limit};
         }
     }
 
-    # TO-DO end: sort
+    my $Query = {
+        Body   => \%Body,
+        Method => 'GET',
+        Path   => $QueryPath,
+    };
 
-    if ( $Param{Limit} ) {
-        $Query{size} = $Param{Limit};
-    }
-
-    return \%Query;
+    return $Query;
 }
 
 =head2 SearchFormat()
@@ -141,10 +157,17 @@ sub SearchFormat {
         Type   => $Result->{type}
     } if $Result->{status};
 
-    my $GloballyFormattedObjData = $Self->_ResponseDataFormat(
-        Hits => $Result->{hits}->{hits},
-        %Param,
-    );
+    my $GloballyFormattedObjData;
+    if ( $Param{ResultType} ne 'COUNT' ) {
+
+        $GloballyFormattedObjData = $Self->_ResponseDataFormat(
+            Hits => $Result->{hits}->{hits},
+            %Param,
+        );
+    }
+    else {
+        $GloballyFormattedObjData = $Result->{count};
+    }
 
     return {
         "$IndexName" => {
@@ -176,7 +199,7 @@ sub ObjectIndexAdd {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(Config Index ObjectID Body)) {
+    for my $Needed (qw(Config Index Body)) {
 
         next NEEDED if defined $Param{$Needed};
 
@@ -190,6 +213,8 @@ sub ObjectIndexAdd {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
     # workaround for elastic search date validation
+    # this issue won't be fully supported for now
+    # TODO analyze start
     my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} };
 
     for my $DataTypeWithBlackList (@DataTypesWithBlackList) {
@@ -207,6 +232,8 @@ sub ObjectIndexAdd {
             }
         }
     }
+
+    # TODO analyze start end
 
     my $IndexConfig = $IndexObject->{Config};
 
@@ -256,6 +283,108 @@ sub ObjectIndexAddFormat {
     );
 }
 
+=head2 ObjectIndexSet()
+
+process query data to structure that will be used to execute query
+
+    my $Result = $SearchMappingESObject->ObjectIndexSet(
+        Config   => $Config,
+        Index    => $Index,
+        Body     => $Body,
+    );
+
+=cut
+
+sub ObjectIndexSet {
+    my ( $Type, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Config Index Body)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+
+    # workaround for elastic search date validation
+    # this issue won't be fully supported for now
+    # TODO analyze start
+    my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} };
+
+    for my $DataTypeWithBlackList (@DataTypesWithBlackList) {
+
+        my $BlackListedValues = $IndexObject->{DataTypeValuesBlackList}->{$DataTypeWithBlackList};
+        my @ColumnsWithBlackListedType
+            = grep { $IndexObject->{Fields}->{$_}->{Type} eq $DataTypeWithBlackList } keys %{ $IndexObject->{Fields} };
+        for my $Object ( @{ $Param{Body} } ) {
+            COLUMN:
+            for my $Column (@ColumnsWithBlackListedType) {
+                my $ColumnName = $IndexObject->{Fields}->{$Column}->{ColumnName};
+                if ( $Object->{$ColumnName} && grep { $Object->{$ColumnName} eq $_ } @{$BlackListedValues} ) {
+                    $Object->{$ColumnName} = undef;
+                }
+            }
+        }
+    }
+
+    # TODO analyze end
+
+    my $IndexConfig = $IndexObject->{Config};
+
+    my $BodyForBulkRequest;
+    for my $Object ( @{ $Param{Body} } ) {
+        my $IdentifierRealName = $IndexObject->{Fields}->{ $IndexConfig->{Identifier} }->{ColumnName};
+
+        push @{$BodyForBulkRequest},
+            {
+            id     => $Object->{$IdentifierRealName},
+            source => $Object
+            };
+    }
+
+    my $Refresh = {};
+
+    if ( $Param{Refresh} ) {
+        $Refresh = {
+            refresh => 'true',
+        };
+    }
+
+    my $Result = {
+        Index   => $IndexObject->{Config}->{IndexRealName},
+        Body    => $BodyForBulkRequest,
+        Refresh => $Refresh,
+    };
+
+    return $Result;
+}
+
+=head2 ObjectIndexSetFormat()
+
+format response from elastic search
+
+    my $FormattedResponse = $SearchMappingESObject->ObjectIndexSetFormat(
+        Response => $Response,
+    );
+
+=cut
+
+sub ObjectIndexSetFormat {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
+}
+
 =head2 ObjectIndexUpdate()
 
 process query data to structure that will be used to execute query
@@ -275,7 +404,7 @@ sub ObjectIndexUpdate {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(Config Index ObjectID Body)) {
+    for my $Needed (qw(Config Index Body)) {
 
         next NEEDED if defined $Param{$Needed};
 
@@ -960,7 +1089,7 @@ sub DefaultRemoteSettingsGet {
         settings => {
             index => {
                 number_of_shards  => 6,
-                max_result_window => 2000000,
+                max_result_window => 10001,
             }
         }
     );
@@ -980,55 +1109,6 @@ sub ResponseIsSuccess {
     my ( $Self, %Param ) = @_;
 
     return $Param{Response}->{__Error} ? undef : 1;
-}
-
-=head2  _ResponseDataFormat()
-
-globally formats response data from engine
-
-    my $Result = $SearchMappingESObject->_ResponseDataFormat(
-        Hits => $Hits,
-        QueryData => $QueryData,
-    );
-
-=cut
-
-sub _ResponseDataFormat {
-    my ( $Self, %Param ) = @_;
-
-    return [] if !IsArrayRefWithData( $Param{Hits} );
-
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
-
-    my $Hits = $Param{Hits};
-
-    my @Objects;
-
-    my $DefaultValues    = $IndexObject->{DefaultValues};
-    my $FieldsDefinition = $IndexObject->{Fields};
-    my @Fields           = keys %{$FieldsDefinition};
-
-    # when specified fields are filtered response
-    # contains them inside "fields" key
-    if ( $Param{QueryData}->{Query}->{_source} && $Param{QueryData}->{Query}->{_source} eq 'false' ) {
-        for my $Hit ( @{$Hits} ) {
-            my %Data;
-            for my $Field (@Fields) {
-                $Data{$Field} = $Hit->{fields}->{$Field}->[0] // $DefaultValues->{$Field};
-            }
-            push @Objects, \%Data;
-        }
-    }
-
-    # ES engine response stores objects inside "_source" key by default
-    # IMPORTANT: not used anymore!
-    elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
-        for my $Hit ( @{$Hits} ) {
-            push @Objects, $Hit->{_source};
-        }
-    }
-
-    return \@Objects;
 }
 
 =head2 IndexInitialSettingsGet()
@@ -1086,9 +1166,74 @@ sub IndexInitialSettingsGetFormat {
     return $IndexSettings;
 }
 
+=head2 IndexRefresh()
+
+refresh index data on engine side
+
+    my $Result = $SearchMappingESObject->IndexRefresh(
+        IndexRealName => $IndexRealName,
+    );
+
+=cut
+
+sub IndexRefresh {
+    my ( $Self, %Param ) = @_;
+
+    return {
+        Path   => $Param{IndexRealName} . '/_refresh',
+        Method => 'POST',
+    };
+}
+
+=head2  _ResponseDataFormat()
+
+globally formats response data from engine
+
+    my $Result = $SearchMappingESObject->_ResponseDataFormat(
+        Hits => $Hits,
+        QueryData => $QueryData,
+    );
+
+=cut
+
+sub _ResponseDataFormat {
+    my ( $Self, %Param ) = @_;
+
+    return [] if !IsArrayRefWithData( $Param{Hits} );
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
+
+    my @Objects;
+
+    my $Hits   = $Param{Hits};
+    my @Fields = @{ $Param{Fields} };
+
+    # when specified fields are filtered response
+    # contains them inside "fields" key
+    if ( $Param{QueryData}->{Query}->{Body}->{_source} && $Param{QueryData}->{Query}->{Body}->{_source} eq 'false' ) {
+        for my $Hit ( @{$Hits} ) {
+            my %Data;
+            for my $Field (@Fields) {
+                $Data{$Field} = $Hit->{fields}->{$Field}->[0];
+            }
+            push @Objects, \%Data;
+        }
+    }
+
+    # ES engine response stores objects inside "_source" key by default
+    # IMPORTANT: not used anymore!
+    elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
+        for my $Hit ( @{$Hits} ) {
+            push @Objects, $Hit->{_source};
+        }
+    }
+
+    return \@Objects;
+}
+
 =head2 _BuildQueryBodyFromParams()
 
-build query form params
+build query from params
 
     my %Query = $SearchMappingESObject->_BuildQueryBodyFromParams(
         QueryParams     => $QueryParams,
@@ -1101,38 +1246,27 @@ build query form params
 sub _BuildQueryBodyFromParams {
     my ( $Self, %Param ) = @_;
 
-    my %Query = ();
+    my %Query        = ();
+    my $SearchParams = $Param{QueryParams};
 
     # build query from parameters
     PARAM:
-    for my $Field ( sort keys %{ $Param{QueryParams} } ) {
+    for my $FieldName ( sort keys %{$SearchParams} ) {
+        for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Operators} } ) {
+            my $OperatorValue  = $OperatorData->{Value};
+            my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
 
-        my $Value;
-        my $Operator;
+            my $Result = $OperatorModule->OperatorQueryGet(
+                Field    => $Param{FieldsDefinition}->{$FieldName}->{ColumnName},
+                Value    => $OperatorValue,
+                Operator => $OperatorData->{Operator},
+                Object   => $Param{Object},
+            );
 
-        if ( ref $Param{QueryParams}->{$Field} eq "HASH" ) {
-            $Operator = $Param{QueryParams}->{$Field}->{Operator} || "=";
-            $Value    = $Param{QueryParams}->{$Field}->{Value} // "";
+            my $Query = $Result->{Query};
+
+            push @{ $Query{query}{bool}{ $Result->{Section} } }, $Query;
         }
-        else {
-            $Operator = "=";
-            $Value    = $Param{QueryParams}->{$Field} // '';
-        }
-
-        next PARAM if !$Field;
-
-        my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
-
-        my $Result = $OperatorModule->OperatorQueryGet(
-            Field    => $Param{FieldsDefinition}->{$Field}->{ColumnName},
-            Value    => $Value,
-            Operator => $Operator,
-            Object   => $Param{Object},
-        );
-
-        my $Query = $Result->{Query};
-
-        push @{ $Query{query}{bool}{ $Result->{Section} } }, $Query;
     }
 
     return %Query;

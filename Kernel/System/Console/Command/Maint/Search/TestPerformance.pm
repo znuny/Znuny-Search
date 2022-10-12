@@ -73,16 +73,15 @@ sub Run {
     $Strg .= "AdvancedCall time: $AdvCallGeneralExecutionTime seconds - ES\n";
 
     # fallback search
-    $Self->{SearchObject}->{Fallback} = 1;
     $GeneralStartTime = Time::HiRes::time();
     my $FallbackSearch = $Self->{SearchObject}->Search(
         %Params,
+        UseSQLSearch => 1,
     );
     $GeneralStopTime = Time::HiRes::time();
     my $AdvCallGeneralExecutionTimeFallback = sprintf( "%.6f", $GeneralStopTime - $GeneralStartTime );
 
     # clean sql search
-    $Self->{SearchObject}->{Fallback} = 0;
     $Strg .= "AdvancedCall time: $AdvCallGeneralExecutionTimeFallback seconds - Fallback\n";
     my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
     $GeneralStartTime = Time::HiRes::time();

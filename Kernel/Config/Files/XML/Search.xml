@@ -28,7 +28,7 @@
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
                 <Item Key="Event">TicketCreate</Item>
-                <Item Key="FunctionName">ObjectIndexAdd</Item>
+                <Item Key="FunctionName">ObjectIndexSet</Item>
                 <Item Key="IndexName">Ticket</Item>
             </Hash>
         </Value>
@@ -39,8 +39,20 @@
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
-                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketCustomerUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime</Item>
+                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime</Item>
                 <Item Key="FunctionName">ObjectIndexUpdate</Item>
+                <Item Key="IndexName">Ticket</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###001-Ticket-ObjectIndexUpdate" Required="0" Valid="1">
+        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
+                <Item Key="Event">TicketCustomerUpdate</Item>
+                <Item Key="FunctionName">ObjectIndexSet</Item>
                 <Item Key="IndexName">Ticket</Item>
             </Hash>
         </Value>
@@ -75,7 +87,7 @@
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Article</Item>
-                <Item Key="Event">ArticleUpdate</Item>
+                <Item Key="Event">ArticleUpdate|TicketMerge</Item>
                 <Item Key="FunctionName">ObjectIndexUpdate</Item>
                 <Item Key="IndexName">Article</Item>
             </Hash>
@@ -90,6 +102,42 @@
                 <Item Key="Event">TicketDelete</Item>
                 <Item Key="FunctionName">ObjectIndexRemove</Item>
                 <Item Key="IndexName">Article</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###000-TicketHistory-ObjectIndexAdd" Required="0" Valid="1">
+        <Description Translatable="1">Adds object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::TicketHistory</Item>
+                <Item Key="Event">HistoryAdd</Item>
+                <Item Key="FunctionName">ObjectIndexAdd</Item>
+                <Item Key="IndexName">TicketHistory</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###000-TicketHistory-ObjectIndexUpdate" Required="0" Valid="1">
+        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::TicketHistory</Item>
+                <Item Key="Event">TicketMerge</Item>
+                <Item Key="FunctionName">ObjectIndexUpdate</Item>
+                <Item Key="IndexName">TicketHistory</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###000-TicketHistory-ObjectIndexRemove" Required="0" Valid="1">
+        <Description Translatable="1">Removes object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::TicketHistory</Item>
+                <Item Key="Event">HistoryDelete</Item>
+                <Item Key="FunctionName">ObjectIndexRemove</Item>
+                <Item Key="IndexName">TicketHistory</Item>
             </Hash>
         </Value>
     </Setting>
@@ -200,6 +248,15 @@
                         <Item>--Check-Data-Equality</Item>
                     </Array>
                 </Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Reindexation###ReindexationSettings" Required="1" Valid="1">
+        <Description Translatable="1">Define settings used in reindexation command.</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="ReindexationStep" ValueType="String" ValueRegex="^[0-9]{1,6}$">500</Item>
             </Hash>
         </Value>
     </Setting>
