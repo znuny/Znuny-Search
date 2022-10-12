@@ -213,6 +213,8 @@ sub ObjectIndexAdd {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
 
     # workaround for elastic search date validation
+    # this issue won't be fully supported for now
+    # TODO analyze start
     my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} };
 
     for my $DataTypeWithBlackList (@DataTypesWithBlackList) {
@@ -230,6 +232,8 @@ sub ObjectIndexAdd {
             }
         }
     }
+
+    # TODO analyze start end
 
     my $IndexConfig = $IndexObject->{Config};
 
@@ -272,6 +276,108 @@ format response from elastic search
 =cut
 
 sub ObjectIndexAddFormat {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
+}
+
+=head2 ObjectIndexSet()
+
+process query data to structure that will be used to execute query
+
+    my $Result = $SearchMappingESObject->ObjectIndexSet(
+        Config   => $Config,
+        Index    => $Index,
+        Body     => $Body,
+    );
+
+=cut
+
+sub ObjectIndexSet {
+    my ( $Type, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Config Index Body)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+
+    # workaround for elastic search date validation
+    # this issue won't be fully supported for now
+    # TODO analyze start
+    my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} };
+
+    for my $DataTypeWithBlackList (@DataTypesWithBlackList) {
+
+        my $BlackListedValues = $IndexObject->{DataTypeValuesBlackList}->{$DataTypeWithBlackList};
+        my @ColumnsWithBlackListedType
+            = grep { $IndexObject->{Fields}->{$_}->{Type} eq $DataTypeWithBlackList } keys %{ $IndexObject->{Fields} };
+        for my $Object ( @{ $Param{Body} } ) {
+            COLUMN:
+            for my $Column (@ColumnsWithBlackListedType) {
+                my $ColumnName = $IndexObject->{Fields}->{$Column}->{ColumnName};
+                if ( $Object->{$ColumnName} && grep { $Object->{$ColumnName} eq $_ } @{$BlackListedValues} ) {
+                    $Object->{$ColumnName} = undef;
+                }
+            }
+        }
+    }
+
+    # TODO analyze end
+
+    my $IndexConfig = $IndexObject->{Config};
+
+    my $BodyForBulkRequest;
+    for my $Object ( @{ $Param{Body} } ) {
+        my $IdentifierRealName = $IndexObject->{Fields}->{ $IndexConfig->{Identifier} }->{ColumnName};
+
+        push @{$BodyForBulkRequest},
+            {
+            id     => $Object->{$IdentifierRealName},
+            source => $Object
+            };
+    }
+
+    my $Refresh = {};
+
+    if ( $Param{Refresh} ) {
+        $Refresh = {
+            refresh => 'true',
+        };
+    }
+
+    my $Result = {
+        Index   => $IndexObject->{Config}->{IndexRealName},
+        Body    => $BodyForBulkRequest,
+        Refresh => $Refresh,
+    };
+
+    return $Result;
+}
+
+=head2 ObjectIndexSetFormat()
+
+format response from elastic search
+
+    my $FormattedResponse = $SearchMappingESObject->ObjectIndexSetFormat(
+        Response => $Response,
+    );
+
+=cut
+
+sub ObjectIndexSetFormat {
     my ( $Self, %Param ) = @_;
 
     return $Self->ResponseIsSuccess(

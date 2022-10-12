@@ -194,6 +194,70 @@ sub ObjectIndexAdd {
     );
 }
 
+=head2 ObjectIndexSet()
+
+create query for specified operation
+
+    my $Result = $SearchQueryObject->ObjectIndexSet(
+        MappingObject   => $Config,
+        ObjectID        => $ObjectID,
+    );
+
+=cut
+
+sub ObjectIndexSet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
+
+    NEEDED:
+    for my $Needed (qw(MappingObject)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    if ( $Param{ObjectID} && $Param{QueryParams} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter ObjectID and QueryParams cannot be used together!",
+        );
+        return;
+    }
+    elsif ( !$Param{ObjectID} && !$Param{QueryParams} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter ObjectID or QueryParams is needed!",
+        );
+        return;
+    }
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $Identifier  = $IndexObject->{Config}->{Identifier};
+
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
+        {
+        $Identifier => $Param{ObjectID}
+        };
+
+    my $SQLSearchResult = $IndexObject->SQLObjectSearch(
+        QueryParams => $QueryParams,
+        ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+    );
+
+    # build and return query
+    return $Param{MappingObject}->ObjectIndexSet(
+        %Param,
+        Body => $SQLSearchResult,
+    );
+}
+
 =head2 ObjectIndexUpdate()
 
 create query for specified operation

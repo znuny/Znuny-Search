@@ -366,6 +366,76 @@ sub ObjectIndexAdd {
     );
 }
 
+=head2 ObjectIndexSet()
+
+set (update if exists or create if not exists) object for specified index
+
+    my $Success = $SearchObject->ObjectIndexSet(
+        Index    => "Ticket",
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
+    );
+
+=cut
+
+sub ObjectIndexSet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
+    NEEDED:
+    for my $Needed (qw(Index)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing param: $Needed",
+        );
+
+        return;
+    }
+
+    return if $Self->{Fallback};
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "ObjectIndexSet",
+        Config        => $Self->{Config},
+        MappingObject => $Self->{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Self->{EngineObject}->QueryExecute(
+        %Param,
+        Operation     => "ObjectIndexSet",
+        Query         => $PreparedQuery,
+        ConnectObject => $Self->{ConnectObject},
+        Config        => $Self->{Config},
+    );
+
+    return $Self->{MappingObject}->ObjectIndexSetFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Self->{Config},
+    );
+}
+
 =head2 ObjectIndexUpdate()
 
 update object for specified index
