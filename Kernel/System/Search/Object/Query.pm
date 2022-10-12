@@ -246,10 +246,6 @@ sub ObjectIndexUpdate {
         $Identifier => $Param{ObjectID}
         };
 
-    $QueryParams = $Self->_CheckQueryParams(
-        QueryParams => $QueryParams,
-    );
-
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         QueryParams => $QueryParams,
     );
