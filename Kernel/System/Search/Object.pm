@@ -440,6 +440,52 @@ sub _QueryPrepareObjectIndexAdd {
     return $Data;
 }
 
+=head2 _QueryPrepareObjectIndexSet()
+
+prepares query for active engine with specified object "Set" operation
+
+    my $Result = $SearchChildObject->_QueryPrepareObjectIndexSet(
+        MappingObject   => $MappingObject,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareObjectIndexSet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    for my $Name (qw( Index MappingObject Config )) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return;
+        }
+    }
+
+    my $Index = $Param{Index};
+
+    my $Loaded = $Self->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${Index}",
+    );
+
+    # TODO support for not loaded module
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
+
+    my $Data = $IndexQueryObject->ObjectIndexSet(
+        %Param,
+    );
+
+    return $Data;
+}
+
 =head2 _QueryPrepareObjectIndexUpdate()
 
 prepares query for active engine with specified object "Update" operation

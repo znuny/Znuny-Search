@@ -359,6 +359,33 @@ sub _QueryExecuteObjectIndexAdd {
     return $BulkHelper->flush();
 }
 
+=head2 _QueryExecuteObjectIndexSet()
+
+executes query for active engine with specified object "Set" operation
+
+    my $Result = $SearchEngineESObject->_QueryExecuteObjectIndexSet(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+        ObjectID        => $ObjectID,
+    );
+
+=cut
+
+sub _QueryExecuteObjectIndexSet {
+    my ( $Self, %Param ) = @_;
+
+    my $BulkHelper = $Param{ConnectObject}->bulk_helper(
+        index => $Param{Query}->{Index},
+        %{ $Param{Query}->{Refresh} },
+    );
+
+    for my $Object ( @{ $Param{Query}->{Body} } ) {
+        $BulkHelper->index($Object);
+    }
+
+    return $BulkHelper->flush();
+}
+
 =head2 _QueryExecuteIndexAdd()
 
 executes query for active engine with specified "IndexAdd" operation
