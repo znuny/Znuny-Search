@@ -1127,7 +1127,7 @@ sub _ResponseDataFormat {
 
 =head2 _BuildQueryBodyFromParams()
 
-build query form params
+build query from params
 
     my %Query = $SearchMappingESObject->_BuildQueryBodyFromParams(
         QueryParams     => $QueryParams,
@@ -1140,38 +1140,27 @@ build query form params
 sub _BuildQueryBodyFromParams {
     my ( $Self, %Param ) = @_;
 
-    my %Query = ();
+    my %Query        = ();
+    my $SearchParams = $Param{QueryParams};
 
     # build query from parameters
     PARAM:
-    for my $Field ( sort keys %{ $Param{QueryParams} } ) {
+    for my $FieldName ( sort keys %{$SearchParams} ) {
+        for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Operators} } ) {
+            my $OperatorValue  = $OperatorData->{Value};
+            my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
 
-        my $Value;
-        my $Operator;
+            my $Result = $OperatorModule->OperatorQueryGet(
+                Field    => $Param{FieldsDefinition}->{$FieldName}->{ColumnName},
+                Value    => $OperatorValue,
+                Operator => $OperatorData->{Operator},
+                Object   => $Param{Object},
+            );
 
-        if ( ref $Param{QueryParams}->{$Field} eq "HASH" ) {
-            $Operator = $Param{QueryParams}->{$Field}->{Operator} || "=";
-            $Value    = $Param{QueryParams}->{$Field}->{Value} // "";
+            my $Query = $Result->{Query};
+
+            push @{ $Query{query}{bool}{ $Result->{Section} } }, $Query;
         }
-        else {
-            $Operator = "=";
-            $Value    = $Param{QueryParams}->{$Field} // '';
-        }
-
-        next PARAM if !$Field;
-
-        my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
-
-        my $Result = $OperatorModule->OperatorQueryGet(
-            Field    => $Param{FieldsDefinition}->{$Field}->{ColumnName},
-            Value    => $Value,
-            Operator => $Operator,
-            Object   => $Param{Object},
-        );
-
-        my $Query = $Result->{Query};
-
-        push @{ $Query{query}{bool}{ $Result->{Section} } }, $Query;
     }
 
     return %Query;
