@@ -80,7 +80,7 @@ sub Fallback {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(IndexName QueryParams IndexCounter)) {
+    for my $Needed (qw(IndexName IndexCounter)) {
 
         next NEEDED if defined $Param{$Needed};
 
@@ -329,7 +329,7 @@ sub _QueryPrepareSearch {
     my $Result = {};
     my @Queries;
 
-    for my $Name (qw( QueryParams Objects MappingObject Config )) {
+    for my $Name (qw( Objects MappingObject Config )) {
         if ( !$Param{$Name} ) {
             $LogObject->Log(
                 Priority => 'error',
