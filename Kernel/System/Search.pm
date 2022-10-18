@@ -103,13 +103,12 @@ sub new {
 
 =head2 Search()
 
-TO-DO multiple search query param support in array (for example: TicketID => [1,2,3])
-
 search for specified object data
 
     my $TicketSearch = $SearchObject->Search(
         Objects => ["Ticket", "TicketHistory"], # always pass an array of objects
-        QueryParams => { # possible query parameters (fields) can be seen
+        QueryParams => { # optional
+                         # possible query parameters (fields) can be seen
                          # for each objects in
                          # Kernel::System::Search::Object::"ObjectName" module
             SLAID => 2,
@@ -132,6 +131,41 @@ search for specified object data
                 Value => 2,
             }
         },
+        AdvancedQueryParams => [ # optional
+                                 # advanced structure where an array is passed
+                                 # any hashes inside are AND statements
+                                 # any arrays inside are OR statements
+                                 # can define multiple nesting levels
+            [                    # need to start with another array
+                {
+                    TicketID => {    # supports values that are passed in QueryParams param
+                        Operator => 'IS DEFINED'
+                    },
+                    StateID => [1,2,3], # AND
+                }
+            ],
+            [ # OR
+                {
+                    TicketID => {
+                        Operator => 'IS NOT DEFINED'
+                    }
+                },
+            ],
+            [ # OR
+                {
+                    TicketID => {
+                        Operator => '!=', Value => 0
+                    }
+                },
+                [ # OR
+                    {
+                        StateID => {
+                            Operator => '!=', Value => 5
+                        }
+                    }
+                ],
+            ],
+        ],
         ResultType => $ResultType, # optional, default: 'ARRAY', possible: ARRAY,HASH,COUNT or more if extended,
         SortBy => ['TicketID', 'TicketHistoryID'], # possible: any object field
         OrderBy => ['Down', 'Up'], # optional, possible: Down,Up
@@ -184,7 +218,7 @@ sub Search {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(Objects QueryParams)) {
+    for my $Needed (qw(Objects)) {
         next NEEDED if $Param{$Needed};
 
         $LogObject->Log(
@@ -514,6 +548,7 @@ remove object for specified index
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
                        # indexing (for example in elastic search engine)
+
         ObjectID => 1, # possible:
                        # - for single object indexing: 1
                        # - for multiple object indexing: [1,2,3]
@@ -1080,7 +1115,7 @@ sub Fallback {
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     NEEDED:
-    for my $Needed (qw(Objects QueryParams)) {
+    for my $Needed (qw(Objects)) {
 
         next NEEDED if defined $Param{$Needed};
         $LogObject->Log(

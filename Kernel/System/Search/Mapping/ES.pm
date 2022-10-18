@@ -120,6 +120,47 @@ sub Search {
     return $Query;
 }
 
+=head2 AdvancedSearch()
+
+process advanced query data to structure that will be used to execute query
+
+    my $Result = $SearchMappingESObject->AdvancedSearch(
+        QueryParams         => $QueryParams,
+        AdvancedQueryParams => $AdvancedQueryParams,
+    );
+
+=cut
+
+sub AdvancedSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
+    my $SQLQuery          = $SearchIndexObject->SQLObjectSearch(
+        QueryParams         => $Param{QueryParams},
+        AdvancedQueryParams => $Param{AdvancedQueryParams},
+        SelectAliases       => 1,
+        OnlyReturnQuery     => 1,
+        %Param,
+    );
+
+    if ( IsArrayRefWithData( $SQLQuery->{Bind} ) ) {
+
+        # de-reference bind values for ES engine
+        for my $Bind ( @{ $SQLQuery->{Bind} } ) {
+            $Bind = ${$Bind};
+        }
+    }
+
+    return {
+        Method => 'POST',
+        Path   => '_sql',
+        Body   => {
+            query  => "$SQLQuery->{SQL}",
+            params => $SQLQuery->{Bind},
+        }
+    };
+}
+
 =head2 SearchFormat()
 
 globally formats search result of specified engine
@@ -158,15 +199,21 @@ sub SearchFormat {
     } if $Result->{status};
 
     my $GloballyFormattedObjData;
-    if ( $Param{ResultType} ne 'COUNT' ) {
 
+    # identify format of response
+    if ( $Param{ResultType} ne 'COUNT' ) {
         $GloballyFormattedObjData = $Self->_ResponseDataFormat(
-            Hits => $Result->{hits}->{hits},
+            Result => $Result,
             %Param,
         );
     }
     else {
-        $GloballyFormattedObjData = $Result->{count};
+        if ( $Result->{columns} ) {
+            $GloballyFormattedObjData = $Result->{rows}->[0]->[0];
+        }
+        else {
+            $GloballyFormattedObjData = $Result->{count};
+        }
     }
 
     return {
@@ -502,36 +549,7 @@ sub ObjectIndexRemove {
         };
     }
 
-    if ( $Param{ObjectID} ) {
-        if ( ref( $Param{ObjectID} ) eq 'ARRAY' ) {
-            return {
-                Path   => "/$IndexObject->{Config}->{IndexRealName}/_delete_by_query",
-                QS     => $Refresh,
-                Method => 'POST',
-                Body   => {
-                    query => {
-                        bool => {
-                            must => [
-                                {
-                                    terms => {
-                                        id => $Param{ObjectID},
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            };
-        }
-        else {
-            return {
-                Path   => "/$IndexObject->{Config}->{IndexRealName}/_doc/$Param{ObjectID}",
-                QS     => $Refresh,
-                Method => 'DELETE',
-            };
-        }
-    }
-    elsif ( $Param{QueryParams} ) {
+    if ( $Param{QueryParams} ) {
         my %QueryBody = $Self->_BuildQueryBodyFromParams(
             QueryParams      => $Param{QueryParams},
             FieldsDefinition => $Param{FieldsDefinition},
@@ -545,6 +563,7 @@ sub ObjectIndexRemove {
             Body   => \%QueryBody,
         };
     }
+    return;
 }
 
 =head2 ObjectIndexRemoveFormat()
@@ -1190,7 +1209,7 @@ sub IndexRefresh {
 globally formats response data from engine
 
     my $Result = $SearchMappingESObject->_ResponseDataFormat(
-        Hits => $Hits,
+        Result => $Result,
         QueryData => $QueryData,
     );
 
@@ -1199,32 +1218,42 @@ globally formats response data from engine
 sub _ResponseDataFormat {
     my ( $Self, %Param ) = @_;
 
-    return [] if !IsArrayRefWithData( $Param{Hits} );
-
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
 
-    my @Objects;
+    my @Objects = ();
 
-    my $Hits   = $Param{Hits};
-    my @Fields = @{ $Param{Fields} };
+    if ( IsArrayRefWithData( $Param{Result}->{hits}->{hits} ) ) {
+        my $Hits   = $Param{Result}->{hits}->{hits};
+        my @Fields = @{ $Param{Fields} };
 
-    # when specified fields are filtered response
-    # contains them inside "fields" key
-    if ( $Param{QueryData}->{Query}->{Body}->{_source} && $Param{QueryData}->{Query}->{Body}->{_source} eq 'false' ) {
-        for my $Hit ( @{$Hits} ) {
-            my %Data;
-            for my $Field (@Fields) {
-                $Data{$Field} = $Hit->{fields}->{$Field}->[0];
+        # when specified fields are filtered response
+        # contains them inside "fields" key
+        if ( $Param{QueryData}->{Query}->{Body}->{_source} && $Param{QueryData}->{Query}->{Body}->{_source} eq 'false' )
+        {
+            for my $Hit ( @{$Hits} ) {
+                my %Data;
+                for my $Field (@Fields) {
+                    $Data{$Field} = $Hit->{fields}->{$Field}->[0];
+                }
+                push @Objects, \%Data;
             }
-            push @Objects, \%Data;
+        }
+
+        # ES engine response stores objects inside "_source" key by default
+        # IMPORTANT: not used anymore!
+        elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
+            for my $Hit ( @{$Hits} ) {
+                push @Objects, $Hit->{_source};
+            }
         }
     }
-
-    # ES engine response stores objects inside "_source" key by default
-    # IMPORTANT: not used anymore!
-    elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
-        for my $Hit ( @{$Hits} ) {
-            push @Objects, $Hit->{_source};
+    elsif ( IsArrayRefWithData( $Param{Result}->{rows} ) ) {
+        for ( my $j = 0; $j < scalar @{ $Param{Result}->{rows} }; $j++ ) {
+            my %Data;
+            for ( my $i = 0; $i < scalar @{ $Param{Result}->{columns} }; $i++ ) {
+                $Data{ $Param{Result}->{columns}->[$i]->{name} } = $Param{Result}->{rows}->[$j]->[$i];
+            }
+            push @Objects, \%Data;
         }
     }
 
@@ -1252,7 +1281,7 @@ sub _BuildQueryBodyFromParams {
     # build query from parameters
     PARAM:
     for my $FieldName ( sort keys %{$SearchParams} ) {
-        for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Operators} } ) {
+        for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Query} } ) {
             my $OperatorValue  = $OperatorData->{Value};
             my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
 

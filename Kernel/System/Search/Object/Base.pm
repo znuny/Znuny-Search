@@ -82,24 +82,15 @@ sub Fallback {
     my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    for my $Needed (qw( QueryParams )) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
-    }
-
     my $SQLSearchResult = $Self->SQLObjectSearch(
-        QueryParams => $Param{QueryParams},
-        Limit       => $Param{Limit} || $Self->{DefaultSearchLimit},
-        OrderBy     => $Param{OrderBy},
-        SortBy      => $Param{SortBy},
-        ResultType  => $Param{ResultType},
-        Fields      => $Param{Fields},
-        Silent      => $Param{Silent},
+        QueryParams         => $Param{QueryParams},
+        AdvancedQueryParams => $Param{AdvancedQueryParams},
+        Limit               => $Param{Limit} || $Self->{DefaultSearchLimit},
+        OrderBy             => $Param{OrderBy},
+        SortBy              => $Param{SortBy},
+        ResultType          => $Param{ResultType},
+        Fields              => $Param{Fields},
+        Silent              => $Param{Silent},
     );
 
     my $Result = {
@@ -134,16 +125,6 @@ sub SQLObjectSearch {
     my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    for my $Needed (qw( QueryParams )) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
-    }
-
     my $QueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
 
     my $IndexRealName      = $Self->{Config}->{IndexRealName};
@@ -161,16 +142,23 @@ sub SQLObjectSearch {
         # set columns that will be retrieved
         if ( IsArrayRefWithData( $Param{Fields} ) ) {
             my @ParamFields = @{ $Param{Fields} };
-            for ( my $i = 0; $i < scalar @ParamFields; $i++ ) {
-                $TableColumns[$i] = $Fields->{ $ParamFields[$i] }->{ColumnName};
+            if ( $Param{SelectAliases} ) {
+                @TableColumns = @ParamFields;
+            }
+            else {
+                for ( my $i = 0; $i < scalar @ParamFields; $i++ ) {
+                    $TableColumns[$i] = $Fields->{ $ParamFields[$i] }->{ColumnName};
+                }
             }
         }
-
-        # not used anymore
-        # TODO delete if really not used
         else {
-            for my $Field ( sort keys %{$Fields} ) {
-                push @TableColumns, $Fields->{$Field}->{ColumnName};
+            if ( $Param{SelectAliases} ) {
+                @TableColumns = sort keys %{$Fields};
+            }
+            else {
+                for my $Field ( sort keys %{$Fields} ) {
+                    push @TableColumns, $Fields->{$Field}->{ColumnName};
+                }
             }
         }
         $SQL = 'SELECT ' . join( ',', @TableColumns ) . ' FROM ' . $IndexRealName;
@@ -179,20 +167,19 @@ sub SQLObjectSearch {
     my @Result;
 
     my @QueryParamValues = ();
+    my $PrependOperator;
+    my @QueryConditions;
     if ( IsHashRefWithData( $Param{QueryParams} ) ) {
         my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
-        my @QueryConditions;
 
-        my $SearchParams = $QueryObject->_CheckQueryParams(
+        my $SearchParams = $QueryObject->_QueryParamsPrepare(
             QueryParams => $Param{QueryParams},
         );
-
-        return if $SearchParams->{Error};
 
         # apply search params for columns that are supported
         PARAM:
         for my $FieldName ( sort keys %{$SearchParams} ) {
-            for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Operators} } ) {
+            for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Query} } ) {
                 my $OperatorValue = $OperatorData->{Value};
                 my $Result        = $OperatorModule->OperatorQueryGet(
                     Field    => $Fields->{$FieldName}->{ColumnName},
@@ -210,11 +197,28 @@ sub SQLObjectSearch {
                 push @QueryConditions, $Result->{Query};
             }
         }
+    }
 
-        # apply WHERE clause only when there are
-        # at least one valid query condition
-        if ( scalar @QueryConditions ) {
-            $SQL .= ' WHERE ' . join( ' AND ', @QueryConditions );
+    # apply WHERE clause only when there are
+    # at least one valid query condition
+    if ( scalar @QueryConditions ) {
+        $SQL .= ' WHERE ' . join( ' AND ', @QueryConditions );
+        $PrependOperator = ' AND ((';
+    }
+    else {
+        # apply WHERE for advanced params if any found
+        $PrependOperator = ' WHERE ((';
+    }
+
+    my $AdvancedSQLQuery = $QueryObject->_QueryAdvancedParamsBuild(
+        AdvancedQueryParams => $Param{AdvancedQueryParams},
+        PrependOperator     => $PrependOperator,
+    ) // {};
+
+    if ( $AdvancedSQLQuery->{Content} ) {
+        $SQL .= $AdvancedSQLQuery->{Content};
+        if ( IsArrayRefWithData( $AdvancedSQLQuery->{Binds} ) ) {
+            push @QueryParamValues, @{ $AdvancedSQLQuery->{Binds} };
         }
     }
 
@@ -257,6 +261,13 @@ sub SQLObjectSearch {
     # apply limit query
     if ( $Param{Limit} ) {
         $SQL .= " LIMIT $Param{Limit}";
+    }
+
+    if ( $Param{OnlyReturnQuery} ) {
+        return {
+            SQL  => $SQL,
+            Bind => \@QueryParamValues
+        };
     }
 
     return if !$DBObject->Prepare(
