@@ -16,6 +16,7 @@ use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Ticket',
+    'Kernel::System::Search::Object::Operators',
 );
 
 =head1 NAME
@@ -73,11 +74,27 @@ sub Search {
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     my $ParamSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
 
-    my $SearchParams = $Self->_CheckQueryParams(
-        QueryParams => $Param{QueryParams},
-    );
+    if ( IsArrayRefWithData( $Param{AdvancedQueryParams} ) ) {
 
-    return $SearchParams if $SearchParams->{Error};
+        # return the query
+        my $Query = $Param{MappingObject}->AdvancedSearch(
+            Limit => $Self->{IndexDefaultSearchLimit},    # default limit or override with limit from param
+            %Param,
+        );
+
+        if ( !$Query ) {
+            return {
+                Error    => 1,
+                Fallback => {
+                    Enable => 1,
+                },
+            };
+        }
+
+        return {
+            Query => $Query,
+        };
+    }
 
     my $SortBy;
     if (
@@ -105,6 +122,10 @@ sub Search {
             }
         }
     }
+
+    my $SearchParams = $Self->_QueryParamsPrepare(
+        QueryParams => $Param{QueryParams},
+    );
 
     # return the query
     my $Query = $Param{MappingObject}->Search(
@@ -575,76 +596,203 @@ sub IndexRefresh {
     );
 }
 
-=head2 _CheckQueryParams()
+=head2 _QueryParamsPrepare()
 
-check and set valid query params
+prepare valid structure output for query params
 
-    my $QueryParams = $SearchQueryObject->_CheckQueryParams(
+    my $QueryParams = $SearchQueryObject->_QueryParamsPrepare(
         QueryParams => $Param{QueryParams},
     );
 
 =cut
 
-sub _CheckQueryParams {
+sub _QueryParamsPrepare {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
-    my $ValidParams = {};
-
-    # apply search params for columns that are supported
+    my $ValidParams;
     PARAM:
     for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
 
-        # check if there is existing mapping between query param and database column
-        next PARAM if !$Self->{IndexFields}->{$SearchParam};
+        # apply search params for columns that are supported
+        my @Result = $Self->_QueryParamSet(
+            Name  => $SearchParam,
+            Value => $Param{QueryParams}->{$SearchParam},
+        );
 
-        # do not accept undef values for param
-        next PARAM if !defined $Param{QueryParams}->{$SearchParam};
-        my $QueryParamType = $Self->{IndexFields}->{$SearchParam}->{Type};
-        my @Operators;
-
-        if ( ref $Param{QueryParams}->{$SearchParam} eq "HASH" ) {
-            @Operators = (
-                {
-                    Operator => $Param{QueryParams}->{$SearchParam}->{Operator} || '=',
-                    Value    => $Param{QueryParams}->{$SearchParam}->{Value},
-                }
-            );
+        if ( scalar @Result ) {
+            push @{ $ValidParams->{$SearchParam}->{Query} }, @Result;
         }
-        elsif (
-            ref $Param{QueryParams}->{$SearchParam} eq "ARRAY"
-            &&
-            ref $Param{QueryParams}->{$SearchParam}->[0] eq 'HASH'
-            )
-        {
-            @Operators = @{ $Param{QueryParams}->{$SearchParam} };
-        }
-        else {
-            @Operators = (
-                {
-                    Operator => '=',
-                    Value    => $Param{QueryParams}->{$SearchParam},
-                }
-            );
-        }
-
-        for my $OperatorData (@Operators) {
-            if ( !$Self->{IndexSupportedOperators}->{$QueryParamType}->{Operator}->{ $OperatorData->{Operator} } ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Operator '$OperatorData->{Operator}' is not supported for '$QueryParamType' type.",
-                );
-
-                return {
-                    Error => 1,
-                    Type  => 'OperatorNotSupported'
-                };
-            }
-        }
-        push @{ $ValidParams->{$SearchParam}->{Operators} }, @Operators;
     }
-
-    return $ValidParams;
+    return $ValidParams,;
 }
 
+=head2 _QueryParamSet()
+
+set query param field to standardized output
+
+    my $Result = $SearchQueryObject->_QueryParamSet(
+        Name => $Name,
+        Value => $Value,
+    );
+
+=cut
+
+sub _QueryParamSet {
+    my ( $Self, %Param ) = @_;
+
+    my $Name  = $Param{Name};
+    my $Value = $Param{Value};
+
+    # check if there is existing mapping between query param and database column
+    return if !$Self->{IndexFields}->{$Name};
+    my $QueryParamType = $Self->{IndexFields}->{$Name}->{Type};
+    my @Operators;
+
+    if ( ref $Value eq "HASH" ) {
+        @Operators = (
+            {
+                Operator => $Value->{Operator} || '=',
+                Value    => $Value->{Value},
+            }
+        );
+    }
+    elsif (
+        ref $Value eq "ARRAY"
+        &&
+        ref $Value->[0] eq 'HASH'
+        )
+    {
+        @Operators = @{$Value};
+    }
+    else {
+        @Operators = (
+            {
+                Operator => '=',
+                Value    => $Value,
+            }
+        );
+    }
+
+    return @Operators,;
+}
+
+=head2 _QueryAdvancedParamsBuild()
+
+build advanced params query sql
+
+    my $QueryParams = $SearchQueryObject->_QueryAdvancedParamsBuild(
+        QueryParams => $Param{QueryParams},
+    );
+
+=cut
+
+sub _QueryAdvancedParamsBuild {
+    my ( $Self, %Param ) = @_;
+
+    my $AdvancedQuery;
+
+    # apply advanced search params for columns that are supported
+    my $PrependOperator = '';
+    if ( $Param{PrependOperator} ) {
+        $PrependOperator = $Param{PrependOperator};
+    }
+    PARAM:
+    for my $Data ( @{ $Param{AdvancedQueryParams} } ) {
+        next PARAM if !IsArrayRefWithData($Data);
+        DATA:
+        for my $SearchParam ( @{$Data} ) {
+            $AdvancedQuery = $Self->_QueryAdvancedParamBuildSQL(
+                AdvancedSQLQuery   => $AdvancedQuery,
+                AdvancedParamToSet => $SearchParam,
+                PrependOperator    => $PrependOperator,
+            );
+            $PrependOperator = ' AND (';
+        }
+
+        # close statement
+        $AdvancedQuery->{Content} .= ')';
+
+        # prepare OR as the next possible statement as arrays
+        # next to each other on the same level are OR statements
+        $PrependOperator = ' OR ((';
+    }
+
+    return $AdvancedQuery;
+}
+
+=head2 _QueryAdvancedParamBuildSQL()
+
+builds single advanced query field
+
+    my $Result = $SearchQueryObject->_QueryAdvancedParamBuildSQL(
+        AdvancedSQLQuery   => $AdvancedSQLQuery,
+        AdvancedParamToSet => $AdvancedParamToSet,
+        PrependOperator    => $PrependOperator,
+    );
+
+=cut
+
+sub _QueryAdvancedParamBuildSQL {
+    my ( $Self, %Param ) = @_;
+
+    my $AdvancedParamToSet = $Param{AdvancedParamToSet};
+    my $AdvancedSQLQuery   = $Param{AdvancedSQLQuery};
+    my $OperatorToPrepend  = $Param{PrependOperator};
+    my $FirstOperatorSet;
+    my $AdditionalSQLQuery = '';
+
+    if ( IsHashRefWithData($AdvancedParamToSet) ) {
+        my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
+        for my $FieldName ( sort keys %{$AdvancedParamToSet} ) {
+
+            # standardize structure
+            my @PreparedQueryParam = $Self->_QueryParamSet(
+                Name  => $FieldName,
+                Value => $AdvancedParamToSet->{$FieldName},
+            );
+
+            # build sql
+            for my $OperatorData (@PreparedQueryParam) {
+                my $FieldRealName = $Self->{IndexFields}->{$FieldName}->{ColumnName};
+                my $Result        = $OperatorModule->OperatorQueryGet(
+                    Field    => $FieldRealName,
+                    Value    => $OperatorData->{Value},
+                    Operator => $OperatorData->{Operator},
+                    Object   => $Self->{IndexConfig}->{IndexName},
+                    Fallback => 1,
+                    )
+                    || {
+                    Query => '',
+                    };
+
+                if ($FirstOperatorSet) {
+                    $OperatorToPrepend = ' AND ';
+                }
+                $AdditionalSQLQuery .= $OperatorToPrepend . $Result->{Query};
+                if ( $Result->{Bindable} ) {
+                    $OperatorData->{Value} = $Result->{BindableValue} if $Result->{BindableValue};
+                    push @{ $AdvancedSQLQuery->{Binds} }, \$OperatorData->{Value};
+                }
+                $FirstOperatorSet = 1;
+
+            }
+        }
+        if ($FirstOperatorSet) {
+            $AdvancedSQLQuery->{Content} .= $AdditionalSQLQuery . ')';
+        }
+    }
+    elsif ( IsArrayRefWithData($AdvancedParamToSet) ) {
+
+        # search inside arrays recurrently and connect them with OR statements
+        for my $Queries ( @{$AdvancedParamToSet} ) {
+            $AdvancedSQLQuery = $Self->_QueryAdvancedParamBuildSQL(
+                PrependOperator    => ' OR (',
+                AdvancedParamToSet => $Queries,
+                AdvancedSQLQuery   => $AdvancedSQLQuery,
+            );
+        }
+    }
+
+    return $AdvancedSQLQuery;
+}
 1;
