@@ -269,8 +269,6 @@ sub Run {
                     TTL   => 24 * 60 * 60,
                 );
 
-                last EVAL_SCOPE if !( IsArrayRefWithData($ObjectIDs) );
-
                 if ( !$RemoteExists ) {
                     my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Object->{Index}");
                     my $IndexRealName     = $SearchIndexObject->{Config}->{IndexRealName};
@@ -347,6 +345,16 @@ sub Run {
                 }
 
                 $Self->Print("<green>Index initialized.</green>\n<yellow>Adding indexes..</yellow>\n");
+
+                if ( !IsArrayRefWithData($ObjectIDs) ) {
+                    $Self->Print(
+                        "<yellow>No data to reindex.</yellow>\n\n"
+                    );
+                    $Self->Print("<green>Done.</green>\n");
+                    $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
+                    last EVAL_SCOPE;
+                }
+
                 my $GeneralStartTime = Time::HiRes::time();
 
                 my @ObjectIDsArr = @{$ObjectIDs};
@@ -424,7 +432,7 @@ sub Run {
                     TTL   => 24 * 60 * 60,
                 );
 
-                $Self->Print("<green>Done.</green>\n");
+                $Self->Print("<green>Done.</green>\n\n");
                 $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
             }
         };
