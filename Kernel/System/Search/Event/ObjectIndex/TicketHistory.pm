@@ -136,12 +136,14 @@ sub Run {
     $Result = $TicketHistoryObject->SQLObjectSearch(
         QueryParams => {
             TicketID => $TicketID,
-            CreateBy => $Param{CreateUserID},
+            CreateBy => $Param{UserID},
         },
         ResultType => 'ARRAY',
         SortBy     => "TicketHistoryID",
         OrderBy    => "DESC",
     );
+
+    return if !IsArrayRefWithData($Result);
 
     my %QueryParam = (
         Index    => $Param{Config}->{IndexName},
