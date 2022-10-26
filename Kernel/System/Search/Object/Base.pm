@@ -203,11 +203,11 @@ sub SQLObjectSearch {
     # at least one valid query condition
     if ( scalar @QueryConditions ) {
         $SQL .= ' WHERE ' . join( ' AND ', @QueryConditions );
-        $PrependOperator = ' AND ((';
+        $PrependOperator = ' AND (((';
     }
     else {
         # apply WHERE for advanced params if any found
-        $PrependOperator = ' WHERE ((';
+        $PrependOperator = ' WHERE (((';
     }
 
     my $AdvancedSQLQuery = $QueryObject->_QueryAdvancedParamsBuild(
@@ -547,6 +547,7 @@ sub DefaultConfigGet {
                 "<="             => 1,
                 "<"              => 1,
                 ">"              => 1,
+                "BETWEEN"        => 1,
                 "IS DEFINED"     => 1,
                 "IS NOT DEFINED" => 1,
             }
@@ -575,6 +576,7 @@ sub DefaultConfigGet {
                 "<="             => 1,
                 "<"              => 1,
                 ">"              => 1,
+                "BETWEEN"        => 1,
                 "IS EMPTY"       => 1,
                 "IS NOT EMPTY"   => 1,
                 "IS DEFINED"     => 1,

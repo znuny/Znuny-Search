@@ -906,7 +906,7 @@ sub IndexMappingSet {
     my $DataTypes = {
         Date => {
             type   => "date",
-            format => "YYYY-MM-dd HH:mm:ss",
+            format => "yyyy-MM-dd HH:mm:ss",
             fields => {
                 keyword => {
                     type         => "keyword",

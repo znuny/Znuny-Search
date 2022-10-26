@@ -51,6 +51,7 @@ sub new {
         "<="             => 'LowerEqualThan',
         ">"              => 'GreaterThan',
         "<"              => 'LowerThan',
+        "BETWEEN"        => 'Between',
         "IS EMPTY"       => 'IsEmpty',
         "IS NOT EMPTY"   => 'IsNotEmpty',
         "IS DEFINED"     => 'IsDefined',

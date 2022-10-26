@@ -65,6 +65,8 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/LowerThan/Fallback/Default.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/LowerEqualThan/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/LowerEqualThan/Fallback/Default.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Operators/Between/Engine/ES.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Operators/Between/Fallback/Default.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsEmpty/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsEmpty/Fallback/Default.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/GreaterEqualThan/Engine/ES.pm"/>

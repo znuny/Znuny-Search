@@ -696,25 +696,28 @@ sub _QueryAdvancedParamsBuild {
     if ( $Param{PrependOperator} ) {
         $PrependOperator = $Param{PrependOperator};
     }
-    PARAM:
-    for my $Data ( @{ $Param{AdvancedQueryParams} } ) {
-        next PARAM if !IsArrayRefWithData($Data);
-        DATA:
-        for my $SearchParam ( @{$Data} ) {
-            $AdvancedQuery = $Self->_QueryAdvancedParamBuildSQL(
-                AdvancedSQLQuery   => $AdvancedQuery,
-                AdvancedParamToSet => $SearchParam,
-                PrependOperator    => $PrependOperator,
-            );
-            $PrependOperator = ' AND (';
+    if ( IsArrayRefWithData( $Param{AdvancedQueryParams} ) ) {
+        PARAM:
+        for my $Data ( @{ $Param{AdvancedQueryParams} } ) {
+            next PARAM if !IsArrayRefWithData($Data);
+            DATA:
+            for my $SearchParam ( @{$Data} ) {
+                $AdvancedQuery = $Self->_QueryAdvancedParamBuildSQL(
+                    AdvancedSQLQuery   => $AdvancedQuery,
+                    AdvancedParamToSet => $SearchParam,
+                    PrependOperator    => $PrependOperator,
+                );
+                $PrependOperator = ' AND (';
+            }
+
+            # close statement
+            $AdvancedQuery->{Content} .= ')';
+
+            # prepare OR as the next possible statement as arrays
+            # next to each other on the same level are OR statements
+            $PrependOperator = ' OR ((';
         }
-
-        # close statement
         $AdvancedQuery->{Content} .= ')';
-
-        # prepare OR as the next possible statement as arrays
-        # next to each other on the same level are OR statements
-        $PrependOperator = ' OR ((';
     }
 
     return $AdvancedQuery;
