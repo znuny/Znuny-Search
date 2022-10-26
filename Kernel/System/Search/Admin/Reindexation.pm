@@ -212,12 +212,14 @@ sub DataEqualitySet {
     INDEX:
     for my $Index ( @{ $Param{Indexes} } ) {
 
+        my $IndexRealName = $SearchObject->{Config}->{RegisteredIndexes}->{$Index};
+
         my $IsValid = $SearchChildObject->IndexIsValid(
             IndexName => $Index,
             RealName  => 0,
         );
 
-        if ($IsValid) {
+        if ( $IsValid && ( grep { $_ eq $IndexRealName } @IndexList ) ) {
             push @ActiveIndexes, $Index;
             next INDEX;
         }
@@ -250,10 +252,17 @@ sub DataEqualitySet {
     );
 
     my $IndexEqualityPercentage;
-
+    INDEX:
     for my $Index ( sort keys %{$EngineResponse} ) {
-        $EngineResponse->{$Index} //= 0;
-        $IndexEqualityPercentage->{$Index} = ( $EngineResponse->{$Index} * 100 ) / $DBResponse->{$Index};
+
+        # if DB table is empty, prevent division by 0
+        if ( !$DBResponse->{$Index} ) {
+            $IndexEqualityPercentage->{$Index} = 100;
+        }
+        else {
+            $EngineResponse->{$Index} //= 0;
+            $IndexEqualityPercentage->{$Index} = ( $EngineResponse->{$Index} * 100 ) / $DBResponse->{$Index};
+        }
 
         return if !$DBObject->Do(
             SQL =>

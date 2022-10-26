@@ -18,6 +18,9 @@
                 <Item Key="TicketHistory">ticket_history</Item>
                 <Item Key="Article">article</Item>
                 <Item Key="ArticleDataMIME">article_data_mime</Item>
+                <Item Key="DynamicField">dynamic_field</Item>
+                <Item Key="DynamicFieldObjIdName">dynamic_field_obj_id_name</Item>
+                <Item Key="DynamicFieldValue">dynamic_field_value</Item>
             </Hash>
         </Value>
     </Setting>
@@ -138,6 +141,63 @@
                 <Item Key="Event">HistoryDelete</Item>
                 <Item Key="FunctionName">ObjectIndexRemove</Item>
                 <Item Key="IndexName">TicketHistory</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="DynamicField::EventModulePost###000-DynamicField-DynamicFieldAdd" Required="0" Valid="1">
+        <Description Translatable="1">Adds object data for index based on specified events.</Description>
+        <Navigation>Core::Event::DynamicField</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField</Item>
+                <Item Key="Event">DynamicFieldAdd</Item>
+                <Item Key="FunctionName">ObjectIndexAdd</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="DynamicField::EventModulePost###000-DynamicField-ObjectIndexUpdate" Required="0" Valid="1">
+        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Navigation>Core::Event::DynamicField</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField</Item>
+                <Item Key="Event">DynamicFieldUpdate</Item>
+                <Item Key="FunctionName">ObjectIndexUpdate</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="DynamicField::EventModulePost###000-DynamicField-ObjectIndexRemove" Required="0" Valid="1">
+        <Description Translatable="1">Removes object data for index based on specified events.</Description>
+        <Navigation>Core::Event::DynamicField</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField</Item>
+                <Item Key="Event">DynamicFieldDelete</Item>
+                <Item Key="FunctionName">ObjectIndexRemove</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###000-DynamicFieldValue-Ticket-ObjectIndexSet" Required="0" Valid="1">
+        <Description Translatable="1">Set object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
+                <Item Key="Event">TicketDynamicFieldUpdate_*</Item>
+                <Item Key="FunctionName">ObjectIndexSet</Item>
+                <Item Key="Field">TicketID</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###000-DynamicFieldValue-Article-ObjectIndexSet" Required="0" Valid="1">
+        <Description Translatable="1">Set object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
+                <Item Key="Event">ArticleDynamicFieldUpdate</Item>
+                <Item Key="FunctionName">ObjectIndexSet</Item>
+                <Item Key="Field">ArticleID</Item>
             </Hash>
         </Value>
     </Setting>
