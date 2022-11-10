@@ -15,7 +15,8 @@ use parent qw( Kernel::System::Search::Object::Base );
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
-    'Kernel::System::Search::Object',
+    'Kernel::System::Main',
+    'Kernel::System::Search',
 );
 
 =head1 NAME
@@ -42,6 +43,21 @@ sub new {
 
     my $Self = {};
     bless( $Self, $Type );
+
+    # check for engine package for this object
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $MainObject   = $Kernel::OM->Get('Kernel::System::Main');
+
+    $Self->{Engine} = $SearchObject->{Config}->{ActiveEngine} || 'ES';
+
+    my $Loaded = $MainObject->Require(
+        "Kernel::System::Search::Object::$Self->{Engine}::DynamicFieldValue",
+        Silent => 1,
+    );
+
+    return $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Engine}::DynamicFieldValue") if $Loaded;
+
+    $Self->{Module} = "Kernel::System::Search::Object::DynamicFieldValue";
 
     # specify base config for index
     $Self->{Config} = {

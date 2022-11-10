@@ -38,6 +38,7 @@
         <File Permission="660" Location="Kernel/System/Search/Object/DynamicFieldObjIdName.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/DynamicFieldValue.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/ArticleDataMIME.pm"/>

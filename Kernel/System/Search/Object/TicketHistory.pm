@@ -14,7 +14,8 @@ use warnings;
 use parent qw( Kernel::System::Search::Object::Base );
 
 our @ObjectDependencies = (
-    'Kernel::System::Search::Object',
+    'Kernel::System::Main',
+    'Kernel::System::Search',
 );
 
 =head1 NAME
@@ -41,6 +42,21 @@ sub new {
 
     my $Self = {};
     bless( $Self, $Type );
+
+    # check for engine package for this object
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $MainObject   = $Kernel::OM->Get('Kernel::System::Main');
+
+    $Self->{Engine} = $SearchObject->{Config}->{ActiveEngine} || 'ES';
+
+    my $Loaded = $MainObject->Require(
+        "Kernel::System::Search::Object::Engine::$Self->{Engine}::TicketHistory",
+        Silent => 1,
+    );
+
+    return $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Engine}::TicketHistory") if $Loaded;
+
+    $Self->{Module} = "Kernel::System::Search::Object::TicketHistory";
 
     # specify base config for index
     $Self->{Config} = {
