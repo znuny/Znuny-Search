@@ -344,6 +344,8 @@ sub _QueryPrepareSearch {
     for ( my $i = 0; $i < scalar @{ $Param{Objects} }; $i++ ) {
         my $Index = $Param{Objects}->[$i];
 
+        next OBJECT if !$Index;
+
         my $Loaded = $Self->_LoadModule(
             Module => "Kernel::System::Search::Object::Query::${Index}",
         );

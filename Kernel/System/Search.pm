@@ -228,8 +228,42 @@ sub Search {
         return;
     }
 
+    my %IndexResponse;
+    my $Counter = 0;
+
+    my @StandardObjects = @{ $Param{Objects} };
+    my @Objects         = @StandardObjects;
+
+    my $NoValidQueries = 1;
+
+    for my $Object (@Objects) {
+
+        my $Module      = "Kernel::System::Search::Object::$Object";
+        my $IndexObject = $Kernel::OM->Get($Module);
+
+        if ( exists &{"$IndexObject->{Module}::Search"} ) {
+            my $IndexSearch = $IndexObject->Search(
+                %Param,
+                Objects       => ["$Object"],              # only one specific object
+                Counter       => $Counter,
+                MappingObject => $Self->{MappingObject},
+                EngineObject  => $Self->{EngineObject},
+                ConnectObject => $Self->{ConnectObject},
+                Config        => $Self->{Config},
+            ) // {};
+
+            %IndexResponse = ( %IndexResponse, %{$IndexSearch} );
+            $StandardObjects[$Counter] = '';
+            undef $NoValidQueries;
+        }
+        $Counter++;
+    }
+
     # copy standard param to avoid overwriting on standarization
     my $Params = \%Param;
+
+    # objects without overriden functions
+    $Params->{Objects} = \@StandardObjects;
 
     # standardize params
     $Self->_SearchParamsStandardize( Param => $Params );
@@ -238,7 +272,8 @@ sub Search {
     # set valid fields for either fallback and advanced search
     # no fields param will get all valid fields for specified object
     OBJECT:
-    for ( my $i = 0; $i < scalar @{ $Param{Objects} }; $i++ ) {
+    for ( my $i = 0; $i < scalar @StandardObjects; $i++ ) {
+        next OBJECT if !$StandardObjects[$i];
         $Param{Fields}->[$i] = $SearchChildObject->ValidFieldsGet(
             Fields => $Param{Fields}->[$i],
             Object => $Param{Objects}->[$i],
@@ -246,7 +281,7 @@ sub Search {
     }
 
     # if there was an error, fallback all of the objects with given search parameters
-    return $Self->Fallback( %{$Params} ) if $Self->{Fallback} || $Param{UseSQLSearch};
+    return { %{ $Self->Fallback( %{$Params} ) }, %IndexResponse } if $Self->{Fallback} || $Param{UseSQLSearch};
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
     my $Fields = $Params->{Fields};
@@ -276,10 +311,14 @@ sub Search {
         }
     }
 
-    # use full fallback when no valid queries were built
-    return $Self->Fallback( %{$Params} ) if ( !scalar @ValidQueries );
+    my %Result = %IndexResponse;
 
-    my %Result;
+    if ($NoValidQueries) {
+        $NoValidQueries = !scalar @ValidQueries;
+    }
+
+    # use full fallback when no valid queries were built
+    return { %{ $Self->Fallback( %{$Params} ) }, %IndexResponse } if ($NoValidQueries);
 
     # execute all valid queries
     QUERY:
@@ -1130,6 +1169,8 @@ sub Fallback {
     for ( my $i = 0; $i < scalar @{ $Param{Objects} }; $i++ ) {
 
         my $IndexName = $Param{Objects}->[$i];
+
+        next INDEX if !$IndexName;
 
         # get globally formatted fallback response
         my $Response = $SearchChildObject->Fallback(
