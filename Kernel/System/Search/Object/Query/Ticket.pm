@@ -11,10 +11,13 @@ package Kernel::System::Search::Object::Query::Ticket;
 use strict;
 use warnings;
 
+use Kernel::System::VariableCheck qw(:all);
+
 use parent qw( Kernel::System::Search::Object::Query );
 
 our @ObjectDependencies = (
     'Kernel::System::Search::Object::Ticket',
+    'Kernel::System::Log',
 );
 
 =head1 NAME
@@ -53,6 +56,92 @@ sub new {
     bless( $Self, $Type );
 
     return $Self;
+}
+
+=head2 Search()
+
+create query for specified operation
+
+    my $Result = $SearchQueryObject->Search(
+        MappingObject   => $Config,
+        QueryParams     => $QueryParams,
+    );
+
+=cut
+
+sub Search {
+    my ( $Self, %Param ) = @_;
+
+    return {
+        Error    => 1,
+        Fallback => {
+            Enable => 1
+        },
+    } if !$Param{MappingObject};
+
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $ParamSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
+
+    if ( IsArrayRefWithData( $Param{AdvancedQueryParams} ) ) {
+
+        # return the query
+        my $Query = $Param{MappingObject}->AdvancedSearch(
+            Limit => $Self->{IndexDefaultSearchLimit},    # default limit or override with limit from param
+            %Param,
+        );
+
+        if ( !$Query ) {
+            return {
+                Error    => 1,
+                Fallback => {
+                    Enable => 1,
+                },
+            };
+        }
+
+        return {
+            Query => $Query,
+        };
+    }
+
+    my $SortBy;
+    if (
+        $Param{SortBy} && $Self->{IndexFields}->{ $Param{SortBy} }
+        )
+    {
+        my $Sortable = $ParamSearchObject->IsSortableResultType(
+            ResultType => $Param{ResultType},
+        );
+
+        if ($Sortable) {
+
+            # change into real column name
+            $SortBy = $Self->{IndexFields}->{ $Param{SortBy} };
+        }
+        else {
+            if ( !$Param{Silent} ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Can't sort index: \"$ParamSearchObject->{Config}->{IndexName}\" with result type:" .
+                        " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
+                        " Specified result type is not sortable!\n" .
+                        " Sort operation won't be applied."
+                );
+            }
+        }
+    }
+
+    my $SearchIndexObject
+        = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Config}->{ActiveEngine}::$Param{Object}");
+
+    return $SearchIndexObject->QuerySearch(
+        Limit => $Self->{IndexDefaultSearchLimit},    # default limit or override with limit from param
+        %Param,
+        Fields           => $Param{Fields},
+        FieldsDefinition => $Self->{IndexFields},
+        QueryParams      => $Param{QueryParams},
+        SortBy           => $SortBy,
+    );
 }
 
 1;
