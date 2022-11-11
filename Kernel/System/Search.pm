@@ -117,12 +117,12 @@ search for specified object data
             TicketHistoryID => 2, # this property does not exists inside index "Ticket"
                                   # and will not be applied for it as search param
 
-            # operators can be used to define even more detailed search to use
-            # on fields, but remember that not all operators can be used in all field
-            # types - the default rules are specified in the module
-            # Kernel::System::Search::Object::Base->DefaultConfigGet()
-            # every field type can be seen in
-            # Kernel::System::Search::Object::"ObjectName" module
+                # operators can be used to define even more detailed search to use
+                # on fields, but remember that not all operators can be used in all field
+                # types - the default rules are specified in the module
+                # Kernel::System::Search::Object::Base->DefaultConfigGet()
+                # every field type can be seen in
+                # Kernel::System::Search::Object::"ObjectName" module
             LockID => {
                 Operator => 'IS NOT DEFINED',
             },
@@ -131,14 +131,14 @@ search for specified object data
                 Value => 2,
             }
         },
-        AdvancedQueryParams => [ # optional
+        AdvancedQueryParams => [ # optional, supported on indexes without relations
                                  # advanced structure where an array is passed
                                  # any hashes inside are AND statements
                                  # any arrays inside are OR statements
                                  # can define multiple nesting levels
             [                    # need to start with another array
                 {
-                    TicketID => {    # supports values that are passed in QueryParams param
+                    TicketID => { # supports values that are passed in QueryParams param
                         Operator => 'IS DEFINED'
                     },
                     StateID => [1,2,3], # AND
@@ -168,18 +168,20 @@ search for specified object data
         ],
         ResultType => $ResultType, # optional, default: 'ARRAY', possible: ARRAY,HASH,COUNT or more if extended,
         SortBy => ['TicketID', 'TicketHistoryID'], # possible: any object field
-        OrderBy => ['Down', 'Up'], # optional, possible: Down,Up
-                                   # - for multiple objects: ['Down', 'Up']
-                                   # - for all objects specified in "Objects" param: 'Down'
-        Limit => ['', 10], # optional, possible: empty string (default value) or integer
-                           # - for multiple objects:  [500, 10000, '']
-                           # - for all objects specified in "Objects" param: '1000'
+        OrderBy => ['Down', 'Up'],
+            # optional, possible: Down,Up
+            # - for multiple objects: ['Down', 'Up']
+            # - for all objects specified in "Objects" param: 'Down'
+        Limit => ['', 10],
+            # optional, possible: empty string (default value) or integer
+            # - for multiple objects:  [500, 10000, '']
+            # - for all objects specified in "Objects" param: '1000'
         Fields => [["TicketID", "SLAID"],["TicketHistoryID", "Name"]],
-        # optional, possible: any valid column name
-        # - for multiple objects:
-        # [["TicketColumnName1", "TicketColumnName2"], ["TicketHistoryColumnName1", "TicketHistoryColumnName2"]]
-        # - for only selected filtering on objects:
-        # [[],["TicketHistoryColumn1", "TicketHistoryColumn2"]]
+            # optional, possible: any valid column name
+            # - for multiple objects:
+            # [["TicketColumnName1", "TicketColumnName2"], ["TicketHistoryColumnName1", "TicketHistoryColumnName2"]]
+            # - for only selected filtering on objects:
+            # [[],["TicketHistoryColumn1", "TicketHistoryColumn2"]]
         UseSQLSearch => 1 # define if sql search should be used
     );
 
@@ -209,6 +211,9 @@ search for specified object data
         Limit => ['', 10],
         Fields => [["TicketID", "SLAID"],["TicketHistoryID", "Name"]],
     );
+
+    for objects with custom search support
+    check Kernel::System::Search::Object::Engine::*EngineName*::*ObjectName*
 
 =cut
 
@@ -244,12 +249,12 @@ sub Search {
         if ( exists &{"$IndexObject->{Module}::Search"} ) {
             my $IndexSearch = $IndexObject->Search(
                 %Param,
-                Objects       => ["$Object"],              # only one specific object
+                Objects       => [$Object],                # only one specific object
                 Counter       => $Counter,
                 MappingObject => $Self->{MappingObject},
                 EngineObject  => $Self->{EngineObject},
                 ConnectObject => $Self->{ConnectObject},
-                Config        => $Self->{Config},
+                GlobalConfig  => $Self->{Config},
             ) // {};
 
             %IndexResponse = ( %IndexResponse, %{$IndexSearch} );
@@ -467,9 +472,9 @@ set (update if exists or create if not exists) object for specified index
 sub ObjectIndexSet {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
 
     NEEDED:
     for my $Needed (qw(Index)) {
@@ -485,7 +490,7 @@ sub ObjectIndexSet {
 
     return if $Self->{Fallback};
 
-    my $PreparedQuery = $SearchObject->QueryPrepare(
+    my $PreparedQuery = $SearchChildObject->QueryPrepare(
         %Param,
         Operation     => "ObjectIndexSet",
         Config        => $Self->{Config},
@@ -1251,7 +1256,7 @@ sub SearchFormat {
     my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(Operation Result Config IndexName)) {
+    for my $Needed (qw(Operation IndexName Fields)) {
 
         next NEEDED if $Param{$Needed};
         $LogObject->Log(
@@ -1266,9 +1271,6 @@ sub SearchFormat {
     # as fallback do not use advanced search engine
     # and should have response formatted globally already.
     $Param{Result} = $Self->{MappingObject}->SearchFormat(
-        Result    => $Param{Result},
-        Config    => $Param{Config},
-        IndexName => $Param{IndexName},
         %Param,
     ) if !$Param{Fallback};    # fallback skip
 

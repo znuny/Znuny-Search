@@ -383,7 +383,7 @@ sub ObjectIndexRemove {
         $Identifier => $Param{ObjectID}
         };
 
-    $QueryParams = $Self->_CheckQueryParams(
+    $QueryParams = $Self->_QueryParamsPrepare(
         QueryParams => $QueryParams,
     );
 
@@ -602,6 +602,7 @@ prepare valid structure output for query params
 
     my $QueryParams = $SearchQueryObject->_QueryParamsPrepare(
         QueryParams => $Param{QueryParams},
+        NoMappingCheck => $Param{NoMappingCheck},
     );
 
 =cut
@@ -615,15 +616,16 @@ sub _QueryParamsPrepare {
 
         # apply search params for columns that are supported
         my @Result = $Self->_QueryParamSet(
-            Name  => $SearchParam,
-            Value => $Param{QueryParams}->{$SearchParam},
+            Name           => $SearchParam,
+            Value          => $Param{QueryParams}->{$SearchParam},
+            NoMappingCheck => $Param{NoMappingCheck},
         );
 
         if ( scalar @Result ) {
             push @{ $ValidParams->{$SearchParam}->{Query} }, @Result;
         }
     }
-    return $ValidParams,;
+    return $ValidParams;
 }
 
 =head2 _QueryParamSet()
@@ -644,8 +646,7 @@ sub _QueryParamSet {
     my $Value = $Param{Value};
 
     # check if there is existing mapping between query param and database column
-    return if !$Self->{IndexFields}->{$Name};
-    my $QueryParamType = $Self->{IndexFields}->{$Name}->{Type};
+    return if !$Self->{IndexFields}->{$Name} && !$Param{NoMappingCheck};
     my @Operators;
 
     if ( ref $Value eq "HASH" ) {
@@ -673,7 +674,7 @@ sub _QueryParamSet {
         );
     }
 
-    return @Operators,;
+    return @Operators;
 }
 
 =head2 _QueryAdvancedParamsBuild()

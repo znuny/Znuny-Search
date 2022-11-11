@@ -128,13 +128,14 @@ sub SQLObjectSearch {
     my $QueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
 
     my $IndexRealName      = $Self->{Config}->{IndexRealName};
-    my $Fields             = $Self->{Fields};
+    my $Fields             = $Param{CustomIndexFields} // $Self->{Fields};
     my $SupportedOperators = $Self->{SupportedOperators};
     my $ResultType         = $Param{ResultType} || 'ARRAY';
 
     # prepare sql statement
     my $SQL;
     my @TableColumns;
+
     if ( $ResultType eq 'COUNT' ) {
         $SQL = 'SELECT COUNT(*) FROM ' . $IndexRealName;
     }
@@ -492,14 +493,17 @@ sub CustomFieldsConfig {
 
     my %CustomFieldsMapping = (
         Fields => {},
+        Config => {},
     );
 
     for my $CustomPackageConfig ( sort keys %{$CustomPackageModuleConfigList} ) {
         my $Module        = $CustomPackageModuleConfigList->{$CustomPackageConfig};
         my $PackageModule = $Kernel::OM->Get("$Module->{Module}");
 
-        for my $Type (qw( Fields )) {
-            %{ $CustomFieldsMapping{$Type} } = ( %{ $PackageModule->{$Type} }, %{ $CustomFieldsMapping{$Type} } );
+        for my $Type (qw( Fields Config )) {
+            if ( IsHashRefWithData( $PackageModule->{$Type} ) ) {
+                %{ $CustomFieldsMapping{$Type} } = ( %{ $PackageModule->{$Type} }, %{ $CustomFieldsMapping{$Type} } );
+            }
         }
     }
 
@@ -630,6 +634,7 @@ sub _Load {
 
     # load custom field mapping
     %{ $Self->{Fields} } = ( %{ $Param{Fields} }, %{ $Config->{Fields} } );
+    %{ $Self->{Config} } = ( %{ $Param{Config} }, %{ $Config->{Config} } );
 
     $Self->{OperatorMapping} = $SearchObject->{DefaultOperatorMapping};
 

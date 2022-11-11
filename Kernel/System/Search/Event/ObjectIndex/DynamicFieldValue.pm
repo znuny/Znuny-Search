@@ -72,9 +72,24 @@ sub Run {
 
     my $FunctionName = $Param{Config}->{FunctionName};
 
-    my $Result = $SearchObject->$FunctionName(
-        Index    => 'DynamicFieldValue',
-        ObjectID => $DynamicFieldValue->[0]->{ID}
+    if ( $Param{Data}->{OldValue} && !$Param{Data}->{Value} ) {
+        $SearchObject->ObjectIndexRemove(
+            Index => 'DynamicFieldValue',
+
+            # use ticket id from data in case value has been deleted
+            QueryParams => {
+                _id => $DynamicField->{ID} . $Param{Data}->{TicketID},
+            },
+        );
+
+        return 1;
+    }
+
+    $SearchObject->$FunctionName(
+        Index => 'DynamicFieldValue',
+
+        # use ticket id from data in case value has been deleted
+        ObjectID => $DynamicFieldValue->[0]->{ID},
     );
 
     return 1;

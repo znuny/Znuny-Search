@@ -120,6 +120,7 @@ sub new {
     # load fields with custom field mapping
     $Self->_Load(
         Fields => $FieldMapping,
+        Config => $Self->{Config},
     );
 
     return $Self;
