@@ -240,6 +240,7 @@ sub DataEqualitySet {
 
     my $EngineResponse = $SearchObject->Search(
         %QueryParams,
+        Fields => [ [] ],
     ) || {};
 
     my $DBResponse = $SearchObject->Search(

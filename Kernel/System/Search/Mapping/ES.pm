@@ -179,7 +179,7 @@ sub SearchFormat {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(Result Config IndexName)) {
+    for my $Needed (qw(IndexName)) {
         next NEEDED if $Param{$Needed};
 
         $LogObject->Log(
@@ -290,7 +290,7 @@ sub ObjectIndexAdd {
 
         push @{$BodyForBulkRequest},
             {
-            id     => $Object->{$IdentifierRealName},
+            id     => delete $Object->{_ID} || $Object->{$IdentifierRealName},
             source => $Object
             };
     }
@@ -392,7 +392,7 @@ sub ObjectIndexSet {
 
         push @{$BodyForBulkRequest},
             {
-            id     => $Object->{$IdentifierRealName},
+            id     => delete $Object->{_ID} || $Object->{$IdentifierRealName},
             source => $Object
             };
     }
@@ -1218,8 +1218,6 @@ globally formats response data from engine
 sub _ResponseDataFormat {
     my ( $Self, %Param ) = @_;
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
-
     my @Objects = ();
 
     if ( IsArrayRefWithData( $Param{Result}->{hits}->{hits} ) ) {
@@ -1240,7 +1238,6 @@ sub _ResponseDataFormat {
         }
 
         # ES engine response stores objects inside "_source" key by default
-        # IMPORTANT: not used anymore!
         elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
             for my $Hit ( @{$Hits} ) {
                 push @Objects, $Hit->{_source};

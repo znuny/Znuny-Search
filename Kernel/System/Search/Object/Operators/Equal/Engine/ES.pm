@@ -29,10 +29,18 @@ sub QueryBuild {
         $Param{Value} = [ $Param{Value} ];
     }
 
+    my $Keyword = '';
+
+    # _id is reserved in elastic search as identifier of documents
+    # this can't get keyword if we want to search by it
+    if ( $Param{Field} ne '_id' ) {
+        $Keyword = '.keyword';
+    }
+
     return {
         Query => {
             terms => {
-                $Param{Field} . ".keyword" => $Param{Value}
+                $Param{Field} . $Keyword => $Param{Value}
             }
         },
         Section => 'must'

@@ -80,6 +80,13 @@ sub new {
             ColumnName => 'field_id',
             Type       => 'String'
         },
+        Value => {
+            ColumnName => 'value',
+            Type       => 'String'
+        },
+    };
+
+    $Self->{Config}->{AdditionalOTRSFields} = {
         ValueText => {
             ColumnName => 'value_text',
             Type       => 'String'
@@ -100,6 +107,7 @@ sub new {
     # load fields with custom field mapping
     $Self->_Load(
         Fields => $FieldMapping,
+        Config => $Self->{Config},
     );
 
     return $Self;
