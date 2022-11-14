@@ -234,23 +234,25 @@ sub Search {
     }
 
     my %IndexResponse;
-    my $Counter = 0;
-
-    my @StandardObjects = @{ $Param{Objects} };
-    my @Objects         = @StandardObjects;
-
     my $NoValidQueries = 1;
 
-    for my $Object (@Objects) {
+    # copy standard param to avoid overwriting on standarization
+    my $Params = \%Param;
+
+    # standardize params
+    my %StandardizedObjectParams = $Self->_SearchParamsStandardize( Param => $Params );
+
+    for my $Object ( sort keys %StandardizedObjectParams ) {
 
         my $Module      = "Kernel::System::Search::Object::$Object";
         my $IndexObject = $Kernel::OM->Get($Module);
 
         if ( exists &{"$IndexObject->{Module}::Search"} ) {
             my $IndexSearch = $IndexObject->Search(
-                %Param,
-                Objects       => [$Object],                # only one specific object
-                Counter       => $Counter,
+                %{$Params},
+                Objects => {
+                    $Object => delete $StandardizedObjectParams{$Object}
+                },    # pass & delete single object data
                 MappingObject => $Self->{MappingObject},
                 EngineObject  => $Self->{EngineObject},
                 ConnectObject => $Self->{ConnectObject},
@@ -258,49 +260,35 @@ sub Search {
             ) // {};
 
             %IndexResponse = ( %IndexResponse, %{$IndexSearch} );
-            $StandardObjects[$Counter] = '';
             undef $NoValidQueries;
         }
-        $Counter++;
     }
 
-    # copy standard param to avoid overwriting on standarization
-    my $Params = \%Param;
-
-    # objects without overriden functions
-    $Params->{Objects} = \@StandardObjects;
-
-    # standardize params
-    $Self->_SearchParamsStandardize( Param => $Params );
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
-    # set valid fields for either fallback and advanced search
-    # no fields param will get all valid fields for specified object
-    OBJECT:
-    for ( my $i = 0; $i < scalar @StandardObjects; $i++ ) {
-        next OBJECT if !$StandardObjects[$i];
-        $Param{Fields}->[$i] = $SearchChildObject->ValidFieldsGet(
-            Fields => $Param{Fields}->[$i],
-            Object => $Param{Objects}->[$i],
-        );
-    }
-
     # if there was an error, fallback all of the objects with given search parameters
-    return { %{ $Self->Fallback( %{$Params} ) }, %IndexResponse } if $Self->{Fallback} || $Param{UseSQLSearch};
+    return {
+        %{
+            $Self->Fallback(
+                %{$Params},
+                Objects => \%StandardizedObjectParams,
+            )
+        },
+        %IndexResponse
+    } if $Self->{Fallback}
+        || $Param{UseSQLSearch};
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
-
-    my $Fields = $Params->{Fields};
 
     # prepare query for engine
     my $PreparedQuery = $SearchChildObject->QueryPrepare(
         %{$Params},
-        Fields        => $Fields,
+        Objects       => \%StandardizedObjectParams,
         Operation     => "Search",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
     );
 
-    my @FailedIndexQuery;
+    my %FailedObjectParams;
     my @ValidQueries = ();
 
     # define valid queries
@@ -308,12 +296,10 @@ sub Search {
         my @FailedQueries = grep { $_->{Fallback}->{Enable} } @{ $PreparedQuery->{Queries} };
         if ( scalar @FailedQueries > 0 ) {
             for my $Query (@FailedQueries) {
-                push @FailedIndexQuery, $Query->{Object};
+                $FailedObjectParams{ $Query->{Object} } = $StandardizedObjectParams{ $Query->{Object} };
             }
         }
-        else {
-            @ValidQueries = grep { !$_->{Error} } @{ $PreparedQuery->{Queries} };
-        }
+        @ValidQueries = grep { !$_->{Error} } @{ $PreparedQuery->{Queries} };
     }
 
     my %Result = %IndexResponse;
@@ -323,13 +309,19 @@ sub Search {
     }
 
     # use full fallback when no valid queries were built
-    return { %{ $Self->Fallback( %{$Params} ) }, %IndexResponse } if ($NoValidQueries);
+    return {
+        %{
+            $Self->Fallback(
+                %{$Params}, Objects => \%StandardizedObjectParams
+            )
+        },
+        %IndexResponse
+    } if ($NoValidQueries);
 
     # execute all valid queries
     QUERY:
-    for ( my $i = 0; $i < scalar @ValidQueries; $i++ ) {
+    for my $Query (@ValidQueries) {
 
-        my $Query    = $ValidQueries[$i];
         my $Response = $Self->{EngineObject}->QueryExecute(
             Query         => $Query->{Query},
             Operation     => 'Search',
@@ -341,14 +333,14 @@ sub Search {
         # some object queries might fail
         # on those objects fallback will be used
         if ( !$Response ) {
-            push @FailedIndexQuery, $Query->{Object};
+            $FailedObjectParams{ $Query->{Object} } = $StandardizedObjectParams{ $Query->{Object} };
             next QUERY;
         }
 
         my $FormattedResult = $Self->SearchFormat(
             %{$Params},
+            %{ $StandardizedObjectParams{ $Query->{Object} } },
             Result     => $Response,
-            Fields     => $Fields->[$i],
             Config     => $Self->{Config},
             IndexName  => $Query->{Object},
             Operation  => "Search",
@@ -356,19 +348,23 @@ sub Search {
             QueryData  => $Query,
         );
 
-        if ( defined $FormattedResult ) {
+        if ( IsHashRefWithData($FormattedResult) ) {
             %Result = ( %Result, %{$FormattedResult} );
         }
     }
 
     # use fallback on engine failed queries
     # and merge from not failed queries response
-    if ( scalar @FailedIndexQuery > 0 ) {
+    if ( keys %FailedObjectParams > 0 ) {
+
         my $FallbackResult = $Self->Fallback(
             %{$Params},
-            Objects => \@FailedIndexQuery,
+            Objects => \%FailedObjectParams,
         );
-        %Result = ( %Result, %{$FallbackResult} );
+
+        if ( IsHashRefWithData($FallbackResult) ) {
+            %Result = ( %Result, %{$FallbackResult} );
+        }
     }
 
     return \%Result;
@@ -1170,26 +1166,20 @@ sub Fallback {
     }
 
     my %Result;
-    INDEX:
-    for ( my $i = 0; $i < scalar @{ $Param{Objects} }; $i++ ) {
+    OBJECT:
+    for my $Object ( sort keys %{ $Param{Objects} } ) {
 
-        my $IndexName = $Param{Objects}->[$i];
-
-        next INDEX if !$IndexName;
+        next OBJECT if !$Object;
 
         # get globally formatted fallback response
         my $Response = $SearchChildObject->Fallback(
             %Param,
-            IndexName     => $IndexName,
-            IndexCounter  => $i,
-            MultipleLimit => $Param{MultipleLimit},
-            OrderBy       => $Param{OrderBy}->[$i],
-            SortBy        => $Param{SortBy}->[$i],
-            Fields        => $Param{Fields}->[$i],
+            IndexName => $Object,
+            %{ $Param{Objects}{$Object} },
         );
 
         # on any error ignore response
-        next INDEX if !$Response;
+        next OBJECT if !$Response;
 
         # get valid result type from the response
         my $ResultType = delete $Response->{ResultType};
@@ -1198,12 +1188,12 @@ sub Fallback {
         my $FormattedResult = $Self->SearchFormat(
             Result     => $Response,
             Config     => $Self->{Config},
-            IndexName  => $IndexName,
+            IndexName  => $Object,
             Operation  => "Search",
             ResultType => $ResultType,
             Fallback   => 1,
             Silent     => $Param{Silent},
-            Fields     => $Param{Fields}->[$i],
+            %{ $Param{Objects}{$Object} },
         );
 
         # merge response into return data
@@ -1256,7 +1246,7 @@ sub SearchFormat {
     my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(Operation IndexName Fields)) {
+    for my $Needed (qw(Operation IndexName)) {
 
         next NEEDED if $Param{$Needed};
         $LogObject->Log(
@@ -1374,7 +1364,7 @@ sub IndexRefresh {
 
 =head2 _SearchParamsStandardize()
 
-globally standardize search params
+globally standardize search params for fallback/engines
 
     my $Success = $SearchObject->_SearchParamsStandardize(
         %Param,
@@ -1385,22 +1375,56 @@ globally standardize search params
 sub _SearchParamsStandardize {
     my ( $Self, %Param ) = @_;
 
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my @Objects;
+    my %ObjectData;
     if ( IsHashRefWithData( $Param{Param} ) ) {
         if ( IsArrayRefWithData( $Param{Param}->{Objects} ) ) {
-            if ( $Param{Param}->{OrderBy} && !IsArrayRefWithData( $Param{Param}->{OrderBy} ) ) {
-                my $OrderBy = $Param{Param}->{OrderBy};
-                $Param{Param}->{OrderBy} = [];
-                for ( my $i = 0; $i < scalar @{ $Param{Param}->{Objects} }; $i++ ) {
-                    $Param{Param}->{OrderBy}->[$i] = $OrderBy;
+            @Objects = @{ $Param{Param}->{Objects} };
+            for my $Param (qw(OrderBy Limit)) {
+
+                if ( $Param{Param}->{$Param} && !IsArrayRefWithData( $Param{Param}->{$Param} ) ) {
+                    my $ParamValue = $Param{Param}->{$Param};
+
+                    for ( my $i = 0; $i < scalar @Objects; $i++ ) {
+                        $ObjectData{ $Objects[$i] }->{$Param} = $ParamValue;
+                    }
                 }
-            }
-            if ( ref( $Param{Param}->{Limit} ) eq 'ARRAY' ) {
-                $Param{Param}->{MultipleLimit} = 1;
+                elsif ( IsArrayRefWithData( $Param{Param}->{$Param} ) ) {
+                    for ( my $i = 0; $i < scalar @{ $Param{Param}->{$Param} }; $i++ ) {
+                        my $ParamValue = $Param{Param}->{$Param}->[$i];
+                        $ObjectData{ $Objects[$i] }->{$Param} = $ParamValue;
+                    }
+                }
             }
         }
     }
 
-    return 1;
+    OBJECT:
+    for ( my $i = 0; $i < scalar @Objects; $i++ ) {
+
+        my $ObjectName = $Objects[$i];
+
+        my @ValidFields = $SearchChildObject->ValidFieldsGet(
+            Fields => $Param{Param}->{Fields}->[$i],
+            Object => $ObjectName,
+        );
+
+        if ( scalar @ValidFields ) {
+            $ObjectData{ $Param{Param}->{Objects}->[$i] }->{Fields} = \@ValidFields;
+        }
+        else {
+            next OBJECT;
+        }
+
+        for my $Param (qw (SortBy)) {
+            $ObjectData{ $Param{Param}->{Objects}->[$i] }->{$Param} =
+                $Param{Param}->{$Param}->[$i];
+        }
+    }
+
+    return %ObjectData;
 }
 
 1;
