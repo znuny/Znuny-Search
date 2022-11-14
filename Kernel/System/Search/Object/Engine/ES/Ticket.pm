@@ -21,6 +21,7 @@ our @ObjectDependencies = (
     'Kernel::System::DB',
     'Kernel::System::Search::Object::Operators',
     'Kernel::System::Search::Object::Query::DynamicFieldValue',
+    'Kernel::System::Ticket::Article',
 );
 
 =head1 NAME
@@ -219,8 +220,19 @@ On executing ticket search by Kernel::System::Search:
             ChangeBy => 1,
             DynamicField_Name1 => 'value1',
             DynamicField_Name2 => 'value2',
+            Article_From => 'value',
+            Article_To => 'value',
+            Article_Cc => 'value',
+            Article_Subject => 'value',
+            Article_Body => 'value',
+            Article_*OtherArticleDataMIMEValues* => 'value',
+            Article_SenderTypeID => 'value',           # no operators support yet
+            Article_CommunicationChannelID => 'value', # no operators support yet
+            Article_IsVisibleForCustomer => 1/0        # no operators support yet
         }
     );
+
+    Parameter "AdvancedSearchQuery" is not supported on this Object.
 
 =cut
 
@@ -232,23 +244,9 @@ sub Search {
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
 
     # copy standard param to avoid overwriting on standarization
-    my %Params    = %Param;
-    my $IndexName = $Param{Objects}->[0];
-
-    # set valid fields for either fallback and advanced search
-    # no fields param passed will get all valid fields for specified object
-    $Param{Fields}->[ $Param{Counter} ] = $SearchChildObject->ValidFieldsGet(
-        Fields => $Param{Fields}->[ $Param{Counter} ],
-        Object => $IndexName,
-    );
-
-    if ( !IsArrayRefWithData( $Param{Fields}->[ $Param{Counter} ] ) ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Wrong fields in search param!"
-        );
-        return;
-    }
+    my %Params     = %Param;
+    my $IndexName  = 'Ticket';
+    my $ObjectData = $Params{Objects}->{$IndexName};
 
     my $Loaded = $SearchChildObject->_LoadModule(
         Module => "Kernel::System::Search::Object::Query::${IndexName}",
@@ -268,42 +266,18 @@ sub Search {
     # with not valid result type
     return if !$ValidResultType;
 
-    my $OrderBy;
-    my $SortByCheck;
-    my $Limit;
-    my $Fields;
-
-    if ( IsArrayRefWithData( $Param{SortBy} ) ) {
-        $SortByCheck = $Param{SortBy}->[ $Param{Counter} ];
-    }
-    elsif ( $Param{SortBy} ) {
-        $SortByCheck = $Param{SortBy};
-    }
-    if ( IsArrayRefWithData( $Param{OrderBy} ) ) {
-        $OrderBy = $Param{OrderBy}->[ $Param{Counter} ];
-    }
-    elsif ($OrderBy) {
-        $OrderBy = $Param{OrderBy};
-    }
-    if ( IsArrayRefWithData( $Param{Limit} ) ) {
-        $Limit = $Param{Limit}->[ $Param{Counter} ];
-    }
-    elsif ($Limit) {
-        $Limit = $Param{Limit};
-    }
-    if ( IsArrayRefWithData( $Param{Fields} ) ) {
-        $Fields = $Param{Fields}->[ $Param{Counter} ];
-    }
+    my $OrderBy     = $ObjectData->{OrderBy};
+    my $SortByCheck = $ObjectData->{SortBy};
+    my $Limit       = $ObjectData->{Limit};
+    my $Fields      = $ObjectData->{Fields};
     my $SortBy;
-    if (
-        $SortByCheck && $Self->{Fields}->{$SortByCheck}
-        )
+    if ($SortByCheck)
     {
         my $Sortable = $Self->IsSortableResultType(
             ResultType => $ValidResultType,
         );
 
-        if ($Sortable) {
+        if ( $Sortable && $Self->{Fields}->{$SortByCheck} ) {
 
             # change into real column name
             $SortBy = $Self->{Fields}->{$SortByCheck};
@@ -313,9 +287,9 @@ sub Search {
                 $LogObject->Log(
                     Priority => 'error',
                     Message  => "Can't sort index: \"$Self->{Config}->{IndexName}\" with result type:" .
-                        " \"$Param{ResultType}\" by field: \"$SortByCheck\"." .
-                        " Specified result type is not sortable!\n" .
-                        " Sort operation won't be applied."
+                        " \"$Param{ResultType}\" by field: \"$SortByCheck\".\n" .
+                        "Specified result type is not sortable or field does not exists in the index!\n" .
+                        "Sort operation won't be applied."
                 );
             }
         }
@@ -360,11 +334,14 @@ sub QuerySearch {
         return $Self->FallbackQuerySearch(%Param);
     }
 
-    my @DynamicFieldsParam = keys %{ $Param{QueryParams} };
-    my %DynamicFieldsParam = map { $_ => $Param{QueryParams}->{$_} } grep { $_ =~ /DynamicField_/ } @DynamicFieldsParam;
+    my @QueryParamsKey     = keys %{ $Param{QueryParams} };
+    my %DynamicFieldsParam = map { $_ => $Param{QueryParams}->{$_} } grep { $_ =~ /DynamicField_/ } @QueryParamsKey;
+    my %ArticleParam       = map { $_ => $Param{QueryParams}->{$_} } grep { $_ =~ /Article_/ } @QueryParamsKey;
+
+    my $ObjectIDs;
 
     if ( keys %DynamicFieldsParam ) {
-        my $ObjectIDs = $Self->_SearchByDynamicFields(
+        $ObjectIDs = $Self->_SearchByDynamicFields(
             DynamicFields => \%DynamicFieldsParam,
             ObjectID      => $Param{QueryParams}->{TicketID},
             ConnectObject => $Param{ConnectObject},
@@ -383,15 +360,35 @@ sub QuerySearch {
 
             return $FormattedResult;
         }
+    }
 
-        $Param{QueryParams}->{TicketID} = $ObjectIDs;
+    if ( keys %ArticleParam ) {
+        $ObjectIDs = $Self->_SearchByArticle(
+            Articles      => \%ArticleParam,
+            ObjectID      => $ObjectIDs,
+            ConnectObject => $Param{ConnectObject},
+            EngineObject  => $Param{EngineObject},
+        );
+
+        if ( !IsArrayRefWithData($ObjectIDs) ) {
+
+            # format query
+            my $FormattedResult = $SearchObject->SearchFormat(
+                IndexName  => 'Ticket',
+                Operation  => 'Search',
+                ResultType => $Param{ResultType} || 'ARRAY',
+                Fields     => $Param{Fields},
+            );
+
+            return $FormattedResult;
+        }
     }
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
 
     # filter & prepare correct parameters
     my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
-        QueryParams => $Param{QueryParams},
+        QueryParams => { %{ $Param{QueryParams} }, ( ObjectID => $ObjectIDs ) },
     );
 
     # build query
@@ -431,7 +428,7 @@ sub QuerySearch {
 
 execute full fallback for searching tickets
 
-notice: fall-back does not support searching by dynamic fields yet
+notice: fall-back does not support searching by dynamic fields/articles yet
 
     my $FunctionResult = $Object->FallbackQuerySearch(
         %Params,
@@ -444,28 +441,31 @@ sub FallbackQuerySearch {
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
-    my $Result = {
-        Ticket => $Self->Fallback(%Param)
-    };
+    # prevent printing out all of tickets
+    my @QueryParamsKey     = keys %{ $Param{QueryParams} };
+    my %DynamicFieldsParam = map { $_ => $Param{QueryParams}->{$_} } grep { $_ =~ /DynamicField_/ } @QueryParamsKey;
+    my %ArticleParam       = map { $_ => $Param{QueryParams}->{$_} } grep { $_ =~ /Article_/ } @QueryParamsKey;
 
-    if ($Result) {
-
-        # format reponse per index
-        my $FormattedResult = $SearchObject->SearchFormat(
-            Result     => $Result,
-            Config     => $Param{GlobalConfig},
-            IndexName  => $Self->{Config}->{IndexName},
-            Operation  => "Search",
-            ResultType => $Param{ResultType} || 'ARRAY',
-            Fallback   => 1,
-            Silent     => $Param{Silent},
-            Fields     => $Param{Fields},
-        );
-
-        return $FormattedResult;
+    my $Result;
+    if ( !%DynamicFieldsParam && !%ArticleParam ) {
+        $Result = {
+            Ticket => $Self->Fallback(%Param)
+        };
     }
 
-    return {};
+    # format reponse per index
+    my $FormattedResult = $SearchObject->SearchFormat(
+        Result     => $Result,
+        Config     => $Param{GlobalConfig},
+        IndexName  => $Self->{Config}->{IndexName},
+        Operation  => "Search",
+        ResultType => $Param{ResultType} || 'ARRAY',
+        Fallback   => 1,
+        Silent     => $Param{Silent},
+        Fields     => $Param{Fields},
+    );
+
+    return $FormattedResult || { Ticket => [] };
 }
 
 sub _SearchByDynamicFields {
@@ -553,7 +553,7 @@ sub _SearchByDynamicFields {
             };
     }
 
-    # apply all dynami field queries to ES
+    # apply all dynamic field queries to ES
     for my $DynamicFieldID ( sort keys %FieldsData ) {
         my $OperatorData = $IndexQueryObject->_QueryParamsPrepare(
             QueryParams => {
@@ -615,6 +615,78 @@ sub _SearchByDynamicFields {
     if ( IsArrayRefWithData($Buckets) ) {
         @ObjectIDs = map { $_->{key} } @{$Buckets};
     }
+
+    return \@ObjectIDs;
+}
+
+sub _SearchByArticle {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject  = $Kernel::OM->Get('Kernel::System::Search');
+    my $ArticleObject = $Kernel::OM->Get('Kernel::System::Ticket::Article');
+    my $DBObject      = $Kernel::OM->Get('Kernel::System::DB');
+
+    # mapping for "article" to prevent overwriting params for ArticleDataMIME
+    my %ArticleTableExternalColumns = (
+        CommunicationChannelID => 'communication_channel_id',
+        IsVisibleForCustomer   => 'is_visible_for_customer',
+        SenderTypeID           => 'article_sender_type_id',
+    );
+
+    my %AdditionalArticleColumn;
+    my %FormattedArticleQuery;
+    PARAM:
+    for my $ArticleParam ( sort keys %{ $Param{Articles} } ) {
+        my $Value = $Param{Articles}->{$ArticleParam};
+        $ArticleParam =~ /Article_(.*)/;
+        my $Column = $1;
+
+        if ( $ArticleTableExternalColumns{$Column} ) {
+            $Value = [$Value] if ref $Value ne "ARRAY";
+            $ArticleTableExternalColumns{Values}{ $ArticleTableExternalColumns{$Column} } = $Value;
+            next PARAM;
+        }
+
+        $FormattedArticleQuery{$Column} = $Value;
+    }
+
+    my $Articles = $SearchObject->Search(
+        Objects     => ['ArticleDataMIME'],
+        QueryParams => {
+            %FormattedArticleQuery
+        },
+        Fields => [ ['ArticleID'] ]
+    );
+
+    my @ArticleIDs;
+    for my $Article ( @{ $Articles->{ArticleDataMIME} } ) {
+        my $ArticleID = $Article->{ArticleID};
+        push @ArticleIDs, $ArticleID;
+    }
+
+    return [] if !@ArticleIDs;
+
+    my $SQL = '
+            SELECT ticket_id
+            FROM article
+            WHERE id IN (' . join( ',', @ArticleIDs ) . ')';
+
+    $SQL .= ' AND ticket_id IN (' . join( ',', @{ $Param{ObjectID} } ) . ')' if $Param{ObjectID};
+
+    for my $Column ( sort keys %{ $ArticleTableExternalColumns{Values} } ) {
+        $SQL .= ' AND ' . $Column . ' IN (' . join( ',', @{ $ArticleTableExternalColumns{Values}->{$Column} } ) . ')';
+    }
+
+    return if !$DBObject->Prepare(
+        SQL => $SQL
+    );
+
+    my %TicketIDs;
+    while ( my @Row = $DBObject->FetchrowArray() ) {
+        $TicketIDs{ $Row[0] } = 1;
+    }
+
+    my @ObjectIDs = keys %TicketIDs;
 
     return \@ObjectIDs;
 }

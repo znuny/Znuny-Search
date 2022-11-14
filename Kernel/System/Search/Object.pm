@@ -81,7 +81,7 @@ sub Fallback {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(IndexName IndexCounter)) {
+    for my $Needed (qw(IndexName)) {
 
         next NEEDED if defined $Param{$Needed};
 
@@ -112,19 +112,10 @@ sub Fallback {
     # is specified, ignore response
     return if !$ValidResultType;
 
-    my $Limit = $Param{Limit};
-
-    # check if limit was specified as an array
-    # for each object or as single string
-    if ( $Param{MultipleLimit} ) {
-        $Limit = $Param{Limit}->[ $Param{IndexCounter} ];
-    }
-
     $Result->{$IndexName} = $SearchIndexObject->Fallback(
         %Param,
         QueryParams => $Param{QueryParams},
         ResultType  => $ValidResultType,
-        Limit       => $Limit,
     );
 
     $Result->{ResultType} = $ValidResultType;
@@ -284,7 +275,7 @@ sub ValidFieldsGet {
                 Priority => 'error',
                 Message  => "Need $Name!"
             );
-            return;
+            return ();
         }
     }
 
@@ -295,7 +286,7 @@ sub ValidFieldsGet {
 
     if ( !IsArrayRefWithData( $Param{Fields} ) ) {
         @ValidFields = keys %{$Fields};
-        return \@ValidFields;
+        return @ValidFields;
     }
 
     for my $ParamField ( @{ $Param{Fields} } ) {
@@ -304,7 +295,7 @@ sub ValidFieldsGet {
         }
     }
 
-    return \@ValidFields;
+    return @ValidFields;
 }
 
 =head2 _QueryPrepareSearch()
@@ -341,19 +332,16 @@ sub _QueryPrepareSearch {
     }
 
     OBJECT:
-    for ( my $i = 0; $i < scalar @{ $Param{Objects} }; $i++ ) {
-        my $Index = $Param{Objects}->[$i];
-
-        next OBJECT if !$Index;
+    for my $Object ( sort keys %{ $Param{Objects} } ) {
+        next OBJECT if !$Object;
 
         my $Loaded = $Self->_LoadModule(
-            Module => "Kernel::System::Search::Object::Query::${Index}",
+            Module => "Kernel::System::Search::Object::Query::${Object}",
         );
 
-        # TODO support for not loaded module
         next OBJECT if !$Loaded;
 
-        my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
+        my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Object}");
 
         # check/set valid result type
         my $ValidResultType = $Self->ValidResultType(
@@ -369,9 +357,6 @@ sub _QueryPrepareSearch {
 
         # check if limit was specified as an array
         # for each object or as single string
-        if ( $Param{MultipleLimit} ) {
-            $Limit = $Param{Limit}->[$i];
-        }
 
         my $Data = $IndexQueryObject->Search(
             %Param,
@@ -379,15 +364,15 @@ sub _QueryPrepareSearch {
             MappingObject => $Param{MappingObject},
             Config        => $Param{Config},
             RealIndexName => $IndexQueryObject->{IndexConfig}->{IndexRealName},
-            Object        => $Index,
+            Object        => $Object,
             ResultType    => $ValidResultType,
-            Fields        => $Param{Fields}->[$i],
-            SortBy        => $Param{SortBy}->[$i],
-            OrderBy       => $Param{OrderBy}->[$i] || $Param{OrderBy},
-            Limit         => $Limit || $IndexQueryObject->{IndexDefaultSearchLimit},
+            Fields        => $Param{Objects}->{$Object}->{Fields},
+            SortBy        => $Param{Objects}->{$Object}->{SortBy},
+            OrderBy       => $Param{Objects}->{$Object}->{OrderBy},
+            Limit         => $Param{Objects}->{$Object}->{Limit} || $IndexQueryObject->{IndexDefaultSearchLimit},
         );
 
-        $Data->{Object} = $Index;
+        $Data->{Object} = $Object;
         push @Queries, $Data;
     }
 

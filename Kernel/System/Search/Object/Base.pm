@@ -226,7 +226,7 @@ sub SQLObjectSearch {
     # sort data
     # check if property is specified in the object fields
     if (
-        $Param{SortBy} && $Self->{Fields}->{ $Param{SortBy} }
+        $Param{SortBy}
         )
     {
         # check if specified result type can be sorted
@@ -235,7 +235,7 @@ sub SQLObjectSearch {
         );
 
         # apply sort query
-        if ($Sortable) {
+        if ( $Sortable && $Self->{Fields}->{ $Param{SortBy} } ) {
             $SQL .= " ORDER BY $Self->{Fields}->{$Param{SortBy}}->{ColumnName}";
             if ( $Param{OrderBy} ) {
                 if ( $Param{OrderBy} eq 'Up' ) {
@@ -251,9 +251,9 @@ sub SQLObjectSearch {
                 $LogObject->Log(
                     Priority => 'error',
                     Message  => "Can't sort table: \"$Self->{Config}->{IndexRealName}\" with result type:" .
-                        " \"$ResultType\" by field: \"$Param{SortBy}\"." .
-                        " Specified result type is not sortable!\n" .
-                        " Sort operation won't be applied."
+                        " \"$ResultType\" by field: \"$Param{SortBy}\".\n" .
+                        "Specified result type is not sortable or field does not exists in the index!\n" .
+                        "Sort operation won't be applied."
                 );
             }
         }
