@@ -57,8 +57,8 @@ sub Run {
         }
     }
 
-    my $SearchChildObject      = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $IndexSearchObject      = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Config}->{IndexName}");
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Config}->{IndexName}");
     my $ObjectIdentifierColumn = $IndexSearchObject->{Config}->{Identifier};
     my $ObjectIDData           = $Param{Data}->{$ObjectIdentifierColumn};
     my $IndexName              = $IndexSearchObject->{Config}->{IndexName};
@@ -243,7 +243,7 @@ sub _LinkedTablesArticleAction {
         if ($IsValid) {
             $ValidIndexes{$IndexRealName} = $IsValid;
             $ValidIndexes{Modules}{$IndexRealName}
-                = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
+                = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{IndexName}");
         }
     }
 

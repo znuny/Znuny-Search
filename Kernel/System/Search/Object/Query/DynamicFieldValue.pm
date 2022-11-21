@@ -15,9 +15,11 @@ use parent qw( Kernel::System::Search::Object::Query );
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
-    'Kernel::System::Search::Object::DynamicFieldValue',
+    'Kernel::System::Search::Object::Default::DynamicFieldValue',
     'Kernel::System::Log',
     'Kernel::System::Ticket',
+    'Kernel::System::DynamicField',
+    'Kernel::System::DynamicField::Backend',
 );
 
 =head1 NAME
@@ -43,7 +45,7 @@ sub new {
 
     my $Self = {};
 
-    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::DynamicFieldValue');
+    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::DynamicFieldValue');
 
     # get index specified fields
     $Self->{IndexFields}               = $IndexObject->{Fields};
@@ -65,6 +67,7 @@ create query for specified operation
     my $Result = $SearchQueryObject->ObjectIndexAdd(
         MappingObject   => $Config,
         ObjectID        => $ObjectID,
+        QueryParams     => $QueryParams,
     );
 
 =cut
@@ -102,7 +105,7 @@ sub ObjectIndexAdd {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
     my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
@@ -123,11 +126,16 @@ sub ObjectIndexAdd {
 
     return if !IsArrayRefWithData($SQLSearchResult);
 
+    $SQLSearchResult = $Self->_PrepareDFSQLResponse(
+        SQLSearchResult => $SQLSearchResult,
+        Index           => $Param{Index},
+    );
+
     for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {
         for my $Row ( @{$SQLSearchResult} ) {
             my $Value = delete $Row->{ $IndexObject->{Config}->{AdditionalOTRSFields}->{$ValueColumn}->{ColumnName} };
             $Row->{value} = $Value if defined $Value;
-            $Row->{_ID}   = $Row->{field_id} . $Row->{object_id};
+            $Row->{_ID}   = 'f' . $Row->{field_id} . 'o' . $Row->{object_id};
         }
     }
 
@@ -182,7 +190,7 @@ sub ObjectIndexSet {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
     my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
@@ -203,13 +211,10 @@ sub ObjectIndexSet {
 
     return if !IsArrayRefWithData($SQLSearchResult);
 
-    for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {
-        for my $Row ( @{$SQLSearchResult} ) {
-            my $Value = delete $Row->{ $IndexObject->{Config}->{AdditionalOTRSFields}->{$ValueColumn}->{ColumnName} };
-            $Row->{value} = $Value if defined $Value;
-            $Row->{_ID}   = $Row->{field_id} . $Row->{object_id};
-        }
-    }
+    $SQLSearchResult = $Self->_PrepareDFSQLResponse(
+        SQLSearchResult => $SQLSearchResult,
+        Index           => $Param{Index},
+    );
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexSet(
@@ -251,7 +256,7 @@ sub ObjectIndexRemove {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
     my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
@@ -310,4 +315,73 @@ sub IndexMappingSet {
     );
 }
 
+=head2 _PrepareDFSQLResponse()
+
+prepare dynamic field sql search response to be converted for de-normalized data
+
+    my $SQLSearchResult = $SearchQueryObject->_PrepareDFSQLResponse(
+        SQLSearchResult => $SQLSearchResult
+    );
+
+=cut
+
+sub _PrepareDFSQLResponse {
+    my ( $Self, %Param ) = @_;
+
+    my $SQLSearchResult = $Param{SQLSearchResult};
+    my $IndexObject     = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
+
+    # get all dynamic fields types to identify if response should contain array or scalar
+    my %DynamicFieldTypes = map { $_->{field_id} => 1 } @{$SQLSearchResult};
+
+    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+
+    for my $DynamicFieldID ( sort keys %DynamicFieldTypes ) {
+        my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
+            ID => $DynamicFieldID,
+        );
+
+        my $DynamicFieldColumnName = 'DynamicField_' . $DynamicFieldConfig->{Name};
+
+        my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
+            DynamicFieldConfig => $DynamicFieldConfig,
+            FieldType          => 'Edit',
+        );
+
+        $DynamicFieldTypes{$DynamicFieldID} = $FieldValueType->{$DynamicFieldColumnName};
+    }
+
+    for my $Row ( @{$SQLSearchResult} ) {
+        for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {
+            my $Value = delete $Row->{ $IndexObject->{Config}->{AdditionalOTRSFields}->{$ValueColumn}->{ColumnName} };
+            $Row->{value} = $Value if defined $Value;
+            $Row->{_ID}   = 'f' . $Row->{field_id} . 'o' . $Row->{object_id};
+        }
+    }
+
+    my %RowArray;
+    my $Counter = 0;
+
+    # convert array type of dynamic fields to an array response value
+    for my $Row ( @{$SQLSearchResult} ) {
+        my $RowID = $Row->{_ID};
+        if ( $DynamicFieldTypes{ $Row->{field_id} } && $DynamicFieldTypes{ $Row->{field_id} } eq 'ARRAY' ) {
+            if ( defined $RowArray{$RowID} ) {
+                push @{ $SQLSearchResult->[ $RowArray{$RowID} ]->{value} }, $Row->{value};
+                delete $SQLSearchResult->[$Counter];
+            }
+            else {
+                $Row->{value} = [ $Row->{value} ];
+                $RowArray{$RowID} = $Counter;
+            }
+        }
+        $Counter++;
+    }
+
+    # clear response from undefined values that was deleted above
+    @{$SQLSearchResult} = grep {$_} @{$SQLSearchResult};
+
+    return $SQLSearchResult;
+}
 1;

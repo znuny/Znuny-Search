@@ -72,7 +72,7 @@ sub Search {
     } if !$Param{MappingObject};
 
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
-    my $ParamSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
+    my $ParamSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
 
     if ( IsArrayRefWithData( $Param{AdvancedQueryParams} ) ) {
 
@@ -195,7 +195,7 @@ sub ObjectIndexAdd {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
     my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
@@ -259,7 +259,7 @@ sub ObjectIndexSet {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
     my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
@@ -323,7 +323,7 @@ sub ObjectIndexUpdate {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
     my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
@@ -375,7 +375,7 @@ sub ObjectIndexRemove {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
     my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
@@ -645,15 +645,25 @@ sub _QueryParamSet {
     my $Name  = $Param{Name};
     my $Value = $Param{Value};
 
-    # check if there is existing mapping between query param and database column
-    return if !$Self->{IndexFields}->{$Name} && !$Param{NoMappingCheck};
+    # check if query param should pass
+    return if !$Self->_QueryFieldCheck(
+        Name           => $Name,
+        Value          => $Value,
+        NoMappingCheck => $Param{NoMappingCheck},
+    );
+
+    my $ReturnType = $Self->_QueryFieldReturnTypeSet(
+        Name => $Name,
+    );
+
     my @Operators;
 
     if ( ref $Value eq "HASH" ) {
         @Operators = (
             {
-                Operator => $Value->{Operator} || '=',
-                Value    => $Value->{Value},
+                Operator   => $Value->{Operator} || '=',
+                Value      => $Value->{Value},
+                ReturnType => $ReturnType,
             }
         );
     }
@@ -663,18 +673,59 @@ sub _QueryParamSet {
         ref $Value->[0] eq 'HASH'
         )
     {
+        for my $Value ( @{$Value} ) {
+            $Value->{ReturnType} = $ReturnType;
+        }
         @Operators = @{$Value};
     }
     else {
         @Operators = (
             {
-                Operator => '=',
-                Value    => $Value,
+                Operator   => '=',
+                Value      => $Value,
+                ReturnType => $ReturnType,
             }
         );
     }
 
     return @Operators;
+}
+
+=head2 _QueryFieldCheck()
+
+check specified field for index
+
+    my $Result = $SearchQueryObject->_QueryFieldCheck(
+        Name => 'SLAID',
+        Value => '1', # by default value is passed but is not used
+                      # in standard query module
+    );
+
+=cut
+
+sub _QueryFieldCheck {
+    my ( $Self, %Param ) = @_;
+
+    # by default check if field is in index fields and mapping check is enabled
+    return if !$Self->{IndexFields}->{ $Param{Name} } && !$Param{NoMappingCheck};
+    return 1;
+}
+
+=head2 _QueryFieldReturnTypeSet()
+
+check specified return type field for index
+
+    my $Result = $SearchQueryObject->_QueryFieldReturnTypeSet(
+        Name => 'SLAID',
+    );
+
+=cut
+
+sub _QueryFieldReturnTypeSet {
+    my ( $Self, %Param ) = @_;
+
+    # return type is either specified or scalar
+    return $Self->{IndexFields}->{ $Param{Name} }->{ReturnType} || 'SCALAR';
 }
 
 =head2 _QueryAdvancedParamsBuild()

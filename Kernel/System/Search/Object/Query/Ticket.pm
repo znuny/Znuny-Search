@@ -16,8 +16,10 @@ use Kernel::System::VariableCheck qw(:all);
 use parent qw( Kernel::System::Search::Object::Query );
 
 our @ObjectDependencies = (
-    'Kernel::System::Search::Object::Ticket',
+    'Kernel::System::Search::Object::Default::Ticket',
     'Kernel::System::Log',
+    'Kernel::System::DynamicField',
+    'Kernel::System::DynamicField::Backend',
 );
 
 =head1 NAME
@@ -43,7 +45,7 @@ sub new {
 
     my $Self = {};
 
-    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Ticket');
+    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
 
     # get index specified fields
     $Self->{IndexFields}               = $IndexObject->{Fields};
@@ -142,6 +144,61 @@ sub Search {
         QueryParams      => $Param{QueryParams},
         SortBy           => $SortBy,
     );
+}
+
+=head2 _QueryFieldCheck()
+
+check specified field for index
+
+    my $Result = $SearchQueryObject->_QueryFieldCheck(
+        Name => 'SLAID',
+        Value => '1', # by default value is passed but is not used
+                      # in standard query module
+    );
+
+=cut
+
+sub _QueryFieldCheck {
+    my ( $Self, %Param ) = @_;
+
+    return 1 if $Param{Name} =~ /DynamicField_+/;
+
+    # by default check if field is in index fields and mapping check is enabled
+    return if !$Self->{IndexFields}->{ $Param{Name} } && !$Param{NoMappingCheck};
+    return 1;
+}
+
+=head2 _QueryFieldReturnTypeSet()
+
+check specified return type field for index
+
+    my $Result = $SearchQueryObject->_QueryFieldReturnTypeSet(
+        Name => 'SLAID',
+    );
+
+=cut
+
+sub _QueryFieldReturnTypeSet {
+    my ( $Self, %Param ) = @_;
+
+    if ( $Param{Name} =~ /DynamicField_(.+)/ ) {
+        my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+        my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+
+        my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
+            Name => $1,
+        );
+
+        my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
+            DynamicFieldConfig => $DynamicFieldConfig,
+            FieldType          => 'Edit',
+        );
+
+        return $FieldValueType->{"DynamicField_$1"} || 'SCALAR';
+    }
+
+    # return type is either specified or scalar
+    return $Self->{IndexFields}->{ $Param{Name} }->{ReturnType} || 'SCALAR';
 }
 
 1;

@@ -14,7 +14,7 @@ use warnings;
 use parent qw( Kernel::System::Search::Object::Query );
 
 our @ObjectDependencies = (
-    'Kernel::System::Search::Object::DynamicField',
+    'Kernel::System::Search::Object::Default::DynamicField',
 );
 
 =head1 NAME
@@ -40,7 +40,7 @@ sub new {
 
     my $Self = {};
 
-    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::DynamicField');
+    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::DynamicField');
 
     # get index specified fields
     $Self->{IndexFields}               = $IndexObject->{Fields};

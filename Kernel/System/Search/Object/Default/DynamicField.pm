@@ -6,12 +6,13 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::TicketHistory;
+package Kernel::System::Search::Object::Default::DynamicField;
 
 use strict;
 use warnings;
 
 use parent qw( Kernel::System::Search::Object::Base );
+use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::System::Main',
@@ -20,7 +21,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::TicketHistory - common base backend functions for specified object
+Kernel::System::Search::Object::Default::DynamicField - common base backend functions for specified object
 
 =head1 DESCRIPTION
 
@@ -33,7 +34,7 @@ for fallback or separate engine.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchTicketHistoryObject = $Kernel::OM->Get('Kernel::System::Search::Object::TicketHistory');
+    my $SearchDynamicFieldObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::DynamicField');
 
 =cut
 
@@ -50,64 +51,60 @@ sub new {
     $Self->{Engine} = $SearchObject->{Config}->{ActiveEngine} || 'ES';
 
     my $Loaded = $MainObject->Require(
-        "Kernel::System::Search::Object::Engine::$Self->{Engine}::TicketHistory",
+        "Kernel::System::Search::Object::Engine::$Self->{Engine}::DynamicField",
         Silent => 1,
     );
 
-    return $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Engine}::TicketHistory") if $Loaded;
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Engine::$Self->{Engine}::DynamicField") if $Loaded;
 
-    $Self->{Module} = "Kernel::System::Search::Object::TicketHistory";
+    $Self->{Module} = "Kernel::System::Search::Object::Default::DynamicField";
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'ticket_history',     # index name on the engine/sql side
-        IndexName     => 'TicketHistory',      # index name on the api side
-        Identifier    => 'TicketHistoryID',    # column name that represents object id in the field mapping
+        IndexRealName => 'dynamic_field',    # index name on the engine/sql side
+        IndexName     => 'DynamicField',     # index name on the api side
+        Identifier    => 'ID',               # column name that represents object id in the field mapping
     };
 
     # define schema for data
     my $FieldMapping = {
-        TicketHistoryID => {
+        ID => {
             ColumnName => 'id',
+            Type       => 'Integer'
+        },
+        InternalField => {
+            ColumnName => 'internal_field',
             Type       => 'Integer'
         },
         Name => {
             ColumnName => 'name',
             Type       => 'String'
         },
-        HistoryTypeID => {
-            ColumnName => 'history_type_id',
+        Label => {
+            ColumnName => 'label',
+            Type       => 'String'
+        },
+        FieldOrder => {
+            ColumnName => 'field_order',
             Type       => 'Integer'
         },
-        TicketID => {
-            ColumnName => 'ticket_id',
+        FieldType => {
+            ColumnName => 'field_type',
+            Type       => 'String'
+        },
+        ObjectType => {
+            ColumnName => 'object_type',
+            Type       => 'String'
+        },
+        Config => {
+            ColumnName => 'config',
+            Type       => 'String'
+        },
+        ValidID => {
+            ColumnName => 'valid_id',
             Type       => 'Integer'
         },
-        ArticleID => {
-            ColumnName => 'article_id',
-            Type       => 'Integer'
-        },
-        TypeID => {
-            ColumnName => 'type_id',
-            Type       => 'Integer'
-        },
-        QueueID => {
-            ColumnName => 'queue_id',
-            Type       => 'Integer'
-        },
-        OwnerID => {
-            ColumnName => 'owner_id',
-            Type       => 'Integer'
-        },
-        PriorityID => {
-            ColumnName => 'priority_id',
-            Type       => 'Integer'
-        },
-        StateID => {
-            ColumnName => 'state_id',
-            Type       => 'Integer'
-        },
-        Created => {
+        CreateTime => {
             ColumnName => 'create_time',
             Type       => 'Date'
         },
@@ -115,7 +112,7 @@ sub new {
             ColumnName => 'create_by',
             Type       => 'Integer'
         },
-        Changed => {
+        ChangeTime => {
             ColumnName => 'change_time',
             Type       => 'Date'
         },
@@ -133,6 +130,7 @@ sub new {
         Fields => $FieldMapping,
         Config => $Self->{Config},
     );
+
     return $Self;
 }
 

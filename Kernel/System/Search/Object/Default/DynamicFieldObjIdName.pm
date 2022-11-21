@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::DynamicFieldObjIdName;
+package Kernel::System::Search::Object::Default::DynamicFieldObjIdName;
 
 use strict;
 use warnings;
@@ -21,7 +21,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::DynamicFieldObjIdName - common base backend functions for specified object
+Kernel::System::Search::Object::Default::DynamicFieldObjIdName - common base backend functions for specified object
 
 =head1 DESCRIPTION
 
@@ -34,7 +34,7 @@ for fallback or separate engine.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchDynamicFieldObjIdNameObject = $Kernel::OM->Get('Kernel::System::Search::Object::DynamicFieldObjIdName');
+    my $SearchDynamicFieldObjIdNameObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::DynamicFieldObjIdName');
 
 =cut
 
@@ -55,9 +55,10 @@ sub new {
         Silent => 1,
     );
 
-    return $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Engine}::DynamicFieldObjIdName") if $Loaded;
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Engine::$Self->{Engine}::DynamicFieldObjIdName")
+        if $Loaded;
 
-    $Self->{Module} = "Kernel::System::Search::Object::DynamicFieldObjIdName";
+    $Self->{Module} = "Kernel::System::Search::Object::Default::DynamicFieldObjIdName";
 
     # specify base config for index
     $Self->{Config} = {

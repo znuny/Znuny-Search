@@ -81,6 +81,7 @@ sub OperatorQueryGet {
         Field              => $Param{Field},
         Value              => $Param{Value},
         Fallback           => $Param{Fallback},
+        ReturnType         => $Param{ReturnType},
         OperatorModuleName => $IndexModule->{IndexOperatorMapping}->{ $Param{Operator} }
     );
 

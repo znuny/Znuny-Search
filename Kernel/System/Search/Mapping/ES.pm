@@ -77,7 +77,7 @@ sub Search {
         # instead it will be "fields"
         $Body{_source} = "false";
         $QueryPath .= '_search';
-        @{ $Body{fields} } = @{ $Param{Fields} };
+        @{ $Body{fields} } = keys %{ $Param{Fields} };
 
         # set sorting field
         if ( $Param{SortBy} ) {
@@ -134,7 +134,7 @@ process advanced query data to structure that will be used to execute query
 sub AdvancedSearch {
     my ( $Self, %Param ) = @_;
 
-    my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
+    my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
     my $SQLQuery          = $SearchIndexObject->SQLObjectSearch(
         QueryParams         => $Param{QueryParams},
         AdvancedQueryParams => $Param{AdvancedQueryParams},
@@ -257,7 +257,7 @@ sub ObjectIndexAdd {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
 
     # workaround for elastic search date validation
     # this issue won't be fully supported for now
@@ -359,7 +359,7 @@ sub ObjectIndexSet {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
 
     # workaround for elastic search date validation
     # this issue won't be fully supported for now
@@ -462,7 +462,7 @@ sub ObjectIndexUpdate {
         return;
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
 
     my $IndexConfig = $IndexObject->{Config};
 
@@ -539,7 +539,7 @@ sub ObjectIndexRemove {
         );
     }
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
 
     my $Refresh = {};
 
@@ -740,7 +740,7 @@ returns query for engine to clear whole index from objects
 sub IndexClear {
     my ( $Self, %Param ) = @_;
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
 
     my $Refresh = {};
 
@@ -1031,7 +1031,7 @@ sub IndexMappingGetFormat {
 
     return if !$Success;
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Index}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Response    = $Param{Response};
     my $Properties  = $Response->{ $IndexObject->{Config}->{IndexRealName} }->{mappings}->{properties} || {};
 
@@ -1222,7 +1222,11 @@ sub _ResponseDataFormat {
 
     if ( IsArrayRefWithData( $Param{Result}->{hits}->{hits} ) ) {
         my $Hits   = $Param{Result}->{hits}->{hits};
-        my @Fields = @{ $Param{Fields} };
+        my @Fields = keys %{ $Param{Fields} };
+
+        # filter scalar/array fields by return type
+        my @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ /ARRAY|HASH/ } @Fields;
+        my @ArrayFields  = grep { $Param{Fields}->{$_}->{ReturnType} eq 'ARRAY' } @Fields;
 
         # when specified fields are filtered response
         # contains them inside "fields" key
@@ -1230,14 +1234,23 @@ sub _ResponseDataFormat {
         {
             for my $Hit ( @{$Hits} ) {
                 my %Data;
-                for my $Field (@Fields) {
+
+                # get proper data for scalar/hash/arrays from response
+                for my $Field (@ScalarFields) {
                     $Data{$Field} = $Hit->{fields}->{$Field}->[0];
+                }
+                for my $Field (@ArrayFields) {
+                    $Data{$Field} = $Hit->{fields}->{$Field};
                 }
                 push @Objects, \%Data;
             }
         }
 
         # ES engine response stores objects inside "_source" key by default
+        # this method of retrieving data may not work correctly as it was
+        # used initially however there is a possibility to create query
+        # using this method so for compatibility&test reasons this will
+        # be still available and improved further
         elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
             for my $Hit ( @{$Hits} ) {
                 push @Objects, $Hit->{_source};
@@ -1283,10 +1296,11 @@ sub _BuildQueryBodyFromParams {
             my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
 
             my $Result = $OperatorModule->OperatorQueryGet(
-                Field    => $Param{FieldsDefinition}->{$FieldName}->{ColumnName},
-                Value    => $OperatorValue,
-                Operator => $OperatorData->{Operator},
-                Object   => $Param{Object},
+                Field      => $Param{FieldsDefinition}->{$FieldName}->{ColumnName} || $FieldName,
+                ReturnType => $OperatorData->{ReturnType},
+                Value      => $OperatorValue,
+                Operator   => $OperatorData->{Operator},
+                Object     => $Param{Object},
             );
 
             my $Query = $Result->{Query};

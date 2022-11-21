@@ -17,7 +17,7 @@ our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
     'Kernel::System::DynamicField',
-    'Kernel::System::DynamicFieldValue',
+    'Kernel::System::DynamicField::Backend',
 );
 
 sub new {
@@ -55,41 +55,70 @@ sub Run {
         }
     }
 
-    my $SearchObject            = $Kernel::OM->Get('Kernel::System::Search');
-    my $DynamicFieldObject      = $Kernel::OM->Get('Kernel::System::DynamicField');
-    my $DynamicFieldValueObject = $Kernel::OM->Get('Kernel::System::DynamicFieldValue');
+    my $SearchObject              = $Kernel::OM->Get('Kernel::System::Search');
+    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
 
     return if $SearchObject->{Fallback};
 
-    my $DynamicField = $DynamicFieldObject->DynamicFieldGet(
+    # get dynamic field
+    my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
         Name => $Param{Data}->{FieldName},
     );
 
-    my $DynamicFieldValue = $DynamicFieldValueObject->ValueGet(
-        FieldID  => $DynamicField->{ID},
-        ObjectID => $Param{Data}->{ $Param{Config}->{Field} }
+    # get type of data that are stored in db
+    my $FieldValueTypeGet = $DynamicFieldBackendObject->TemplateValueTypeGet(
+        DynamicFieldConfig => $DynamicFieldConfig,
+        FieldType          => 'Edit',
     );
+    my $FieldValueType = $FieldValueTypeGet->{ 'DynamicField_' . $DynamicFieldConfig->{Name} };
 
     my $FunctionName = $Param{Config}->{FunctionName};
 
-    if ( $Param{Data}->{OldValue} && !$Param{Data}->{Value} ) {
+    # array & scalar fields support
+    if (
+        ( $Param{Data}->{OldValue} && !( $Param{Data}->{Value} ) )
+        ||
+        (
+            $FieldValueType
+            && $FieldValueType eq 'ARRAY'
+            && IsArrayRefWithData( $Param{Data}->{OldValue} )
+            && !IsArrayRefWithData( $Param{Data}->{Value} )
+        )
+        )
+    {
+        # dynamic_field_value removal is problematic as otrs won't send here
+        # id of record to delete, so instead custom id is defined for
+        # advanced search engine
         $SearchObject->ObjectIndexRemove(
             Index => 'DynamicFieldValue',
 
-            # use ticket id from data in case value has been deleted
+            # use customized id which contains of "f*field_id*o*object_id*"
             QueryParams => {
-                _id => $DynamicField->{ID} . $Param{Data}->{TicketID},
+                _id => 'f' . $DynamicFieldConfig->{ID} . 'o' . $Param{Data}->{TicketID},
             },
+        );
+
+        # update "Ticket" index as it also have dynamic fields as denormalized values
+        $SearchObject->ObjectIndexSet(
+            Index    => 'Ticket',
+            ObjectID => $Param{Data}->{TicketID},
         );
 
         return 1;
     }
 
     $SearchObject->$FunctionName(
-        Index => 'DynamicFieldValue',
+        Index       => 'DynamicFieldValue',
+        QueryParams => {
+            FieldID  => $DynamicFieldConfig->{ID},
+            ObjectID => $Param{Data}->{TicketID},
+        },
+    );
 
-        # use ticket id from data in case value has been deleted
-        ObjectID => $DynamicFieldValue->[0]->{ID},
+    $SearchObject->ObjectIndexSet(
+        Index    => 'Ticket',
+        ObjectID => $Param{Data}->{TicketID},
     );
 
     return 1;

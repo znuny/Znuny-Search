@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::DynamicField;
+package Kernel::System::Search::Object::Default::DynamicFieldValue;
 
 use strict;
 use warnings;
@@ -21,7 +21,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::DynamicField - common base backend functions for specified object
+Kernel::System::Search::Object::Default::DynamicFieldValue - common base backend functions for specified object
 
 =head1 DESCRIPTION
 
@@ -34,7 +34,7 @@ for fallback or separate engine.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchDynamicFieldObject = $Kernel::OM->Get('Kernel::System::Search::Object::DynamicField');
+    my $SearchDynamicFieldValueObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::DynamicFieldValue');
 
 =cut
 
@@ -51,19 +51,19 @@ sub new {
     $Self->{Engine} = $SearchObject->{Config}->{ActiveEngine} || 'ES';
 
     my $Loaded = $MainObject->Require(
-        "Kernel::System::Search::Object::Engine::$Self->{Engine}::DynamicField",
+        "Kernel::System::Search::Object::$Self->{Engine}::DynamicFieldValue",
         Silent => 1,
     );
 
-    return $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Engine}::DynamicField") if $Loaded;
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Engine::$Self->{Engine}::DynamicFieldValue") if $Loaded;
 
-    $Self->{Module} = "Kernel::System::Search::Object::DynamicField";
+    $Self->{Module} = "Kernel::System::Search::Object::Default::DynamicFieldValue";
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'dynamic_field',    # index name on the engine/sql side
-        IndexName     => 'DynamicField',     # index name on the api side
-        Identifier    => 'ID',               # column name that represents object id in the field mapping
+        IndexRealName => 'dynamic_field_value',    # index name on the engine/sql side
+        IndexName     => 'DynamicFieldValue',      # index name on the api side
+        Identifier    => 'ID',                     # column name that represents object id in the field mapping
     };
 
     # define schema for data
@@ -72,54 +72,34 @@ sub new {
             ColumnName => 'id',
             Type       => 'Integer'
         },
-        InternalField => {
-            ColumnName => 'internal_field',
+        ObjectID => {
+            ColumnName => 'object_id',
             Type       => 'Integer'
         },
-        Name => {
-            ColumnName => 'name',
+        FieldID => {
+            ColumnName => 'field_id',
             Type       => 'String'
         },
-        Label => {
-            ColumnName => 'label',
+        Value => {
+            ColumnName => 'value',
+            Type       => 'String',
+            ReturnType => 'ARRAY',
+        },
+    };
+
+    $Self->{Config}->{AdditionalOTRSFields} = {
+        ValueText => {
+            ColumnName => 'value_text',
             Type       => 'String'
         },
-        FieldOrder => {
-            ColumnName => 'field_order',
-            Type       => 'Integer'
-        },
-        FieldType => {
-            ColumnName => 'field_type',
+        ValueDate => {
+            ColumnName => 'value_date',
             Type       => 'String'
         },
-        ObjectType => {
-            ColumnName => 'object_type',
+        ValueInt => {
+            ColumnName => 'value_int',
             Type       => 'String'
-        },
-        Config => {
-            ColumnName => 'config',
-            Type       => 'String'
-        },
-        ValidID => {
-            ColumnName => 'valid_id',
-            Type       => 'Integer'
-        },
-        CreateTime => {
-            ColumnName => 'create_time',
-            Type       => 'Date'
-        },
-        CreateBy => {
-            ColumnName => 'create_by',
-            Type       => 'Integer'
-        },
-        ChangeTime => {
-            ColumnName => 'change_time',
-            Type       => 'Date'
-        },
-        ChangeBy => {
-            ColumnName => 'change_by',
-            Type       => 'Integer'
-        },
+        }
     };
 
     # get default config
