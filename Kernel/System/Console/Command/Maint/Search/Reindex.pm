@@ -186,7 +186,7 @@ sub Run {
                 next OBJECT_LOAD;
             }
 
-            my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$IndexName");
+            my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
 
             $IndexObject->{Index} = $IndexName;
 
@@ -270,8 +270,9 @@ sub Run {
                 );
 
                 if ( !$RemoteExists ) {
-                    my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Object->{Index}");
-                    my $IndexRealName     = $SearchIndexObject->{Config}->{IndexRealName};
+                    my $SearchIndexObject
+                        = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Object->{Index}");
+                    my $IndexRealName = $SearchIndexObject->{Config}->{IndexRealName};
 
                     $Self->Print(
                         "<yellow>$Object->{Index} index is valid on otrs backend side, but does not exists on the search engine.\n"

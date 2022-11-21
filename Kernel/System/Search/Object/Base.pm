@@ -101,6 +101,222 @@ sub Fallback {
     return $Result;
 }
 
+=head2 ObjectIndexAdd()
+
+add object for specified index
+
+    my $Success = $SearchObject->ObjectIndexAdd(
+        Index    => 'Ticket',
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
+    );
+
+=cut
+
+sub ObjectIndexAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchChildObject->QueryPrepare(
+        %Param,
+        Operation     => 'ObjectIndexAdd',
+        Config        => $Param{Config},
+        MappingObject => $Param{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        %Param,
+        Operation     => 'ObjectIndexAdd',
+        Query         => $PreparedQuery,
+        ConnectObject => $Param{ConnectObject},
+        Config        => $Param{Config},
+    );
+
+    return $Param{MappingObject}->ObjectIndexAddFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Param{Config},
+    );
+}
+
+=head2 ObjectIndexSet()
+
+set (update if exists or create if not exists) object for specified index
+
+    my $Success = $SearchObject->ObjectIndexSet(
+        Index    => "Ticket",
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
+    );
+
+=cut
+
+sub ObjectIndexSet {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchChildObject->QueryPrepare(
+        %Param,
+        Operation     => "ObjectIndexSet",
+        Config        => $Param{Config},
+        MappingObject => $Param{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        %Param,
+        Operation     => "ObjectIndexSet",
+        Query         => $PreparedQuery,
+        ConnectObject => $Param{ConnectObject},
+        Config        => $Param{Config},
+    );
+
+    return $Param{MappingObject}->ObjectIndexSetFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Param{Config},
+    );
+}
+
+=head2 ObjectIndexUpdate()
+
+update object for specified index
+
+    my $Success = $SearchObject->ObjectIndexUpdate(
+        Index => "Ticket",
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
+    );
+
+=cut
+
+sub ObjectIndexUpdate {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "ObjectIndexUpdate",
+        Config        => $Param{Config},
+        MappingObject => $Param{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "ObjectIndexUpdate",
+        ConnectObject => $Param{ConnectObject},
+        Config        => $Param{Config},
+    );
+
+    return $Param{MappingObject}->ObjectIndexUpdateFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Param{Config},
+    );
+}
+
+=head2 ObjectIndexRemove()
+
+remove object for specified index
+
+    my $Success = $SearchObject->ObjectIndexRemove(
+        Index => "Ticket",
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
+    );
+
+=cut
+
+sub ObjectIndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "ObjectIndexRemove",
+        Config        => $Param{Config},
+        MappingObject => $Param{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "ObjectIndexRemove",
+        ConnectObject => $Param{ConnectObject},
+        Config        => $Param{Config},
+    );
+
+    return $Param{MappingObject}->ObjectIndexRemoveFormat(
+        %Param,
+        Response => $Response,
+        Config   => $Param{Config},
+    );
+}
+
 =head2 SQLObjectSearch()
 
 search in sql database for objects index related
@@ -340,7 +556,7 @@ sub SearchFormat {
     }
 
     my $IndexResponse;
-    my @AttributeNames = @{ $Param{Fields} };
+    my @AttributeNames = keys %{ $Param{Fields} };
 
     my @ColumnNames;
     for my $FieldName (@AttributeNames) {
@@ -393,42 +609,6 @@ sub SearchFormat {
     return $IndexResponse;
 }
 
-=head2 ObjectIndexGetFormat()
-
-=cut
-
-sub ObjectIndexGetFormat {
-    my ( $Self, %Param ) = @_;
-    return {};
-}
-
-=head2 ObjectIndexAddFormat()
-
-=cut
-
-sub ObjectIndexAddFormat {
-    my ( $Self, %Param ) = @_;
-    return {};
-}
-
-=head2 ObjectIndexRemoveFormat()
-
-=cut
-
-sub ObjectIndexRemoveFormat {
-    my ( $Self, %Param ) = @_;
-    return {};
-}
-
-=head2 ObjectIndexUpdateFormat()
-
-=cut
-
-sub ObjectIndexUpdateFormat {
-    my ( $Self, %Param ) = @_;
-    return {};
-}
-
 =head2 ObjectListIDs()
 
 return all sql data of object ids
@@ -440,7 +620,7 @@ return all sql data of object ids
 sub ObjectListIDs {
     my ( $Self, %Param ) = @_;
 
-    my $IndexObject   = $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Config}->{IndexName}");
+    my $IndexObject   = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Self->{Config}->{IndexName}");
     my $Identifier    = $IndexObject->{Config}->{Identifier};
     my $IdentifierSQL = $IndexObject->{Fields}->{$Identifier}->{ColumnName};
 

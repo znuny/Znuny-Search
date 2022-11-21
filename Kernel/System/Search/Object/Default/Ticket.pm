@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::Ticket;
+package Kernel::System::Search::Object::Default::Ticket;
 
 use strict;
 use warnings;
@@ -21,7 +21,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::Ticket - common base backend functions for specified object
+Kernel::System::Search::Object::Default::Ticket - common base backend functions for specified object
 
 =head1 DESCRIPTION
 
@@ -34,7 +34,7 @@ for fallback or separate engine.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Ticket');
+    my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
 
 =cut
 
@@ -57,7 +57,7 @@ sub new {
 
     return $Kernel::OM->Get("Kernel::System::Search::Object::Engine::$Self->{Engine}::Ticket") if $Loaded;
 
-    $Self->{Module} = "Kernel::System::Search::Object::Ticket";
+    $Self->{Module} = "Kernel::System::Search::Object::Default::Ticket";
 
     # specify base config for index
     $Self->{Config} = {

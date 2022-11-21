@@ -58,7 +58,7 @@ sub Run {
         }
     }
 
-    my $TicketHistoryObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Config}->{IndexName}");
+    my $TicketHistoryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Config}->{IndexName}");
     my $FunctionName        = $Param{Config}->{FunctionName};
     my $TicketID            = $Param{Data}->{TicketID};
 

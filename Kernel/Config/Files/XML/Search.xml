@@ -246,7 +246,7 @@
         <Navigation>Core::Search::Ticket</Navigation>
         <Value>
             <Hash>
-                <Item Key="Module">Kernel::System::Search::Object::Ticket::CustomPackage</Item>
+                <Item Key="Module">Kernel::System::Search::Object::Extensions::Ticket::CustomPackage</Item>
             </Hash>
         </Value>
     </Setting>

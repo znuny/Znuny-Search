@@ -244,8 +244,7 @@ sub Search {
 
     for my $Object ( sort keys %StandardizedObjectParams ) {
 
-        my $Module      = "Kernel::System::Search::Object::$Object";
-        my $IndexObject = $Kernel::OM->Get($Module);
+        my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Object");
 
         if ( exists &{"$IndexObject->{Module}::Search"} ) {
             my $IndexSearch = $IndexObject->Search(
@@ -277,6 +276,7 @@ sub Search {
         %IndexResponse
     } if $Self->{Fallback}
         || $Param{UseSQLSearch};
+
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
     # prepare query for engine
@@ -375,7 +375,7 @@ sub Search {
 add object for specified index
 
     my $Success = $SearchObject->ObjectIndexAdd(
-        Index    => "Ticket",
+        Index    => 'Ticket',
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
@@ -399,7 +399,6 @@ sub ObjectIndexAdd {
     my ( $Self, %Param ) = @_;
 
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
     NEEDED:
@@ -416,27 +415,12 @@ sub ObjectIndexAdd {
 
     return if $Self->{Fallback};
 
-    my $PreparedQuery = $SearchObject->QueryPrepare(
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->ObjectIndexAdd(
         %Param,
-        Operation     => "ObjectIndexAdd",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
-    );
-
-    return if !$PreparedQuery;
-
-    my $Response = $Self->{EngineObject}->QueryExecute(
-        %Param,
-        Operation     => "ObjectIndexAdd",
-        Query         => $PreparedQuery,
+        EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
-        Config        => $Self->{Config},
-    );
-
-    return $Self->{MappingObject}->ObjectIndexAddFormat(
-        %Param,
-        Response => $Response,
-        Config   => $Self->{Config},
     );
 }
 
@@ -486,27 +470,12 @@ sub ObjectIndexSet {
 
     return if $Self->{Fallback};
 
-    my $PreparedQuery = $SearchChildObject->QueryPrepare(
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->ObjectIndexSet(
         %Param,
-        Operation     => "ObjectIndexSet",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
-    );
-
-    return if !$PreparedQuery;
-
-    my $Response = $Self->{EngineObject}->QueryExecute(
-        %Param,
-        Operation     => "ObjectIndexSet",
-        Query         => $PreparedQuery,
+        EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
-        Config        => $Self->{Config},
-    );
-
-    return $Self->{MappingObject}->ObjectIndexSetFormat(
-        %Param,
-        Response => $Response,
-        Config   => $Self->{Config},
     );
 }
 
@@ -554,27 +523,12 @@ sub ObjectIndexUpdate {
 
     return if $Self->{Fallback};
 
-    my $PreparedQuery = $SearchObject->QueryPrepare(
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->ObjectIndexUpdate(
         %Param,
-        Operation     => "ObjectIndexUpdate",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
-    );
-
-    return if !$PreparedQuery;
-
-    my $Response = $Self->{EngineObject}->QueryExecute(
-        %Param,
-        Query         => $PreparedQuery,
-        Operation     => "ObjectIndexUpdate",
+        EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
-        Config        => $Self->{Config},
-    );
-
-    return $Self->{MappingObject}->ObjectIndexUpdateFormat(
-        %Param,
-        Response => $Response,
-        Config   => $Self->{Config},
     );
 }
 
@@ -622,27 +576,12 @@ sub ObjectIndexRemove {
 
     return if $Self->{Fallback};
 
-    my $PreparedQuery = $SearchObject->QueryPrepare(
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->ObjectIndexRemove(
         %Param,
-        Operation     => "ObjectIndexRemove",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
-    );
-
-    return if !$PreparedQuery;
-
-    my $Response = $Self->{EngineObject}->QueryExecute(
-        %Param,
-        Query         => $PreparedQuery,
-        Operation     => "ObjectIndexRemove",
+        EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
-        Config        => $Self->{Config},
-    );
-
-    return $Self->{MappingObject}->ObjectIndexRemoveFormat(
-        %Param,
-        Response => $Response,
-        Config   => $Self->{Config},
     );
 }
 
@@ -1242,7 +1181,7 @@ format response data globally, then format again for index separately
 sub SearchFormat {
     my ( $Self, %Param ) = @_;
 
-    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{IndexName}");
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{IndexName}");
     my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
@@ -1406,13 +1345,14 @@ sub _SearchParamsStandardize {
 
         my $ObjectName = $Objects[$i];
 
-        my @ValidFields = $SearchChildObject->ValidFieldsGet(
-            Fields => $Param{Param}->{Fields}->[$i],
-            Object => $ObjectName,
+        my %ValidFields = $SearchChildObject->ValidFieldsPrepare(
+            Fields      => $Param{Param}->{Fields}->[$i],
+            Object      => $ObjectName,
+            QueryParams => $Param{Param}{QueryParams},
         );
 
-        if ( scalar @ValidFields ) {
-            $ObjectData{ $Param{Param}->{Objects}->[$i] }->{Fields} = \@ValidFields;
+        if ( keys %ValidFields ) {
+            $ObjectData{ $Param{Param}->{Objects}->[$i] }->{Fields} = \%ValidFields;
         }
         else {
             next OBJECT;
