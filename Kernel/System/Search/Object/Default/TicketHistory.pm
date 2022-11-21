@@ -6,13 +6,12 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::Article;
+package Kernel::System::Search::Object::Default::TicketHistory;
 
 use strict;
 use warnings;
 
 use parent qw( Kernel::System::Search::Object::Base );
-use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::System::Main',
@@ -21,7 +20,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::Article - common base backend functions for specified object
+Kernel::System::Search::Object::Default::TicketHistory - common base backend functions for specified object
 
 =head1 DESCRIPTION
 
@@ -34,7 +33,7 @@ for fallback or separate engine.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Article');
+    my $SearchTicketHistoryObject = $Kernel::OM->Get('Kernel::System::Search::Default::Object::TicketHistory');
 
 =cut
 
@@ -51,50 +50,62 @@ sub new {
     $Self->{Engine} = $SearchObject->{Config}->{ActiveEngine} || 'ES';
 
     my $Loaded = $MainObject->Require(
-        "Kernel::System::Search::Object::Engine::$Self->{Engine}::Article",
+        "Kernel::System::Search::Object::Engine::$Self->{Engine}::TicketHistory",
         Silent => 1,
     );
 
-    return $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Engine}::Article") if $Loaded;
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Engine::$Self->{Engine}::TicketHistory") if $Loaded;
 
-    $Self->{Module} = "Kernel::System::Search::Object::Article";
+    $Self->{Module} = "Kernel::System::Search::Object::Default::TicketHistory";
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'article',      # index name on the engine/sql side
-        IndexName     => 'Article',      # index name on the api side
-        Identifier    => 'ArticleID',    # column name that represents object id in the field mapping
+        IndexRealName => 'ticket_history',     # index name on the engine/sql side
+        IndexName     => 'TicketHistory',      # index name on the api side
+        Identifier    => 'TicketHistoryID',    # column name that represents object id in the field mapping
     };
 
     # define schema for data
     my $FieldMapping = {
-        ArticleID => {
+        TicketHistoryID => {
             ColumnName => 'id',
+            Type       => 'Integer'
+        },
+        Name => {
+            ColumnName => 'name',
+            Type       => 'String'
+        },
+        HistoryTypeID => {
+            ColumnName => 'history_type_id',
             Type       => 'Integer'
         },
         TicketID => {
             ColumnName => 'ticket_id',
             Type       => 'Integer'
         },
-        SenderTypeID => {
-            ColumnName => 'article_sender_type_id',
+        ArticleID => {
+            ColumnName => 'article_id',
             Type       => 'Integer'
         },
-        CommunicationChannelID => {
-            ColumnName => 'communication_channel_id',
+        TypeID => {
+            ColumnName => 'type_id',
             Type       => 'Integer'
         },
-        IsVisibleForCustomer => {
-            ColumnName => 'is_visible_for_customer',
+        QueueID => {
+            ColumnName => 'queue_id',
             Type       => 'Integer'
         },
-        SearchIndexNeedsRebuild => {
-            ColumnName => 'search_index_needs_rebuild',
+        OwnerID => {
+            ColumnName => 'owner_id',
             Type       => 'Integer'
         },
-        InsertFingerprint => {
-            ColumnName => 'insert_fingerprint',
-            Type       => 'String'
+        PriorityID => {
+            ColumnName => 'priority_id',
+            Type       => 'Integer'
+        },
+        StateID => {
+            ColumnName => 'state_id',
+            Type       => 'Integer'
         },
         Created => {
             ColumnName => 'create_time',
@@ -122,7 +133,6 @@ sub new {
         Fields => $FieldMapping,
         Config => $Self->{Config},
     );
-
     return $Self;
 }
 

@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::ArticleDataMIME;
+package Kernel::System::Search::Object::Default::ArticleDataMIME;
 
 use strict;
 use warnings;
@@ -21,7 +21,7 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::ArticleDataMIME - common base backend functions for specified object
+Kernel::System::Search::Object::Default::ArticleDataMIME - common base backend functions for specified object
 
 =head1 DESCRIPTION
 
@@ -34,7 +34,7 @@ for fallback or separate engine.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::ArticleDataMIME');
+    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
 
 =cut
 
@@ -55,9 +55,9 @@ sub new {
         Silent => 1,
     );
 
-    return $Kernel::OM->Get("Kernel::System::Search::Object::$Self->{Engine}::ArticleDataMIME") if $Loaded;
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Engine::$Self->{Engine}::ArticleDataMIME") if $Loaded;
 
-    $Self->{Module} = "Kernel::System::Search::Object::ArticleDataMIME";
+    $Self->{Module} = "Kernel::System::Search::Object::Default::ArticleDataMIME";
 
     # specify base config for index
     $Self->{Config} = {

@@ -53,7 +53,7 @@ sub Run {
         }
     }
 
-    my $IndexSearchObject      = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Config}->{IndexName}");
+    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Config}->{IndexName}");
     my $ObjectIdentifierColumn = $IndexSearchObject->{Config}->{Identifier};
 
     if ( !$Param{Data}->{$ObjectIdentifierColumn} ) {

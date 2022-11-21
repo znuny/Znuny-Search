@@ -181,7 +181,7 @@ sub BuildDetailsSection {
     INDEX:
     for my $RegisteredIndex ( sort keys %{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
         my $Loaded = $SearchChildObject->_LoadModule(
-            Module => "Kernel::System::Search::Object::$RegisteredIndex",
+            Module => "Kernel::System::Search::Object::Default::$RegisteredIndex",
             Silent => 1,
         );
         my $IndexObject;
@@ -189,7 +189,7 @@ sub BuildDetailsSection {
 
         # loaded index registration will show real index name
         if ($Loaded) {
-            $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::$RegisteredIndex");
+            $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$RegisteredIndex");
             $IndexName   = $IndexObject->{Config}->{IndexRealName};
         }
         else {

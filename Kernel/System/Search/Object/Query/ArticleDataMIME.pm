@@ -14,7 +14,7 @@ use warnings;
 use parent qw( Kernel::System::Search::Object::Query );
 
 our @ObjectDependencies = (
-    'Kernel::System::Search::Object::ArticleDataMIME',
+    'Kernel::System::Search::Object::Default::ArticleDataMIME',
 );
 
 =head1 NAME
@@ -40,7 +40,7 @@ sub new {
 
     my $Self = {};
 
-    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::ArticleDataMIME');
+    my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
 
     # get index specified fields
     $Self->{IndexFields}               = $IndexObject->{Fields};

@@ -30,14 +30,14 @@
         <File Permission="660" Location="Kernel/System/Search/Object.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Article.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/ArticleDataMIME.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Ticket.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Ticket/CustomPackage.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/TicketHistory.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/DynamicFieldObjIdName.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/DynamicField.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/DynamicFieldValue.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/Article.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/ArticleDataMIME.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Extensions/Ticket/CustomPackage.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/TicketHistory.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicFieldObjIdName.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicField.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicFieldValue.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>

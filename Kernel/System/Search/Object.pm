@@ -96,12 +96,11 @@ sub Fallback {
     my $IndexName = $Param{IndexName};
 
     my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::${IndexName}",
+        Module => "Kernel::System::Search::Object::Default::${IndexName}",
     );
 
-    # TODO support for not loaded module
     return if !$Loaded;
-    my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::${IndexName}");
+    my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::${IndexName}");
 
     my $ValidResultType = $Self->ValidResultType(
         SupportedResultTypes => $SearchIndexObject->{SupportedResultTypes},
@@ -201,7 +200,7 @@ sub IndexIsValid {
 
     # module validity check
     my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::$IndexName",
+        Module => "Kernel::System::Search::Object::Default::$IndexName",
         Silent => 1
     );
 
@@ -253,18 +252,18 @@ sub ValidResultType {
     return $ResultType;
 }
 
-=head2 ValidFieldsGet()
+=head2 ValidFieldsPrepare()
 
-validate fields for object and return only valid ones
+validates fields for object and return only valid ones
 
-    my $Fields = $SearchChildObject->ValidFieldsGet(
-        Fields => $Fields, # optional
+    my %Fields = $SearchChildObject->ValidFieldsPrepare(
+        Fields => $Fields,     # optional
         Object => $ObjectName,
     );
 
 =cut
 
-sub ValidFieldsGet {
+sub ValidFieldsPrepare {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
@@ -279,23 +278,56 @@ sub ValidFieldsGet {
         }
     }
 
-    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
+    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
+
+    if ( exists &{"$IndexSearchObject->{Module}::ValidFieldsPrepare"} ) {
+        return $IndexSearchObject->ValidFieldsPrepare(%Param);
+    }
 
     my $Fields      = $IndexSearchObject->{Fields};
-    my @ValidFields = ();
+    my %ValidFields = ();
 
     if ( !IsArrayRefWithData( $Param{Fields} ) ) {
-        @ValidFields = keys %{$Fields};
-        return @ValidFields;
+        %ValidFields = %{$Fields};
+
+        return $Self->_PostValidFieldsPrepare(
+            ValidFields => \%ValidFields,
+        );
     }
 
     for my $ParamField ( @{ $Param{Fields} } ) {
         if ( $Fields->{$ParamField} ) {
-            push @ValidFields, $ParamField,;
+            $ValidFields{$ParamField} = $Fields->{$ParamField};
         }
     }
 
-    return @ValidFields;
+    return $Self->_PostValidFieldsPrepare(
+        ValidFields => \%ValidFields,
+    );
+}
+
+=head2 _PostValidFieldsGet()
+
+set fields return type if not specified
+
+    my $Fields = $SearchChildObject->_PostValidFieldsGet(
+        %Param,
+    );
+
+=cut
+
+sub _PostValidFieldsPrepare {
+    my ( $Self, %Param ) = @_;
+
+    return () if !IsHashRefWithData( $Param{ValidFields} );
+
+    my %ValidFields = %{ $Param{ValidFields} };
+
+    for my $Field ( sort keys %ValidFields ) {
+        $ValidFields{$Field}->{ReturnType} = 'SCALAR' if !$ValidFields{$Field}->{ReturnType};
+    }
+
+    return %ValidFields;
 }
 
 =head2 _QueryPrepareSearch()
@@ -416,7 +448,6 @@ sub _QueryPrepareObjectIndexAdd {
         Module => "Kernel::System::Search::Object::Query::${Index}",
     );
 
-    # TODO support for not loaded module
     return if !$Loaded;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
@@ -462,7 +493,6 @@ sub _QueryPrepareObjectIndexSet {
         Module => "Kernel::System::Search::Object::Query::${Index}",
     );
 
-    # TODO support for not loaded module
     return if !$Loaded;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
@@ -509,7 +539,6 @@ sub _QueryPrepareObjectIndexUpdate {
         Module => "Kernel::System::Search::Object::Query::${Index}",
     );
 
-    # TODO support for not loaded module
     return if !$Loaded;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
@@ -897,8 +926,6 @@ sub _LoadModule {
             Silent => $Param{Silent},
         );
         if ( !$Loaded ) {
-
-            # TO-DO support not loaded object
             return;
         }
         else {

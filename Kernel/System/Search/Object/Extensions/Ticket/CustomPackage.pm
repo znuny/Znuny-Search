@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Object::Ticket::CustomPackage;
+package Kernel::System::Search::Object::Extensions::Ticket::CustomPackage;
 
 use strict;
 use warnings;
@@ -20,7 +20,7 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
-    # This will override original TicketID from "Kernel::System::Search::Object::Ticket".
+    # This will override original TicketID from "Kernel::System::Search::Object::Default::Ticket".
     my $FieldMapping = {
         TicketID => 'TicketID'
     };

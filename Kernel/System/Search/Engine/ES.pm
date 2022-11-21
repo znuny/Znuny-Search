@@ -14,7 +14,7 @@ use Search::Elasticsearch;
 
 use parent qw( Kernel::System::Search::Engine );
 
-use Kernel::System::VariableCheck qw(IsArrayRefWithData);
+use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::System::Log',
@@ -182,17 +182,24 @@ sub QueryExecute {
             %Param
         );
     };
-    if ($@) {
-        if ( !$Param{Silent} ) {
-            my $Engine = "Kernel::System::Search::Engine::ES";
+
+    my $Error = $@ || ( ref $Result eq 'HASH' && $Result->{errors} );
+
+    if ($Error) {
+
+        my $ErrorMessage = $@;
+
+        if ( !$Param{Silent} && $ErrorMessage ) {
+            my $Engine = 'Kernel::System::Search::Engine::ES';
 
             $LogObject->Log(
                 Priority => 'error',
-                Message  => "Query failed for engine: $Engine. Message: $@",
+                Message  => "Query failed for engine: $Engine. Message: $ErrorMessage",
             );
         }
         return {
-            __Error => 1,
+            __Error  => 1,
+            Response => $Result,
         };
     }
 
