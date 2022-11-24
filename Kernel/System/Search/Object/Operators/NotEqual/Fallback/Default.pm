@@ -28,12 +28,13 @@ sub QueryBuild {
 
     my @ParamValue = IsArrayRefWithData( $Param{Value} ) ? @{ $Param{Value} } : ( $Param{Value} );
 
-    @ParamValue = map {"'$_'"} @ParamValue;
+    my @ParamBindQuery = map {'?,'} @ParamValue;
+    chop $ParamBindQuery[-1];
 
-    my $Value = join( ', ', @ParamValue );
     return {
-        Query    => "$Param{Field} NOT IN ($Value)",
-        Bindable => 0,
+        Query         => "$Param{Field} NOT IN (@ParamBindQuery)",
+        Bindable      => 1,
+        BindableValue => \@ParamValue,
     };
 }
 

@@ -31,8 +31,9 @@ sub QueryBuild {
     }
 
     return {
-        Query    => "$Param{Field} BETWEEN '$Param{Value}->{From}' AND '$Param{Value}->{To}'",
-        Bindable => 0,
+        Query         => "$Param{Field} BETWEEN ? AND ?",
+        Bindable      => 1,
+        BindableValue => [ $Param{Value}->{From}, $Param{Value}->{To} ],
     };
 }
 

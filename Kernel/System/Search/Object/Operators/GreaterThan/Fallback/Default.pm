@@ -26,8 +26,9 @@ sub QueryBuild {
     my ( $Self, %Param ) = @_;
 
     return {
-        Query    => "$Param{Field} > ?",
-        Bindable => 1,
+        Query         => "$Param{Field} > ?",
+        Bindable      => 1,
+        BindableValue => [ $Param{Value} ],
     };
 }
 

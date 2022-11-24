@@ -28,7 +28,7 @@ sub QueryBuild {
     return {
         Query         => "$Param{Field} LIKE ?",
         Bindable      => 1,
-        BindableValue => "%$Param{Value}%",
+        BindableValue => ["%$Param{Value}%"],
     };
 }
 
