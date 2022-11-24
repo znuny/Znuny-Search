@@ -406,9 +406,10 @@ sub SQLObjectSearch {
                     Fallback => 1,
                 );
 
-                if ( $Result->{Bindable} ) {
-                    $OperatorValue = $Result->{BindableValue} if $Result->{BindableValue};
-                    push @QueryParamValues, \$OperatorValue;
+                if ( $Result->{Bindable} && IsArrayRefWithData( $Result->{BindableValue} ) ) {
+                    for my $BindableValue ( @{ $Result->{BindableValue} } ) {
+                        push @QueryParamValues, \$BindableValue;
+                    }
                 }
 
                 push @QueryConditions, $Result->{Query};

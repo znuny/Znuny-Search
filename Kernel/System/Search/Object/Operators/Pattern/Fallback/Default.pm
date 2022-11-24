@@ -36,8 +36,9 @@ sub QueryBuild {
     );
 
     return {
-        Query    => $RegexpOpearator{ $DBObject->{"DB::Type"} },
-        Bindable => 1,
+        Query         => $RegexpOpearator{ $DBObject->{"DB::Type"} },
+        Bindable      => 1,
+        BindableValue => [ $Param{Value} ],
     };
 }
 
