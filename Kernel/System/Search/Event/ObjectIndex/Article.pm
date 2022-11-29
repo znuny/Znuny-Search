@@ -65,69 +65,60 @@ sub Run {
 
     if ( $Param{Config}->{FunctionName} eq 'ObjectIndexRemove' ) {
 
-        # prevent error code 500 when engine index failed
-        eval {
-            my $ArticleIDsToDelete = $ObjectIDData;
-            my $ArticlesToDelete;
+        my $ArticleIDsToDelete = $ObjectIDData;
+        my $ArticlesToDelete;
 
-            # event didn't sent ArticleID in data, but there is TicketID
-            # in that case remove all articles from this ticket
-            if ( !IsArrayRefWithData($ArticleIDsToDelete) && $Param{Data}->{TicketID} ) {
-                $ArticlesToDelete = $SearchObject->Search(
-                    Objects     => ['Article'],
-                    QueryParams => {
-                        TicketID => $Param{Data}->{TicketID},
-                    },
-                    Fields => [ [ $ObjectIdentifierColumn, 'CommunicationChannelID' ] ],
-                );
-
-                @{$ArticleIDsToDelete} = map { $_->{ArticleID} } @{ $ArticlesToDelete->{$IndexName} };
-            }
-
-            # event specified article to delete, delete only this article
-            elsif ( IsArrayRefWithData($ArticleIDsToDelete) || IsNumber($ArticleIDsToDelete) ) {
-                $ArticlesToDelete = $SearchObject->Search(
-                    Objects     => ['Article'],
-                    QueryParams => {
-                        $ObjectIdentifierColumn => $ArticleIDsToDelete,
-                    },
-                    Fields => [ [ $ObjectIdentifierColumn, 'CommunicationChannelID' ] ],
-                );
-                @{$ArticleIDsToDelete} = map { $_->{ArticleID} } @{ $ArticlesToDelete->{$IndexName} };
-            }
-
-            return 1
-                if !IsArrayRefWithData($ArticleIDsToDelete) || !IsArrayRefWithData( $ArticlesToDelete->{$IndexName} );
-
-            my $Success = $SearchObject->ObjectIndexRemove(
-                Index    => 'Article',
-                ObjectID => $ArticleIDsToDelete,
-                Refresh  => 1,
+        # event didn't sent ArticleID in data, but there is TicketID
+        # in that case remove all articles from this ticket
+        if ( !IsArrayRefWithData($ArticleIDsToDelete) && $Param{Data}->{TicketID} ) {
+            $ArticlesToDelete = $SearchObject->Search(
+                Objects     => ['Article'],
+                QueryParams => {
+                    TicketID => $Param{Data}->{TicketID},
+                },
+                Fields => [ [ $ObjectIdentifierColumn, 'CommunicationChannelID' ] ],
             );
 
-            # after succesfull article deletion
-            # there is a need to delete all it's data from
-            # linked tables
-            # those are identified by communication channel
-            if ($Success) {
-                $Self->_LinkedTablesArticleAction(
-                    FunctionName => $Param{Config}->{FunctionName},
-                    Articles     => $ArticlesToDelete,
-                    IndexName    => $IndexName,
-                );
-            }
-            else {
-                my $ArticleIDStrg = join ',', @{$ArticleIDsToDelete};
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Could not remove articles from search engine with ids: $ArticleIDStrg",
-                );
-            }
-        };
-        if ($@) {
+            @{$ArticleIDsToDelete} = map { $_->{ArticleID} } @{ $ArticlesToDelete->{$IndexName} };
+        }
+
+        # event specified article to delete, delete only this article
+        elsif ( IsArrayRefWithData($ArticleIDsToDelete) || IsNumber($ArticleIDsToDelete) ) {
+            $ArticlesToDelete = $SearchObject->Search(
+                Objects     => ['Article'],
+                QueryParams => {
+                    $ObjectIdentifierColumn => $ArticleIDsToDelete,
+                },
+                Fields => [ [ $ObjectIdentifierColumn, 'CommunicationChannelID' ] ],
+            );
+            @{$ArticleIDsToDelete} = map { $_->{ArticleID} } @{ $ArticlesToDelete->{$IndexName} };
+        }
+
+        return 1
+            if !IsArrayRefWithData($ArticleIDsToDelete) || !IsArrayRefWithData( $ArticlesToDelete->{$IndexName} );
+
+        my $Success = $SearchObject->ObjectIndexRemove(
+            Index    => 'Article',
+            ObjectID => $ArticleIDsToDelete,
+            Refresh  => 1,
+        );
+
+        # after succesfull article deletion
+        # there is a need to delete all it's data from
+        # linked tables
+        # those are identified by communication channel
+        if ($Success) {
+            $Self->_LinkedTablesArticleAction(
+                FunctionName => $Param{Config}->{FunctionName},
+                Articles     => $ArticlesToDelete,
+                IndexName    => $IndexName,
+            );
+        }
+        else {
+            my $ArticleIDStrg = join ',', @{$ArticleIDsToDelete};
             $LogObject->Log(
                 Priority => 'error',
-                Message  => $@,
+                Message  => "Could not remove articles from search engine with ids: $ArticleIDStrg",
             );
         }
 
@@ -171,40 +162,31 @@ sub Run {
 
     my $FunctionName = $Param{Config}->{FunctionName};
 
-    # prevent error code 500 when engine index failed
-    eval {
-        my $Success = $SearchObject->$FunctionName(
-            %QueryParam,
-            Refresh => 1,    # live indexing should be refreshed every time
+    my $Success = $SearchObject->$FunctionName(
+        %QueryParam,
+        Refresh => 1,    # live indexing should be refreshed every time
+    );
+
+    if ( $Success && $UpdateLinkedTables ) {
+        my $ArticlesToPerformAction = $SearchObject->Search(
+            Objects     => ['Article'],
+            QueryParams => {
+                ArticleID => $Param{Data}->{ArticleID},
+            },
+            Fields       => [ [ $ObjectIdentifierColumn, 'CommunicationChannelID' ] ],
+            UseSQLSearch => 1,
         );
 
-        if ( $Success && $UpdateLinkedTables ) {
-            my $ArticlesToPerformAction = $SearchObject->Search(
-                Objects     => ['Article'],
-                QueryParams => {
-                    ArticleID => $Param{Data}->{ArticleID},
-                },
-                Fields       => [ [ $ObjectIdentifierColumn, 'CommunicationChannelID' ] ],
-                UseSQLSearch => 1,
-            );
-
-            $Self->_LinkedTablesArticleAction(
-                FunctionName => $Param{Config}->{FunctionName},
-                Articles     => $ArticlesToPerformAction,
-                IndexName    => $IndexName,
-            );
-        }
-        elsif ($UpdateLinkedTables) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "The $FunctionName operation could not be performed for Article with id: $ObjectIDData",
-            );
-        }
-    };
-    if ($@) {
+        $Self->_LinkedTablesArticleAction(
+            FunctionName => $Param{Config}->{FunctionName},
+            Articles     => $ArticlesToPerformAction,
+            IndexName    => $IndexName,
+        );
+    }
+    elsif ($UpdateLinkedTables) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => $@,
+            Message  => "The $FunctionName operation could not be performed for Article with id: $ObjectIDData",
         );
     }
 
