@@ -632,7 +632,7 @@ sub _QueryParamsPrepare {
 
 set query param field to standardized output
 
-    my $Result = $SearchQueryObject->_QueryParamSet(
+    my @Result = $SearchQueryObject->_QueryParamSet(
         Name => $Name,
         Value => $Value,
     );

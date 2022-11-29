@@ -22,6 +22,7 @@ our @ObjectDependencies = (
     'Kernel::System::Ticket::Article',
     'Kernel::System::DynamicField',
     'Kernel::System::DynamicField::Backend',
+    'Kernel::System::Search::Object::Query::Ticket',
 );
 
 =head1 NAME
@@ -229,6 +230,24 @@ On executing ticket search by Kernel::System::Search:
             Article_SenderTypeID => 'value',           # no operators support yet
             Article_CommunicationChannelID => 'value', # no operators support yet
             Article_IsVisibleForCustomer => 1/0        # no operators support yet
+
+            # additionally there is a possibility to pass names for fields below
+            # always pass them in an array
+            # can be combined with it's ID's alternative (will match
+            # by "AND" operator as any other fields)
+            # operators syntax is not supported on those fields
+            Queue => ['Misc', 'Junk'],
+            SLA         => ['SLA5min'],
+            SLAID       => [1],
+            Lock        => ['Locked'],
+            Type        => ['Unclassified', 'Classifiedd'],
+            Service     => ['PremiumService'],
+            Owner       => ['root@localhost'],
+            Responsible => ['root@localhost'],
+            Priority    => ['3 normal'],
+            State       => ['open'],
+            Customer    => ['customer123', 'customer12345'],
+
         },
         Fields => [['TicketID', 'TicketNumber']] # specify field from field mapping
             # to get all dynamic fields: [['DynamicField_*']]
@@ -337,6 +356,13 @@ sub ExecuteSearch {
         return $Self->FallbackExecuteSearch(%Param);
     }
 
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::Ticket");
+
+    # filter & prepare correct parameters
+    my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
+        QueryParams => $Param{QueryParams},
+    );
+
     my @QueryParamsKey = keys %{ $Param{QueryParams} };
     my %ArticleParam   = map { $_ => $Param{QueryParams}->{$_} } grep { $_ =~ /Article_/ } @QueryParamsKey;
 
@@ -363,13 +389,6 @@ sub ExecuteSearch {
             return $FormattedResult;
         }
     }
-
-    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
-
-    # filter & prepare correct parameters
-    my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
-        QueryParams => { %{ $Param{QueryParams} }, ( ObjectID => $ObjectIDs ) },
-    );
 
     # build query
     my $Query = $Param{MappingObject}->Search(
