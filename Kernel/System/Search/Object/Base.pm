@@ -357,8 +357,8 @@ sub SQLObjectSearch {
     }
     else {
         # set columns that will be retrieved
-        if ( IsArrayRefWithData( $Param{Fields} ) ) {
-            my @ParamFields = @{ $Param{Fields} };
+        if ( IsHashRefWithData( $Param{Fields} ) ) {
+            my @ParamFields = keys %{ $Param{Fields} };
             if ( $Param{SelectAliases} ) {
                 @TableColumns = @ParamFields;
             }
