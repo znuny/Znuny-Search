@@ -65,21 +65,13 @@ sub Run {
     my $Result;
 
     if ( $FunctionName eq 'ObjectIndexRemove' ) {
-        eval {
-            $SearchObject->$FunctionName(
-                Index       => $Param{Config}->{IndexName},
-                QueryParams => {
-                    TicketID => $TicketID
-                },
-                Refresh => 1,    # live indexing should be refreshed every time
-            );
-        };
-        if ($@) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => $@,
-            );
-        }
+        $SearchObject->$FunctionName(
+            Index       => $Param{Config}->{IndexName},
+            QueryParams => {
+                TicketID => $TicketID
+            },
+            Refresh => 1,    # live indexing should be refreshed every time
+        );
 
         return 1;
     }
@@ -114,19 +106,10 @@ sub Run {
                     ObjectID => $TicketHistory->{TicketHistoryID},
                 );
 
-                # prevent error code 500 when engine index failed
-                eval {
-                    $SearchObject->$FunctionName(
-                        %QueryParam,
-                        Refresh => 1,    # live indexing should be refreshed every time
-                    );
-                };
-                if ($@) {
-                    $LogObject->Log(
-                        Priority => 'error',
-                        Message  => $@,
-                    );
-                }
+                $SearchObject->$FunctionName(
+                    %QueryParam,
+                    Refresh => 1,    # live indexing should be refreshed every time
+                );
             }
         }
 
@@ -150,19 +133,10 @@ sub Run {
         ObjectID => @{$Result}[0]->{id},
     );
 
-    # prevent error code 500 when engine index failed
-    eval {
-        $SearchObject->$FunctionName(
-            %QueryParam,
-            Refresh => 1,    # live indexing should be refreshed every time
-        );
-    };
-    if ($@) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $@,
-        );
-    }
+    $SearchObject->$FunctionName(
+        %QueryParam,
+        Refresh => 1,    # live indexing should be refreshed every time
+    );
 
     return 1;
 }

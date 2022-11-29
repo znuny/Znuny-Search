@@ -248,18 +248,144 @@ sub Run {
         # check if real name index on remote side exists
         my $RemoteExists = grep { $_ eq $IndexRealName } @ActiveClusterRemoteIndexList;
 
-        eval {
-            EVAL_SCOPE: {
-                $CacheObject->Set(
-                    Type  => 'ReindexingProcess',
-                    Key   => 'Percentage',
-                    Value => 0,
-                    TTL   => 24 * 60 * 60,
+        $CacheObject->Set(
+            Type  => 'ReindexingProcess',
+            Key   => 'Percentage',
+            Value => 0,
+            TTL   => 24 * 60 * 60,
+        );
+
+        my $ObjectIDs = $Object->ObjectListIDs(
+            OrderBy    => 'Down',
+            ResultType => 'ARRAY'
+        );
+
+        $CacheObject->Set(
+            Type  => 'ReindexingProcess',
+            Key   => 'ReindexedIndex',
+            Value => $Object->{Index},
+            TTL   => 24 * 60 * 60,
+        );
+
+        if ( !$RemoteExists ) {
+            my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Object->{Index}");
+            my $IndexRealName     = $SearchIndexObject->{Config}->{IndexRealName};
+
+            $Self->Print(
+                "<yellow>$Object->{Index} index is valid on otrs backend side, but does not exists on the search engine.\n"
+                    .
+                    "Index on engide side with real name: \"$IndexRealName\" as \"$Object->{Index}\" (friendly name on otrs side) will be created.\n\n</yellow>"
+            );
+
+            my $AddSuccess = $Self->{SearchObject}->IndexAdd(
+                IndexName => $Object->{Index},
+            );
+        }
+        elsif ($Recreate) {
+            my $IndexSettings = {};
+            if ( $Recreate eq 'latest' ) {
+                $IndexSettings = $Self->{SearchObject}->IndexInitialSettingsGet(
+                    Index => $Object->{Index}
+                );
+            }
+
+            my $RemoveSuccess = $Self->{SearchObject}->IndexRemove(
+                IndexName => $Object->{Index},
+            );
+
+            if ( !$RemoveSuccess ) {
+                $Self->Print(
+                    "<red>Could not remove index: $Object->{Index}! Ignoring reindexation for that index.\n</red>"
+                );
+                next OBJECT;
+            }
+
+            my $AddSuccess = $Self->{SearchObject}->IndexAdd(
+                IndexName => $Object->{Index},
+                Settings  => $IndexSettings,
+            );
+
+            if ( !$AddSuccess ) {
+                $Self->Print(
+                    "<red>Could not add index: $Object->{Index}! Ignoring reindexation for that index.\n</red>"
+                );
+                next OBJECT;
+            }
+            else {
+                $Self->Print("<green>Index recreated succesfully.\n</green>");
+            }
+
+        }
+        else {
+            # clear whole index to reindex it correctly
+            my $ClearSuccess = $Self->{SearchObject}->IndexClear(
+                Index => $Object->{Index}
+            );
+
+            if ( !$ClearSuccess ) {
+                $Self->Print(
+                    "<red>Could not clear index: $Object->{Index} data! Ignoring reindexation for that index.\n</red>"
+                );
+                next OBJECT;
+            }
+        }
+
+        # initialize index
+        my $InitSuccess = $Self->{SearchObject}->IndexInit(
+            Index      => $Object->{Index},
+            SetAliases => 1,
+        );
+
+        if ( !$InitSuccess ) {
+            $Self->PrintError("Can't initialize index: $Object->{Index}!\n");
+            $IndexObjectStatus{ $Object->{Index} }{Successfull} = 0;
+            next OBJECT;
+        }
+
+        $Self->Print("<green>Index initialized.</green>\n<yellow>Adding indexes..</yellow>\n");
+
+        if ( !IsArrayRefWithData($ObjectIDs) ) {
+            $Self->Print(
+                "<yellow>No data to reindex.</yellow>\n\n"
+            );
+            $Self->Print("<green>Done.</green>\n");
+            $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
+            next OBJECT;
+        }
+
+        my $GeneralStartTime = Time::HiRes::time();
+
+        my @ObjectIDsArr = @{$ObjectIDs};
+        my @ObjectIDs    = @ObjectIDsArr;
+        my $Refresh      = 0;
+        STEP:
+        for ( my $i = 0; $i <= $#ObjectIDsArr; $i = $i + $ReindexationStep ) {
+
+            my @ArrayPiece = splice( @ObjectIDs, 0, $ReindexationStep );
+
+            my $Result = $Self->{SearchObject}->ObjectIndexAdd(
+                Index    => $Object->{Index},
+                ObjectID => \@ArrayPiece,
+                Refresh  => 0,
+            );
+
+            my $Percent = int( $i / ( $#ObjectIDsArr / 100 ) );
+
+            my $ReindexingQueue = $CacheObject->Get(
+                Type => 'ReindexingProcess',
+                Key  => 'ReindexingQueue',
+            );
+
+            if ( !$ReindexingQueue ) {
+                my $ObjectQueueJSON = $JSONObject->Encode(
+                    Data => \%IndexObjectStatus
                 );
 
-                my $ObjectIDs = $Object->ObjectListIDs(
-                    OrderBy    => 'Down',
-                    ResultType => 'ARRAY'
+                $CacheObject->Set(
+                    Type  => 'ReindexingProcess',
+                    Key   => 'ReindexingQueue',
+                    Value => $ObjectQueueJSON,
+                    TTL   => 24 * 60 * 60,
                 );
 
                 $CacheObject->Set(
@@ -268,179 +394,44 @@ sub Run {
                     Value => $Object->{Index},
                     TTL   => 24 * 60 * 60,
                 );
-
-                if ( !$RemoteExists ) {
-                    my $SearchIndexObject
-                        = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Object->{Index}");
-                    my $IndexRealName = $SearchIndexObject->{Config}->{IndexRealName};
-
-                    $Self->Print(
-                        "<yellow>$Object->{Index} index is valid on otrs backend side, but does not exists on the search engine.\n"
-                            .
-                            "Index on engide side with real name: \"$IndexRealName\" as \"$Object->{Index}\" (friendly name on otrs side) will be created.\n\n</yellow>"
-                    );
-
-                    my $AddSuccess = $Self->{SearchObject}->IndexAdd(
-                        IndexName => $Object->{Index},
-                    );
-                }
-                elsif ($Recreate) {
-                    my $IndexSettings = {};
-                    if ( $Recreate eq 'latest' ) {
-                        $IndexSettings = $Self->{SearchObject}->IndexInitialSettingsGet(
-                            Index => $Object->{Index}
-                        );
-                    }
-
-                    my $RemoveSuccess = $Self->{SearchObject}->IndexRemove(
-                        IndexName => $Object->{Index},
-                    );
-
-                    if ( !$RemoveSuccess ) {
-                        $Self->Print(
-                            "<red>Could not remove index: $Object->{Index}! Ignoring reindexation for that index.\n</red>"
-                        );
-                        last EVAL_SCOPE;
-                    }
-
-                    my $AddSuccess = $Self->{SearchObject}->IndexAdd(
-                        IndexName => $Object->{Index},
-                        Settings  => $IndexSettings,
-                    );
-
-                    if ( !$AddSuccess ) {
-                        $Self->Print(
-                            "<red>Could not add index: $Object->{Index}! Ignoring reindexation for that index.\n</red>"
-                        );
-                        last EVAL_SCOPE;
-                    }
-                    else {
-                        $Self->Print("<green>Index recreated succesfully.\n</green>");
-                    }
-
-                }
-                else {
-                    # clear whole index to reindex it correctly
-                    my $ClearSuccess = $Self->{SearchObject}->IndexClear(
-                        Index => $Object->{Index}
-                    );
-
-                    if ( !$ClearSuccess ) {
-                        $Self->Print(
-                            "<red>Could not clear index: $Object->{Index} data! Ignoring reindexation for that index.\n</red>"
-                        );
-                        last EVAL_SCOPE;
-                    }
-                }
-
-                # initialize index
-                my $InitSuccess = $Self->{SearchObject}->IndexInit(
-                    Index      => $Object->{Index},
-                    SetAliases => 1,
-                );
-
-                if ( !$InitSuccess ) {
-                    $Self->PrintError("Can't initialize index: $Object->{Index}!\n");
-                    $IndexObjectStatus{ $Object->{Index} }{Successfull} = 0;
-                    last EVAL_SCOPE;
-                }
-
-                $Self->Print("<green>Index initialized.</green>\n<yellow>Adding indexes..</yellow>\n");
-
-                if ( !IsArrayRefWithData($ObjectIDs) ) {
-                    $Self->Print(
-                        "<yellow>No data to reindex.</yellow>\n\n"
-                    );
-                    $Self->Print("<green>Done.</green>\n");
-                    $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
-                    last EVAL_SCOPE;
-                }
-
-                my $GeneralStartTime = Time::HiRes::time();
-
-                my @ObjectIDsArr = @{$ObjectIDs};
-                my @ObjectIDs    = @ObjectIDsArr;
-                my $Refresh      = 0;
-                STEP:
-                for ( my $i = 0; $i <= $#ObjectIDsArr; $i = $i + $ReindexationStep ) {
-
-                    my @ArrayPiece = splice( @ObjectIDs, 0, $ReindexationStep );
-
-                    my $Result = $Self->{SearchObject}->ObjectIndexAdd(
-                        Index    => $Object->{Index},
-                        ObjectID => \@ArrayPiece,
-                        Refresh  => 0,
-                    );
-
-                    my $Percent = int( $i / ( $#ObjectIDsArr / 100 ) );
-
-                    my $ReindexingQueue = $CacheObject->Get(
-                        Type => 'ReindexingProcess',
-                        Key  => 'ReindexingQueue',
-                    );
-
-                    if ( !$ReindexingQueue ) {
-                        my $ObjectQueueJSON = $JSONObject->Encode(
-                            Data => \%IndexObjectStatus
-                        );
-
-                        $CacheObject->Set(
-                            Type  => 'ReindexingProcess',
-                            Key   => 'ReindexingQueue',
-                            Value => $ObjectQueueJSON,
-                            TTL   => 24 * 60 * 60,
-                        );
-
-                        $CacheObject->Set(
-                            Type  => 'ReindexingProcess',
-                            Key   => 'ReindexedIndex',
-                            Value => $Object->{Index},
-                            TTL   => 24 * 60 * 60,
-                        );
-                    }
-
-                    my $Seconds = abs( int( $GeneralStartTime - Time::HiRes::time() ) );
-
-                    if (
-                        ( ( $Seconds % 5 == 0 && $Refresh != $Seconds ) || $Seconds - $Refresh > 5 )
-                        && $Percent != 100
-                        )
-                    {
-                        $Refresh = $Seconds;
-                        $Self->Print(
-                            "<yellow>$i</yellow> of <yellow>$#ObjectIDsArr</yellow> processed (<yellow>$Percent %</yellow> done).\n"
-                        );
-                    }
-
-                    $CacheObject->Set(
-                        Type  => 'ReindexingProcess',
-                        Key   => 'Percentage',
-                        Value => $Percent,
-                        TTL   => 24 * 60 * 60,
-                    );
-
-                    push @{ $IndexObjectStatus{ $Object->{Index} }{ObjectFails} }, @ArrayPiece if !$Result;
-                }
-
-                $Self->Print(
-                    "<yellow>$#ObjectIDsArr</yellow> of <yellow>$#ObjectIDsArr</yellow> processed (<yellow>100%</yellow> done).\n"
-                ) if !IsArrayRefWithData( $IndexObjectStatus{ $Object->{Index} }{ObjectFails} );
-
-                $CacheObject->Set(
-                    Type  => 'ReindexingProcess',
-                    Key   => 'Percentage',
-                    Value => 100,
-                    TTL   => 24 * 60 * 60,
-                );
-
-                $Self->Print("<green>Done.</green>\n\n");
-                $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
             }
-        };
 
-        if ($@) {
-            $Self->Print($@);
+            my $Seconds = abs( int( $GeneralStartTime - Time::HiRes::time() ) );
+
+            if (
+                ( ( $Seconds % 5 == 0 && $Refresh != $Seconds ) || $Seconds - $Refresh > 5 )
+                && $Percent != 100
+                )
+            {
+                $Refresh = $Seconds;
+                $Self->Print(
+                    "<yellow>$i</yellow> of <yellow>$#ObjectIDsArr</yellow> processed (<yellow>$Percent %</yellow> done).\n"
+                );
+            }
+
+            $CacheObject->Set(
+                Type  => 'ReindexingProcess',
+                Key   => 'Percentage',
+                Value => $Percent,
+                TTL   => 24 * 60 * 60,
+            );
+
+            push @{ $IndexObjectStatus{ $Object->{Index} }{ObjectFails} }, @ArrayPiece if !$Result;
         }
+
+        $Self->Print(
+            "<yellow>$#ObjectIDsArr</yellow> of <yellow>$#ObjectIDsArr</yellow> processed (<yellow>100%</yellow> done).\n"
+        ) if !IsArrayRefWithData( $IndexObjectStatus{ $Object->{Index} }{ObjectFails} );
+
+        $CacheObject->Set(
+            Type  => 'ReindexingProcess',
+            Key   => 'Percentage',
+            Value => 100,
+            TTL   => 24 * 60 * 60,
+        );
+
+        $Self->Print("<green>Done.</green>\n\n");
+        $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
     }
 
     $Self->Print("\n<yellow>Summary:</yellow>\n");

@@ -71,19 +71,10 @@ sub Run {
 
     my $FunctionName = $Param{Config}->{FunctionName};
 
-    # prevent error code 500 when engine index failed
-    eval {
-        $SearchObject->$FunctionName(
-            %QueryParam,
-            Refresh => 1,    # live indexing should be refreshed every time
-        );
-    };
-    if ($@) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $@,
-        );
-    }
+    $SearchObject->$FunctionName(
+        %QueryParam,
+        Refresh => 1,    # live indexing should be refreshed every time
+    );
 
     return 1;
 }
