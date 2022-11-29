@@ -146,6 +146,216 @@ sub Search {
     );
 }
 
+=head2 LookupTicketFields()
+
+search & delete lookup fields in standard query params, then perform lookup
+of deleted fields and return it
+
+    my $LookupQueryParams = $SearchQueryObject->LookupTicketFields(
+        QueryParams     => $QueryParams,
+    );
+
+=cut
+
+sub LookupTicketFields {
+    my ( $Self, %Param ) = @_;
+
+    my $LookupFields = {
+        Queue => {
+            Module       => "Kernel::System::Queue",
+            FunctionName => 'QueueLookup',
+            ParamName    => 'Queue'
+        },
+        SLA => {
+            Module       => "Kernel::System::SLA",
+            FunctionName => "SLALookup",
+            ParamName    => "Name"
+        },
+        Lock => {
+            Module       => "Kernel::System::Lock",
+            FunctionName => "LockLookup",
+            ParamName    => "Lock"
+        },
+        Type => {
+            Module       => "Kernel::System::Type",
+            FunctionName => "TypeLookup",
+            ParamName    => "Type"
+        },
+        Service => {
+            Module       => "Kernel::System::Service",
+            FunctionName => "ServiceLookup",
+            ParamName    => "Name"
+        },
+        Owner => {
+            Module       => "Kernel::System::User",
+            FunctionName => "UserLookup",
+            ParamName    => "UserLogin"
+        },
+        Responsible => {
+            Module       => "Kernel::System::User",
+            FunctionName => "UserLookup",
+            ParamName    => "UserLogin"
+        },
+        Priority => {
+            Module       => "Kernel::System::Priority",
+            FunctionName => "PriorityLookup",
+            ParamName    => "Priority"
+        },
+        State => {
+            Module       => "Kernel::System::State",
+            FunctionName => "StateLookup",
+            ParamName    => "State"
+        }
+    };
+
+    # TO-DO support for customer users, create by,change by
+    my $CustomerLookupField = {
+        Customer => {
+            Module       => "Kernel::System::CustomerCompany",
+            FunctionName => "CustomerCompanyList",
+            ParamName    => "Search"
+        }
+    };
+
+    my $LookupQueryParams;
+
+    if ( $Param{QueryParams}->{Customer} ) {
+        my $Key = 'Customer';
+
+        my $LookupField = $CustomerLookupField->{$Key};
+        my $Module      = $Kernel::OM->Get( $LookupField->{Module} );
+
+        my $FunctionName = $LookupField->{FunctionName};
+
+        my @IDs;
+        VALUE:
+        for my $Value ( @{ $Param{QueryParams}->{$Key} } ) {
+            my $ParamName = $LookupField->{ParamName};
+
+            my %CustomerCompanyList = $Module->$FunctionName(
+                "$ParamName" => $Value
+            );
+
+            my $CustomerID;
+
+            CUSTOMER_COMPANY:
+            for my $CustomerCompanyID ( sort keys %CustomerCompanyList ) {
+                my %CustomerCompany = $Module->CustomerCompanyGet(
+                    CustomerID => $CustomerCompanyID,
+                );
+
+                if ( $CustomerCompany{CustomerCompanyName} && $CustomerCompany{CustomerCompanyName} eq $Value ) {
+                    $CustomerID = $CustomerCompanyID;
+                }
+            }
+
+            delete $Param{QueryParams}->{$Key};
+            next VALUE if !$CustomerID;
+            push @IDs, $CustomerID;
+        }
+
+        if ( !scalar @IDs ) {
+            return {
+                Error => 'LookupValuesNotFound'
+            };
+        }
+
+        my $LookupQueryParam = {
+            Operator   => "=",
+            Value      => \@IDs,
+            ReturnType => 'SCALAR',
+        };
+
+        $LookupQueryParams->{ $Key . 'ID' } = $LookupQueryParam;
+    }
+
+    # get lookup fields that exists in "QueryParams" parameter
+    my %UsedLookupFields = map { $_ => $LookupFields->{$_} }
+        grep { $LookupFields->{$_} }
+        keys %{ $Param{QueryParams} };
+
+    LOOKUPFIELD:
+    for my $Key ( sort keys %UsedLookupFields ) {
+
+        # lookup every field for ID
+        my $LookupField = $LookupFields->{$Key};
+        my $Module      = $Kernel::OM->Get( $LookupField->{Module} );
+
+        my @IDs;
+        VALUE:
+        for my $Value ( @{ $Param{QueryParams}->{$Key} } ) {
+            my $ParamName = $LookupField->{ParamName};
+
+            my $FunctionName = $LookupField->{FunctionName};
+            my $FieldID      = $Module->$FunctionName(
+                "$ParamName" => $Value
+            );
+
+            delete $Param{QueryParams}->{$Key};
+            next VALUE if !$FieldID;
+            push @IDs, $FieldID;
+        }
+
+        if ( !scalar @IDs ) {
+            return {
+                Error => 'LookupValuesNotFound'
+            };
+        }
+
+        my $LookupQueryParam = {
+            Operator   => "=",
+            Value      => \@IDs,
+            ReturnType => 'SCALAR',
+        };
+
+        $LookupQueryParams->{ $Key . 'ID' } = $LookupQueryParam;
+    }
+
+    return $LookupQueryParams;
+}
+
+=head2 _QueryParamsPrepare()
+
+prepare valid structure output for query params
+
+    my $QueryParams = $SearchQueryObject->_QueryParamsPrepare(
+        QueryParams => $Param{QueryParams},
+        NoMappingCheck => $Param{NoMappingCheck},
+    );
+
+=cut
+
+sub _QueryParamsPrepare {
+    my ( $Self, %Param ) = @_;
+
+    # support lookup fields
+    my $LookupQueryParams = $Self->LookupTicketFields(
+        QueryParams => $Param{QueryParams},
+    ) // {};
+
+    # on lookup error there should be no response
+    # so create the query param that will always
+    # return no data
+    # error does not need to be critical
+    # it can be simply no name ids found for one of the
+    # query parameter
+    # so response would always be empty
+    if ( delete $LookupQueryParams->{Error} ) {
+        $Param{QueryParams} = {
+            TicketID => -1
+        };
+    }
+
+    my $SearchParams = $Self->SUPER::_QueryParamsPrepare(%Param) // {};
+
+    # merge lookuped fields with standard fields
+    for my $LookupParam ( sort keys %{$LookupQueryParams} ) {
+        push @{ $SearchParams->{$LookupParam}->{Query} }, $LookupQueryParams->{$LookupParam};
+    }
+
+    return $SearchParams;
+}
+
 =head2 _QueryFieldCheck()
 
 check specified field for index
@@ -165,6 +375,7 @@ sub _QueryFieldCheck {
 
     # by default check if field is in index fields and mapping check is enabled
     return if !$Self->{IndexFields}->{ $Param{Name} } && !$Param{NoMappingCheck};
+
     return 1;
 }
 
