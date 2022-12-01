@@ -561,7 +561,8 @@ sub SearchFormat {
 
     my @ColumnNames;
     for my $FieldName (@AttributeNames) {
-        push @ColumnNames, $Self->{Fields}->{$FieldName}->{ColumnName};
+        push @ColumnNames,
+            $Self->{Fields}->{$FieldName}->{ColumnName} || $Self->{ExternalFields}->{$FieldName}->{ColumnName};
     }
 
     # fallback

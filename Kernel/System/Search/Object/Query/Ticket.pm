@@ -20,6 +20,7 @@ our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::DynamicField',
     'Kernel::System::DynamicField::Backend',
+    'Kernel::System::Group',
 );
 
 =head1 NAME
@@ -328,6 +329,8 @@ prepare valid structure output for query params
 sub _QueryParamsPrepare {
     my ( $Self, %Param ) = @_;
 
+    my $GroupObject = $Kernel::OM->Get('Kernel::System::Group');
+
     # support lookup fields
     my $LookupQueryParams = $Self->LookupTicketFields(
         QueryParams => $Param{QueryParams},
@@ -346,9 +349,21 @@ sub _QueryParamsPrepare {
         };
     }
 
+    # support permissions
+    if ( $Param{QueryParams}{UserID} ) {
+
+        # get users groups
+        my %GroupList = $GroupObject->PermissionUserGet(
+            UserID => $Param{QueryParams}{UserID},
+            Type   => $Param{QueryParams}{Permissions} || 'ro',
+        );
+
+        push @{ $Param{QueryParams}{GroupID} }, keys %GroupList;
+    }
+
     my $SearchParams = $Self->SUPER::_QueryParamsPrepare(%Param) // {};
 
-    # merge lookuped fields with standard fields
+    # merge lookupped fields with standard fields
     for my $LookupParam ( sort keys %{$LookupQueryParams} ) {
         push @{ $SearchParams->{$LookupParam}->{Query} }, $LookupQueryParams->{$LookupParam};
     }
@@ -372,6 +387,7 @@ sub _QueryFieldCheck {
     my ( $Self, %Param ) = @_;
 
     return 1 if $Param{Name} =~ /DynamicField_+/;
+    return 1 if $Param{Name} eq "GroupID";
 
     # by default check if field is in index fields and mapping check is enabled
     return if !$Self->{IndexFields}->{ $Param{Name} } && !$Param{NoMappingCheck};
