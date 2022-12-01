@@ -648,6 +648,7 @@ sub SQLObjectSearch {
         for ( my $i = 0; $i < scalar @{$Fields}; $i++ ) {
             if ( $Fields->[$i] eq 'GroupID' ) {
                 $GroupField = delete $Fields->[$i];
+                @{$Fields} = grep {$_} @{$Fields};
                 last FIELDS;
             }
         }
