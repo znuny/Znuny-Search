@@ -357,7 +357,18 @@ sub SQLObjectSearch {
     }
     else {
         # set columns that will be retrieved
-        if ( IsHashRefWithData( $Param{Fields} ) ) {
+        if ( IsArrayRefWithData( $Param{Fields} ) ) {
+            my @ParamFields = @{ $Param{Fields} };
+            if ( $Param{SelectAliases} ) {
+                @TableColumns = @ParamFields;
+            }
+            else {
+                for ( my $i = 0; $i < scalar @ParamFields; $i++ ) {
+                    $TableColumns[$i] = $Fields->{ $ParamFields[$i] }->{ColumnName};
+                }
+            }
+        }
+        elsif ( IsHashRefWithData( $Param{Fields} ) ) {
             my @ParamFields = keys %{ $Param{Fields} };
             if ( $Param{SelectAliases} ) {
                 @TableColumns = @ParamFields;

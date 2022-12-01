@@ -60,6 +60,26 @@ sub new {
     return $Self;
 }
 
+=head2 Search()
+
+create query for specified operation
+
+    my $Result = $SearchQueryObject->Search(
+        MappingObject   => $Config,
+        QueryParams     => $QueryParams,
+    );
+
+=cut
+
+sub Search {
+    my ( $Self, %Param ) = @_;
+
+    for my $Field ( sort keys %{ $Self->{IndexConfig}->{AdditionalOTRSFields} } ) {
+        delete $Param{Fields}->{$Field};
+    }
+    return $Self->SUPER::Search(%Param);
+}
+
 =head2 ObjectIndexAdd()
 
 create query for specified operation
@@ -113,7 +133,7 @@ sub ObjectIndexAdd {
         $Identifier => $Param{ObjectID}
         };
 
-    my $Fields = [ 'ID', 'ObjectID', 'FieldID', 'ValueText', 'ValueDate', 'ValueInt' ];
+    my $Fields = [ 'ID', 'ObjectID', 'FieldID', 'Value' ];
 
     my %CustomIndexFields = ( %{ $IndexObject->{Fields} }, %{ $IndexObject->{Config}->{AdditionalOTRSFields} } );
 
@@ -125,19 +145,6 @@ sub ObjectIndexAdd {
     );
 
     return if !IsArrayRefWithData($SQLSearchResult);
-
-    $SQLSearchResult = $Self->_PrepareDFSQLResponse(
-        SQLSearchResult => $SQLSearchResult,
-        Index           => $Param{Index},
-    );
-
-    for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {
-        for my $Row ( @{$SQLSearchResult} ) {
-            my $Value = delete $Row->{ $IndexObject->{Config}->{AdditionalOTRSFields}->{$ValueColumn}->{ColumnName} };
-            $Row->{value} = $Value if defined $Value;
-            $Row->{_ID}   = 'f' . $Row->{field_id} . 'o' . $Row->{object_id};
-        }
-    }
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexAdd(
@@ -198,7 +205,7 @@ sub ObjectIndexSet {
         $Identifier => $Param{ObjectID}
         };
 
-    my $Fields = [ 'ID', 'ObjectID', 'FieldID', 'ValueText', 'ValueDate', 'ValueInt' ];
+    my $Fields = [ 'ID', 'ObjectID', 'FieldID', 'Value' ];
 
     my %CustomIndexFields = ( %{ $IndexObject->{Fields} }, %{ $IndexObject->{Config}->{AdditionalOTRSFields} } );
 
@@ -210,11 +217,6 @@ sub ObjectIndexSet {
     );
 
     return if !IsArrayRefWithData($SQLSearchResult);
-
-    $SQLSearchResult = $Self->_PrepareDFSQLResponse(
-        SQLSearchResult => $SQLSearchResult,
-        Index           => $Param{Index},
-    );
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexSet(

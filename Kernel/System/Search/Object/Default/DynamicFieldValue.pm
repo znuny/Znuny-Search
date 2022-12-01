@@ -17,6 +17,9 @@ use Kernel::System::VariableCheck qw(:all);
 our @ObjectDependencies = (
     'Kernel::System::Main',
     'Kernel::System::Search',
+    'Kernel::System::Log',
+    'Kernel::System::Search::Object',
+    'Kernel::System::Search::Object::Query::DynamicFieldValue',
 );
 
 =head1 NAME
@@ -112,6 +115,153 @@ sub new {
     );
 
     return $Self;
+}
+
+=head2 ValidFieldsPrepare()
+
+validates fields for object and return only valid ones
+
+    my %Fields = $SearchTicketESObject->ValidFieldsPrepare(
+        Object      => $ObjectName,
+    );
+
+=cut
+
+sub ValidFieldsPrepare {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Name (qw(Object)) {
+        if ( !$Param{$Name} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Name!"
+            );
+            return ();
+        }
+    }
+
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
+
+    my $Fields               = $IndexSearchObject->{Fields};
+    my $AdditionalOTRSFields = $IndexSearchObject->{Config}->{AdditionalOTRSFields};
+
+    my %ValidFields = ();
+
+    if ( !IsArrayRefWithData( $Param{Fields} ) ) {
+        %ValidFields = ( %{$Fields}, %{$AdditionalOTRSFields} );
+        delete $ValidFields{Value} if ( $Param{Fallback} );
+
+        return $SearchChildObject->_PostValidFieldsPrepare(
+            ValidFields => \%ValidFields,
+        );
+    }
+
+    %{$Fields} = ( %{$Fields}, %{$AdditionalOTRSFields} );
+
+    for my $ParamField ( @{ $Param{Fields} } ) {
+        if ( $Fields->{$ParamField} ) {
+            $ValidFields{$ParamField} = $Fields->{$ParamField};
+        }
+    }
+
+    return $SearchChildObject->_PostValidFieldsPrepare(
+        ValidFields => \%ValidFields,
+    );
+}
+
+=head2 SQLObjectSearch()
+
+search in sql database for objects index related
+
+    my $Result = $SearchBaseObject->SQLObjectSearch(
+        QueryParams => {
+            TicketID => 1,
+        },
+        Fields      => ['ObjectID', 'FieldID'] # optional, returns all
+                                             # fields if not specified
+        SortBy      => $IdentifierSQL,
+        OrderBy     => "Down",  # possible: "Down", "Up",
+        ResultType  => $ResultType,
+        Limit       => 10,
+    );
+
+=cut
+
+sub SQLObjectSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $QueryDynamicFieldValueObject = $Kernel::OM->Get('Kernel::System::Search::Object::Query::DynamicFieldValue');
+    my $ConvertResponse;
+
+    my $Fields = $Param{Fields};
+
+    if ( IsHashRefWithData($Fields) ) {
+        my %Fields = %{$Fields};
+        $Fields = [];
+        @{$Fields} = keys %{ $Param{Fields} };
+    }
+    elsif ( !$Fields || !IsArrayRefWithData($Fields) ) {
+        @{$Fields} = keys %{ $Self->{Fields} };
+    }
+
+    my @SQLSearchFields   = keys %{ $Self->{Config}->{AdditionalOTRSFields} };
+    my %CustomIndexFields = ( %{ $Self->{Fields} }, %{ $Self->{Config}->{AdditionalOTRSFields} } );
+    delete $CustomIndexFields{Value};
+    for my $Field ( sort keys %{ $Self->{Fields} } ) {
+        if ( $Field ne 'Value' ) {
+            push @SQLSearchFields, $Field;
+        }
+    }
+
+    # handle denormalized value field
+    if ( IsArrayRefWithData($Fields) ) {
+        FIELDS:
+        for ( my $i = 0; $i < scalar @{$Fields}; $i++ ) {
+            if ( $Fields->[$i] eq 'Value' ) {
+                delete $Fields->[$i];
+
+                my %AdditionalFields = %{ $Self->{Config}->{AdditionalOTRSFields} };
+
+                for my $Field ( sort keys %AdditionalFields ) {
+                    push @{$Fields}, $Field;
+                }
+
+                @{$Fields} = grep {$_} @{$Fields};
+                last FIELDS;
+            }
+        }
+    }
+
+    my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(
+        %Param,
+        Fields            => \@SQLSearchFields,
+        CustomIndexFields => \%CustomIndexFields
+    );
+
+    if ( $Param{ResultType} && $Param{ResultType} ne 'COUNT' ) {
+        $SQLSearchResult = $QueryDynamicFieldValueObject->_PrepareDFSQLResponse(
+            SQLSearchResult => $SQLSearchResult,
+            Index           => 'DynamicFieldValue',
+        );
+        if ( IsHashRefWithData( $Param{Fields} ) ) {
+            for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {
+                delete $Param{Fields}->{$ValueColumn};
+            }
+        }
+        elsif ( IsArrayRefWithData( $Param{Fields} ) ) {
+            for ( my $i = 0; $i < scalar @{ $Param{Fields} }; $i++ ) {
+                if ( $Param{Fields}->[$i] =~ /^(ValueText|ValueDate|ValueInt)$/ ) {
+                    delete $Param{Fields}->[$i];
+                }
+            }
+            @{ $Param{Fields} } = grep {$_} @{ $Param{Fields} };
+        }
+    }
+
+    return $SQLSearchResult;
 }
 
 1;
