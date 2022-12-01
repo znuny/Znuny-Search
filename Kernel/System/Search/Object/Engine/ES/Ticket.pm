@@ -22,6 +22,9 @@ our @ObjectDependencies = (
     'Kernel::System::Ticket::Article',
     'Kernel::System::DynamicField',
     'Kernel::System::DynamicField::Backend',
+    'Kernel::System::Group',
+    'Kernel::System::Queue',
+    'Kernel::System::User',
     'Kernel::System::Search::Object::Query::Ticket',
 );
 
@@ -163,6 +166,13 @@ sub new {
         },
     };
 
+    $Self->{ExternalFields} = {
+        GroupID => {
+            ColumnName => 'group_id',
+            Type       => 'Integer'
+        }
+    };
+
     # get default config
     $Self->DefaultConfigGet();
 
@@ -231,6 +241,11 @@ On executing ticket search by Kernel::System::Search:
             Article_CommunicationChannelID => 'value', # no operators support yet
             Article_IsVisibleForCustomer => 1/0        # no operators support yet
 
+            GroupID => [1,2,3],
+            # or
+            UserID => 1, # no operators support
+            Permissions => 'ro' # permissions for user, therefore should be combined with UserID param
+
             # additionally there is a possibility to pass names for fields below
             # always pass them in an array
             # can be combined with it's ID's alternative (will match
@@ -252,6 +267,7 @@ On executing ticket search by Kernel::System::Search:
         Fields => [['TicketID', 'TicketNumber']] # specify field from field mapping
             # to get all dynamic fields: [['DynamicField_*']]
             # to get specified dynamic fields: [['DynamicField_multiselect', 'DynamicField_dropdown']]
+            # to get GroupID (external field): [['GroupID']]
     );
 
     Parameter "AdvancedSearchQuery" is not supported on this Object.
@@ -264,6 +280,7 @@ sub Search {
     my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $UserObject        = $Kernel::OM->Get('Kernel::System::User');
 
     # copy standard param to avoid overwriting on standarization
     my %Params     = %Param;
@@ -495,7 +512,10 @@ add object for specified index
 sub ObjectIndexAdd {
     my ( $Self, %Param ) = @_;
 
-    return $Self->SUPER::ObjectIndexAdd(%Param);
+    return $Self->SUPER::ObjectIndexAdd(
+        %Param,
+        IndexDynamicFields => 1,
+    );
 }
 
 =head2 ObjectIndexSet()
@@ -526,7 +546,10 @@ set (update if exists or create if not exists) object for specified index
 sub ObjectIndexSet {
     my ( $Self, %Param ) = @_;
 
-    return $Self->SUPER::ObjectIndexSet(%Param);
+    return $Self->SUPER::ObjectIndexSet(
+        %Param,
+        IndexDynamicFields => 1,
+    );
 }
 
 =head2 ObjectIndexUpdate()
@@ -557,7 +580,10 @@ update object for specified index
 sub ObjectIndexUpdate {
     my ( $Self, %Param ) = @_;
 
-    return $Self->SUPER::ObjectIndexUpdate(%Param);
+    return $Self->SUPER::ObjectIndexUpdate(
+        %Param,
+        IndexDynamicFields => 1,
+    );
 }
 
 =head2 SQLObjectSearch()
@@ -581,19 +607,76 @@ search in sql database for objects index related
 sub SQLObjectSearch {
     my ( $Self, %Param ) = @_;
 
+    my $GroupObject = $Kernel::OM->Get('Kernel::System::Group');
+
+    my $QueryParams = $Param{QueryParams};
+    my $Fields      = $Param{Fields};
+    my $GroupField;
+
+    # fields passed as hash needs to be
+    # converted into array due to further calculations
+    if ( IsHashRefWithData($Fields) ) {
+        my %Fields = %{ $Param{Fields} };
+        undef $Fields;
+        @{$Fields} = keys %{ $Param{Fields} };
+    }
+    elsif ( !$Fields || !IsArrayRefWithData($Fields) ) {
+
+        # no fields specified will return response with standard fields
+        # plus denormalized group id
+        @{$Fields} = keys %{ $Self->{Fields} };
+        $GroupField = 'GroupID';
+    }
+
+    my @GroupQueryParam = ();
+
+    # delete groupid, userid, permissions from queryparams/fields
+    # as those are not present in the ticket table
+    # support them after standard sql search
+    if ( IsArrayRefWithData( $QueryParams->{GroupID} ) ) {
+        my $GroupIDs = delete $QueryParams->{GroupID};
+        @GroupQueryParam = @{$GroupIDs};
+    }
+    elsif ( $QueryParams->{GroupID} ) {
+        delete $QueryParams->{GroupID};
+    }
+    my $UserIDQueryParam      = delete $QueryParams->{UserID};
+    my $PermissionsQueryParam = delete $QueryParams->{Permissions};
+
+    if ( !$GroupField ) {
+        FIELDS:
+        for ( my $i = 0; $i < scalar @{$Fields}; $i++ ) {
+            if ( $Fields->[$i] eq 'GroupID' ) {
+                $GroupField = delete $Fields->[$i];
+                last FIELDS;
+            }
+        }
+    }
+
     # perform default sql object search
-    my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(%Param);
-
-    # get dynamic field objects
-    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
-    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
-
-    # get all dynamic fields for the object type Ticket
-    my $DynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
-        ObjectType => 'Ticket'
+    my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(
+        %Param,
+        QueryParams => $QueryParams,
+        Fields      => $Fields,
     );
 
-    if ( IsArrayRefWithData($SQLSearchResult) ) {
+    return $SQLSearchResult if !IsArrayRefWithData($SQLSearchResult);
+
+    my $QueueObject      = $Kernel::OM->Get('Kernel::System::Queue');
+    my $GetDynamicFields = $Param{GetDynamicFields} || $Param{IndexDynamicFields};
+    my $DBObject         = $Kernel::OM->Get('Kernel::System::DB');
+
+    if ($GetDynamicFields) {
+
+        # get dynamic field objects
+        my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+        my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+
+        # get all dynamic fields for the object type Ticket
+        my $DynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
+            ObjectType => 'Ticket'
+        );
+
         for my $Row ( @{$SQLSearchResult} ) {
             DYNAMICFIELD:
             for my $DynamicFieldConfig ( @{$DynamicFieldList} ) {
@@ -616,6 +699,52 @@ sub SQLObjectSearch {
                 }
             }
         }
+    }
+
+    # support user id, group id, permissions params
+    if ( $GroupField || scalar(@GroupQueryParam) || $UserIDQueryParam ) {
+        my @GroupFilteredResult;
+
+        # support permissions
+        if ($UserIDQueryParam) {
+
+            # get users groups
+            my %GroupList = $GroupObject->PermissionUserGet(
+                UserID => $UserIDQueryParam,
+                Type   => $PermissionsQueryParam || 'ro',
+            );
+
+            # push user groups on the same array as groups from "GroupID" parameter
+            push @GroupQueryParam, keys %GroupList;
+        }
+
+        for my $Row ( @{$SQLSearchResult} ) {
+            if ( $Row->{queue_id} ) {
+
+                # do not use standard queue get function as it
+                # would return cached (old) queue group id
+                # on queue update events
+                return if !$DBObject->Prepare(
+                    SQL   => "SELECT group_id FROM queue WHERE id = $Row->{queue_id}",
+                    Limit => 1,
+                );
+
+                my @Data         = $DBObject->FetchrowArray();
+                my $QueueGroupID = $Data[0];
+
+                # check if ticket exists in specified groups of user/group params
+                if ( !scalar @GroupQueryParam || grep { $_ == $QueueGroupID } @GroupQueryParam ) {
+
+                    # additionally append GroupID to the response
+                    if ($GroupField) {
+                        $Row->{GroupID} = $QueueGroupID;
+                    }
+                    push @GroupFilteredResult, $Row;
+                }
+
+            }
+        }
+        return \@GroupFilteredResult;
     }
 
     return $SQLSearchResult;
@@ -722,13 +851,15 @@ sub ValidFieldsPrepare {
 
     my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
 
-    my $Fields      = $IndexSearchObject->{Fields};
+    my $Fields         = $IndexSearchObject->{Fields};
+    my $ExternalFields = $IndexSearchObject->{ExternalFields};
+
     my %ValidFields = ();
 
     # when no fields are specified use all standard fields
     # (without dynamic fields)
     if ( !IsArrayRefWithData( $Param{Fields} ) ) {
-        %ValidFields = %{$Fields};
+        %ValidFields = ( %{$Fields}, %{$ExternalFields} );
 
         return $Self->_PostValidFieldsPrepare(
             ValidFields => \%ValidFields,
@@ -744,8 +875,11 @@ sub ValidFieldsPrepare {
         if ( $Fields->{$ParamField} ) {
             $ValidFields{$ParamField} = $Fields->{$ParamField};
         }
+        elsif ( $ExternalFields->{$ParamField} ) {
+            $ValidFields{$ParamField} = $ExternalFields->{$ParamField};
+        }
 
-        # get information about dynamic fields if query params
+        # get information about dynamic fields if field
         # starts with specified regexp
         elsif ( $ParamField =~ /^DynamicField_(.+)/ ) {
 
