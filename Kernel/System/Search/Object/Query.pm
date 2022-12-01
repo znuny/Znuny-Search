@@ -131,7 +131,6 @@ sub Search {
     my $Query = $Param{MappingObject}->Search(
         Limit => $Self->{IndexDefaultSearchLimit},    # default limit or override with limit from param
         %Param,
-        Fields           => $Param{Fields},
         FieldsDefinition => $Self->{IndexFields},
         QueryParams      => $SearchParams,
         SortBy           => $SortBy,
@@ -204,6 +203,7 @@ sub ObjectIndexAdd {
         };
 
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
+        %Param,
         QueryParams => $QueryParams,
         ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
     );
@@ -268,6 +268,7 @@ sub ObjectIndexSet {
         };
 
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
+        %Param,
         QueryParams => $QueryParams,
         ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
     );
@@ -332,6 +333,7 @@ sub ObjectIndexUpdate {
         };
 
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
+        %Param,
         QueryParams => $QueryParams,
     );
 
