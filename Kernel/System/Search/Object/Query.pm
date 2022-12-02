@@ -71,9 +71,6 @@ sub Search {
         },
     } if !$Param{MappingObject};
 
-    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
-    my $ParamSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
-
     if ( IsArrayRefWithData( $Param{AdvancedQueryParams} ) ) {
 
         # return the query
@@ -96,32 +93,11 @@ sub Search {
         };
     }
 
-    my $SortBy;
-    if (
-        $Param{SortBy} && $Self->{IndexFields}->{ $Param{SortBy} }
-        )
-    {
-        my $Sortable = $ParamSearchObject->IsSortableResultType(
-            ResultType => $Param{ResultType},
-        );
+    my $ParamSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
 
-        if ($Sortable) {
-
-            # change into real column name
-            $SortBy = $Self->{IndexFields}->{ $Param{SortBy} };
-        }
-        else {
-            if ( !$Param{Silent} ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Can't sort index: \"$ParamSearchObject->{Config}->{IndexName}\" with result type:" .
-                        " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
-                        " Specified result type is not sortable!\n" .
-                        " Sort operation won't be applied."
-                );
-            }
-        }
-    }
+    my $SortBy = $ParamSearchObject->SortParamApply(
+        %Param,
+    );
 
     my $SearchParams = $Self->_QueryParamsPrepare(
         QueryParams => $Param{QueryParams},

@@ -88,19 +88,19 @@ sub Search {
 
             # supported sorting types: integer, datetime, string
             if (
-                $Param{SortBy}->{Type}
+                $Param{SortBy}->{Properties}->{Type}
                 && (
-                    $Param{SortBy}->{Type} eq 'Integer'
-                    || $Param{SortBy}->{Type} eq 'Date'
+                    $Param{SortBy}->{Properties}->{Type} eq 'Integer'
+                    || $Param{SortBy}->{Properties}->{Type} eq 'Date'
                 )
                 )
             {
-                $Body{sort}->[0]->{ $Param{SortBy}->{ColumnName} } = {
+                $Body{sort}->[0]->{ $Param{SortBy}->{Name} } = {
                     order => $OrderByStrg,
                 };
             }
             else {
-                $Body{sort}->[0]->{ $Param{SortBy}->{ColumnName} . ".keyword" } = {
+                $Body{sort}->[0]->{ $Param{SortBy}->{Name} . ".keyword" } = {
                     order => $OrderByStrg,
                 };
             }
@@ -272,9 +272,8 @@ sub ObjectIndexAdd {
         for my $Object ( @{ $Param{Body} } ) {
             COLUMN:
             for my $Column (@ColumnsWithBlackListedType) {
-                my $ColumnName = $IndexObject->{Fields}->{$Column}->{ColumnName};
-                if ( $Object->{$ColumnName} && grep { $Object->{$ColumnName} eq $_ } @{$BlackListedValues} ) {
-                    $Object->{$ColumnName} = undef;
+                if ( $Object->{$Column} && grep { $Object->{$Column} eq $_ } @{$BlackListedValues} ) {
+                    $Object->{$Column} = undef;
                 }
             }
         }
@@ -286,11 +285,9 @@ sub ObjectIndexAdd {
 
     my $BodyForBulkRequest;
     for my $Object ( @{ $Param{Body} } ) {
-        my $IdentifierRealName = $IndexObject->{Fields}->{ $IndexConfig->{Identifier} }->{ColumnName};
-
         push @{$BodyForBulkRequest},
             {
-            id     => delete $Object->{_ID} || $Object->{$IdentifierRealName},
+            id     => delete $Object->{_ID} || $Object->{ $IndexConfig->{Identifier} },
             source => $Object
             };
     }
@@ -374,9 +371,8 @@ sub ObjectIndexSet {
         for my $Object ( @{ $Param{Body} } ) {
             COLUMN:
             for my $Column (@ColumnsWithBlackListedType) {
-                my $ColumnName = $IndexObject->{Fields}->{$Column}->{ColumnName};
-                if ( $Object->{$ColumnName} && grep { $Object->{$ColumnName} eq $_ } @{$BlackListedValues} ) {
-                    $Object->{$ColumnName} = undef;
+                if ( $Object->{$Column} && grep { $Object->{$Column} eq $_ } @{$BlackListedValues} ) {
+                    $Object->{$Column} = undef;
                 }
             }
         }
@@ -388,11 +384,10 @@ sub ObjectIndexSet {
 
     my $BodyForBulkRequest;
     for my $Object ( @{ $Param{Body} } ) {
-        my $IdentifierRealName = $IndexObject->{Fields}->{ $IndexConfig->{Identifier} }->{ColumnName};
 
         push @{$BodyForBulkRequest},
             {
-            id     => delete $Object->{_ID} || $Object->{$IdentifierRealName},
+            id     => delete $Object->{_ID} || $Object->{ $IndexConfig->{Identifier} },
             source => $Object
             };
     }
@@ -468,11 +463,9 @@ sub ObjectIndexUpdate {
 
     my $BodyForBulkRequest;
     for my $Object ( @{ $Param{Body} } ) {
-        my $IdentifierRealName = $IndexObject->{Fields}->{ $IndexConfig->{Identifier} }->{ColumnName};
-
         push @{$BodyForBulkRequest},
             {
-            id  => $Object->{$IdentifierRealName},
+            id  => $Object->{ $IndexConfig->{Identifier} },
             doc => {
                 %{$Object}
             }
@@ -893,16 +886,6 @@ sub IndexMappingSet {
     my $IndexConfig = $Param{IndexConfig};
 
     my %Body;
-
-    if ( $Param{SetAliases} ) {
-        for my $FieldName ( sort keys %{$Fields} ) {
-            $Body{$FieldName} = {
-                type => 'alias',
-                path => $Fields->{$FieldName}->{ColumnName},
-            };
-        }
-    }
-
     my $DataTypes = {
         Date => {
             type   => "date",
@@ -941,7 +924,7 @@ sub IndexMappingSet {
     };
 
     for my $FieldName ( sort keys %{$Fields} ) {
-        $Body{ $Fields->{$FieldName}->{ColumnName} } = $DataTypes->{ $Fields->{$FieldName}->{Type} };
+        $Body{$FieldName} = $DataTypes->{ $Fields->{$FieldName}->{Type} };
     }
 
     my $Query = {
@@ -1036,22 +1019,7 @@ sub IndexMappingGetFormat {
     my $Properties  = $Response->{ $IndexObject->{Config}->{IndexRealName} }->{mappings}->{properties} || {};
 
     # check if raw engine response is needed
-    if ( !$Param{Format} ) {
-
-        # filter out aliases if not specified to get
-        if ( !$Param{GetAliases} ) {
-            if ( IsHashRefWithData($Properties) ) {
-                for my $MappingProperty ( sort keys %{$Properties} ) {
-                    if ( $Properties->{$MappingProperty}->{type} && $Properties->{$MappingProperty}->{type} eq 'alias' )
-                    {
-                        delete $Response->{ $IndexObject->{Config}->{IndexRealName} }->{mappings}->{properties}
-                            ->{$MappingProperty};
-                    }
-                }
-            }
-        }
-        return $Response;
-    }
+    return $Response if !$Param{Format};
 
     my $FieldsMapping = {
         date    => "Date",
@@ -1062,32 +1030,17 @@ sub IndexMappingGetFormat {
 
     # prepare formatted result
     my $FormattedResult;
+
     ATTRIBUTE:
     for my $Attribute ( sort keys %{$Properties} ) {
 
-        my $IsAliasConfig = $IndexObject->{Fields}->{$Attribute};
+        my $ColumnName = $Attribute;
 
-        if ( $Param{GetAliases} && $IsAliasConfig ) {
-            if ( $Properties->{$Attribute}->{path} && $Properties->{$Attribute}->{type} ) {
-                my $Path = $Properties->{$Attribute}->{path};
-                my $Type = $Properties->{$Attribute}->{type};
+        my $FieldConfig = $IndexObject->{Fields}->{$ColumnName};
+        my $FieldType   = $FieldsMapping->{ $Properties->{$Attribute}->{type} } || '';
 
-                $FormattedResult->{Aliases}->{$Attribute} = {
-                    Path => $Path,
-                    Type => $Type,
-                };
-            }
-        }
-        elsif ( !$IsAliasConfig ) {
-            my @ColumnName
-                = grep { $IndexObject->{Fields}->{$_}->{ColumnName} eq $Attribute } keys %{ $IndexObject->{Fields} };
-
-            my $FieldConfig = $IndexObject->{Fields}->{ $ColumnName[0] };
-            my $FieldType   = $FieldsMapping->{ $Properties->{$Attribute}->{type} } || '';
-
-            $FieldConfig->{Type} = $FieldType;
-            $FormattedResult->{Mapping}->{ $ColumnName[0] } = $FieldConfig;
-        }
+        $FieldConfig->{Type} = $FieldType;
+        $FormattedResult->{Mapping}->{$ColumnName} = $FieldConfig;
     }
 
     return $FormattedResult;
@@ -1296,7 +1249,7 @@ sub _BuildQueryBodyFromParams {
             my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
 
             my $Result = $OperatorModule->OperatorQueryGet(
-                Field      => $Param{FieldsDefinition}->{$FieldName}->{ColumnName} || $FieldName,
+                Field      => $FieldName,
                 ReturnType => $OperatorData->{ReturnType},
                 Value      => $OperatorValue,
                 Operator   => $OperatorData->{Operator},
