@@ -83,14 +83,15 @@ sub Fallback {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     my $SQLSearchResult = $Self->SQLObjectSearch(
-        QueryParams         => $Param{QueryParams},
-        AdvancedQueryParams => $Param{AdvancedQueryParams},
-        Limit               => $Param{Limit} || $Self->{DefaultSearchLimit},
-        OrderBy             => $Param{OrderBy},
-        SortBy              => $Param{SortBy},
-        ResultType          => $Param{ResultType},
-        Fields              => $Param{Fields},
-        Silent              => $Param{Silent},
+        QueryParams                 => $Param{QueryParams},
+        AdvancedQueryParams         => $Param{AdvancedQueryParams},
+        Limit                       => $Param{Limit} || $Self->{DefaultSearchLimit},
+        OrderBy                     => $Param{OrderBy},
+        SortBy                      => $Param{SortBy},
+        ResultType                  => $Param{ResultType},
+        Fields                      => $Param{Fields},
+        Silent                      => $Param{Silent},
+        ReturnDefaultSQLColumnNames => 0,
     );
 
     my $Result = {
@@ -331,6 +332,8 @@ search in sql database for objects index related
         OrderBy     => "Down",  # possible: "Down", "Up",
         ResultType  => $ResultType,
         Limit       => 10,
+        ReturnDefaultSQLColumnNames => 0 # (possible: 1,0) default 0, returns default column names for each of row,
+                                         # when disabled it will format column names into it's aliases
     );
 
 =cut
@@ -350,7 +353,8 @@ sub SQLObjectSearch {
 
     # prepare sql statement
     my $SQL;
-    my @TableColumns;
+    my @SQLTableColumns;
+    my @AliasNameTableColumns;
 
     if ( $ResultType eq 'COUNT' ) {
         $SQL = 'SELECT COUNT(*) FROM ' . $IndexRealName;
@@ -360,36 +364,42 @@ sub SQLObjectSearch {
         if ( IsArrayRefWithData( $Param{Fields} ) ) {
             my @ParamFields = @{ $Param{Fields} };
             if ( $Param{SelectAliases} ) {
-                @TableColumns = @ParamFields;
+                @SQLTableColumns       = @ParamFields;
+                @AliasNameTableColumns = @SQLTableColumns;
             }
             else {
                 for ( my $i = 0; $i < scalar @ParamFields; $i++ ) {
-                    $TableColumns[$i] = $Fields->{ $ParamFields[$i] }->{ColumnName};
+                    $SQLTableColumns[$i]       = $Fields->{ $ParamFields[$i] }->{ColumnName};
+                    $AliasNameTableColumns[$i] = $ParamFields[$i];
                 }
             }
         }
         elsif ( IsHashRefWithData( $Param{Fields} ) ) {
             my @ParamFields = keys %{ $Param{Fields} };
             if ( $Param{SelectAliases} ) {
-                @TableColumns = @ParamFields;
+                @SQLTableColumns       = @ParamFields;
+                @AliasNameTableColumns = @SQLTableColumns;
             }
             else {
                 for ( my $i = 0; $i < scalar @ParamFields; $i++ ) {
-                    $TableColumns[$i] = $Fields->{ $ParamFields[$i] }->{ColumnName};
+                    $SQLTableColumns[$i]       = $Fields->{ $ParamFields[$i] }->{ColumnName};
+                    $AliasNameTableColumns[$i] = $ParamFields[$i];
                 }
             }
         }
         else {
             if ( $Param{SelectAliases} ) {
-                @TableColumns = sort keys %{$Fields};
+                @SQLTableColumns       = sort keys %{$Fields};
+                @AliasNameTableColumns = @SQLTableColumns;
             }
             else {
                 for my $Field ( sort keys %{$Fields} ) {
-                    push @TableColumns, $Fields->{$Field}->{ColumnName};
+                    push @SQLTableColumns,       $Fields->{$Field}->{ColumnName};
+                    push @AliasNameTableColumns, $Field;
                 }
             }
         }
-        $SQL = 'SELECT ' . join( ',', @TableColumns ) . ' FROM ' . $IndexRealName;
+        $SQL = 'SELECT ' . join( ',', @SQLTableColumns ) . ' FROM ' . $IndexRealName;
     }
 
     my @Result;
@@ -451,41 +461,14 @@ sub SQLObjectSearch {
         }
     }
 
-    # sort data
-    # check if property is specified in the object fields
-    if (
-        $Param{SortBy}
-        )
-    {
-        # check if specified result type can be sorted
-        my $Sortable = $Self->IsSortableResultType(
-            ResultType => $ResultType,
-        );
+    my $SQLSortQuery = $Self->SQLSortQueryGet(
+        SortBy     => $Param{SortBy},
+        ResultType => $Param{ResultType},
+        Silent     => 1
+    );
 
-        # apply sort query
-        if ( $Sortable && $Self->{Fields}->{ $Param{SortBy} } ) {
-            $SQL .= " ORDER BY $Self->{Fields}->{$Param{SortBy}}->{ColumnName}";
-            if ( $Param{OrderBy} ) {
-                if ( $Param{OrderBy} eq 'Up' ) {
-                    $SQL .= " ASC";
-                }
-                else {
-                    $SQL .= " DESC";
-                }
-            }
-        }
-        else {
-            if ( !$Param{Silent} ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Can't sort table: \"$Self->{Config}->{IndexRealName}\" with result type:" .
-                        " \"$ResultType\" by field: \"$Param{SortBy}\".\n" .
-                        "Specified result type is not sortable or field does not exists in the index!\n" .
-                        "Sort operation won't be applied."
-                );
-            }
-        }
-    }
+    # append query to sort data and apply order by
+    $SQL .= $SQLSortQuery;
 
     # apply limit query
     if ( $Param{Limit} ) {
@@ -504,17 +487,18 @@ sub SQLObjectSearch {
         Bind => \@QueryParamValues
     );
 
+    my @TableColumns = $Param{ReturnDefaultSQLColumnNames} ? @SQLTableColumns : @AliasNameTableColumns;
+
     if ( $ResultType eq 'COUNT' ) {
         my @Count = $DBObject->FetchrowArray();
         return $Count[0];
     }
     else {
-        # save data in format: sql column name => sql column value
         while ( my @Row = $DBObject->FetchrowArray() ) {
             my %Data;
             my $DataCounter = 0;
-            for my $RealNameColumn (@TableColumns) {
-                $Data{$RealNameColumn} = $Row[$DataCounter];
+            for my $ColumnName (@TableColumns) {
+                $Data{$ColumnName} = $Row[$DataCounter];
                 $DataCounter++;
             }
             push @Result, \%Data;
@@ -568,21 +552,6 @@ sub SearchFormat {
     }
 
     my $IndexResponse;
-    my @AttributeNames = keys %{ $Param{Fields} };
-
-    my @ColumnNames;
-    for my $FieldName (@AttributeNames) {
-        push @ColumnNames,
-            $Self->{Fields}->{$FieldName}->{ColumnName} || $Self->{ExternalFields}->{$FieldName}->{ColumnName};
-    }
-
-    # fallback
-    if ( $Param{Fallback} ) {
-        OBJECT:
-        for my $ObjectData ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
-            @$ObjectData{@AttributeNames} = delete @$ObjectData{@ColumnNames};
-        }
-    }
 
     if ( $Param{ResultType} eq "ARRAY" ) {
         $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData};
@@ -633,11 +602,10 @@ return all sql data of object ids
 sub ObjectListIDs {
     my ( $Self, %Param ) = @_;
 
-    my $IndexObject   = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Self->{Config}->{IndexName}");
-    my $Identifier    = $IndexObject->{Config}->{Identifier};
-    my $IdentifierSQL = $IndexObject->{Fields}->{$Identifier}->{ColumnName};
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Self->{Config}->{IndexName}");
+    my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-    # search for all objects from newest, order it by id
+    # search for all objects
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         QueryParams => {},
         Fields      => [$Identifier],
@@ -651,7 +619,7 @@ sub ObjectListIDs {
     # push hash data into array
     if ( IsArrayRefWithData($SQLSearchResult) ) {
         for my $SQLData ( @{$SQLSearchResult} ) {
-            push @Result, $SQLData->{$IdentifierSQL};
+            push @Result, $SQLData->{$Identifier};
         }
     }
 
@@ -807,6 +775,88 @@ sub IsSortableResultType {
     my ( $Self, %Param ) = @_;
 
     return $Self->{SupportedResultTypes}->{ $Param{ResultType} }->{Sortable} ? 1 : 0;
+}
+
+=head2 SortParamApply()
+
+apply sort param if it's valid
+
+    my $Result = $SearchBaseObject->SortParamApply(
+        SortBy => 'TicketID',
+        Silent => 1 # optional, possible: 0, 1
+    );
+
+=cut
+
+sub SortParamApply {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $SortBy;
+
+    if (
+        $Param{SortBy} && $Self->{Fields}->{ $Param{SortBy} }
+        )
+    {
+        my $Sortable = $Self->IsSortableResultType(
+            ResultType => $Param{ResultType},
+        );
+
+        if ($Sortable) {
+
+            # apply sorting parameter as valid
+            $SortBy = {
+                Name       => $Param{SortBy},
+                Properties => $Self->{Fields}->{ $Param{SortBy} },
+            };
+        }
+        else {
+            if ( !$Param{Silent} ) {
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message  => "Can't sort index: \"$Self->{Config}->{IndexName}\" with result type:" .
+                        " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
+                        " Specified result type is not sortable!\n" .
+                        " Sort operation won't be applied."
+                );
+            }
+        }
+    }
+
+    return $SortBy;
+}
+
+=head2 SQLSortQueryGet()
+
+return sql sort query if sort param is's valid
+
+    my $SQLSortQuery = $SearchBaseObject->SQLSortQueryGet(
+        SortBy => $Param{SortBy},
+        ResultType => $Param{ResultType},
+        Silent => 1 # optional, possible: 0, 1
+    );
+
+=cut
+
+sub SQLSortQueryGet {
+    my ( $Self, %Param ) = @_;
+
+    my $SortBy       = $Self->SortParamApply(%Param);
+    my $SQLSortQuery = '';
+
+    if ($SortBy) {
+        $SQLSortQuery .= " ORDER BY $Self->{Fields}->{$SortBy->{Name}}->{ColumnName}";
+        if ( $Param{OrderBy} ) {
+            if ( $Param{OrderBy} eq 'Up' ) {
+                $SQLSortQuery .= " ASC";
+            }
+            else {
+                $SQLSortQuery .= " DESC";
+            }
+        }
+    }
+
+    return $SQLSortQuery;
 }
 
 =head2 _Load()

@@ -334,7 +334,7 @@ sub _PrepareDFSQLResponse {
     my $IndexObject     = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
 
     # get all dynamic fields types to identify if response should contain array or scalar
-    my %DynamicFieldTypes = map { $_->{field_id} => 1 } @{$SQLSearchResult};
+    my %DynamicFieldTypes = map { $_->{FieldID} => 1 } @{$SQLSearchResult};
 
     my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
     my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
@@ -356,9 +356,9 @@ sub _PrepareDFSQLResponse {
 
     for my $Row ( @{$SQLSearchResult} ) {
         for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {
-            my $Value = delete $Row->{ $IndexObject->{Config}->{AdditionalOTRSFields}->{$ValueColumn}->{ColumnName} };
-            $Row->{value} = $Value if defined $Value;
-            $Row->{_ID}   = 'f' . $Row->{field_id} . 'o' . $Row->{object_id};
+            my $Value = delete $Row->{$ValueColumn};
+            $Row->{Value} = $Value if defined $Value;
+            $Row->{_ID}   = 'f' . $Row->{FieldID} . 'o' . $Row->{ObjectID};
         }
     }
 
@@ -368,13 +368,13 @@ sub _PrepareDFSQLResponse {
     # convert array type of dynamic fields to an array response value
     for my $Row ( @{$SQLSearchResult} ) {
         my $RowID = $Row->{_ID};
-        if ( $DynamicFieldTypes{ $Row->{field_id} } && $DynamicFieldTypes{ $Row->{field_id} } eq 'ARRAY' ) {
+        if ( $DynamicFieldTypes{ $Row->{FieldID} } && $DynamicFieldTypes{ $Row->{FieldID} } eq 'ARRAY' ) {
             if ( defined $RowArray{$RowID} ) {
-                push @{ $SQLSearchResult->[ $RowArray{$RowID} ]->{value} }, $Row->{value};
+                push @{ $SQLSearchResult->[ $RowArray{$RowID} ]->{Value} }, $Row->{Value};
                 delete $SQLSearchResult->[$Counter];
             }
             else {
-                $Row->{value} = [ $Row->{value} ];
+                $Row->{Value} = [ $Row->{Value} ];
                 $RowArray{$RowID} = $Counter;
             }
         }
