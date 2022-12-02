@@ -305,34 +305,15 @@ sub Search {
     # with not valid result type
     return if !$ValidResultType;
 
-    my $OrderBy     = $ObjectData->{OrderBy};
-    my $SortByCheck = $ObjectData->{SortBy};
-    my $Limit       = $ObjectData->{Limit};
-    my $Fields      = $ObjectData->{Fields};
-    my $SortBy;
-    if ($SortByCheck)
-    {
-        my $Sortable = $Self->IsSortableResultType(
-            ResultType => $ValidResultType,
-        );
+    my $OrderBy = $ObjectData->{OrderBy};
+    my $Limit   = $ObjectData->{Limit};
+    my $Fields  = $ObjectData->{Fields};
 
-        if ( $Sortable && $Self->{Fields}->{$SortByCheck} ) {
-
-            # change into real column name
-            $SortBy = $Self->{Fields}->{$SortByCheck};
-        }
-        else {
-            if ( !$Param{Silent} ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Can't sort index: \"$Self->{Config}->{IndexName}\" with result type:" .
-                        " \"$Param{ResultType}\" by field: \"$SortByCheck\".\n" .
-                        "Specified result type is not sortable or field does not exists in the index!\n" .
-                        "Sort operation won't be applied."
-                );
-            }
-        }
-    }
+    my $SortBy = $Self->SortParamApply(
+        %Param,
+        SortBy     => $ObjectData->{SortBy},
+        ResultType => $ValidResultType,
+    );
 
     return $Self->ExecuteSearch(
         %Param,
@@ -690,7 +671,7 @@ sub SQLObjectSearch {
                 # get the current value for each dynamic field
                 my $Value = $DynamicFieldBackendObject->ValueGet(
                     DynamicFieldConfig => $DynamicFieldConfig,
-                    ObjectID           => $Row->{id},
+                    ObjectID           => $Row->{TicketID},
                 );
 
                 # set the dynamic field name and value into the ticket hash
@@ -720,13 +701,13 @@ sub SQLObjectSearch {
         }
 
         for my $Row ( @{$SQLSearchResult} ) {
-            if ( $Row->{queue_id} ) {
+            if ( $Row->{QueueID} ) {
 
                 # do not use standard queue get function as it
                 # would return cached (old) queue group id
                 # on queue update events
                 return if !$DBObject->Prepare(
-                    SQL   => "SELECT group_id FROM queue WHERE id = $Row->{queue_id}",
+                    SQL   => "SELECT group_id FROM queue WHERE id = $Row->{QueueID}",
                     Limit => 1,
                 );
 

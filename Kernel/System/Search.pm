@@ -791,7 +791,6 @@ returns actual mapping set for index
 
     my $Result = $SearchObject->IndexMappingGet(
         Index => $Index,
-        GetAliases => 0 # optional
     );
 
 =cut
@@ -844,7 +843,6 @@ set mapping for index depending on configured fields in Object/Index module
 
     my $Result = $SearchObject->IndexMappingSet(
         Index => $Index,
-        SetAliases => 1, # optional
     );
 
 =cut

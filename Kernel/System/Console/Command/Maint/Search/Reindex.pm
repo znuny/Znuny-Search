@@ -332,8 +332,7 @@ sub Run {
 
         # initialize index
         my $InitSuccess = $Self->{SearchObject}->IndexInit(
-            Index      => $Object->{Index},
-            SetAliases => 1,
+            Index => $Object->{Index},
         );
 
         if ( !$InitSuccess ) {
