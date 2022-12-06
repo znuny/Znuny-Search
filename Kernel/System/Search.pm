@@ -865,28 +865,12 @@ sub IndexMappingSet {
         return;
     }
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-
-    my $PreparedQuery = $SearchObject->QueryPrepare(
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->IndexMappingSet(
         %Param,
-        Operation     => "IndexMappingSet",
         Config        => $Self->{Config},
         MappingObject => $Self->{MappingObject},
-    );
-
-    return if !$PreparedQuery;
-
-    my $Response = $Self->{EngineObject}->QueryExecute(
-        %Param,
-        Query         => $PreparedQuery,
-        Operation     => "IndexMappingSet",
+        EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
-    );
-
-    return $Self->{MappingObject}->IndexMappingSetFormat(
-        %Param,
-        Result => $Response,
-        Config => $Self->{Config},
     );
 }
 
@@ -1201,17 +1185,8 @@ sub SearchFormat {
         %Param,
     ) if !$Param{Fallback};    # fallback skip
 
-    my %OperationMapping = (
-        Search            => 'SearchFormat',
-        ObjectIndexAdd    => 'ObjectIndexAddFormat',
-        ObjectIndexGet    => 'ObjectIndexGetFormat',
-        ObjectIndexRemove => 'ObjectIndexRemoveFormat',
-    );
-
-    my $OperationFormatFunction = $OperationMapping{ $Param{Operation} };
-
     # object separately standarize response
-    my $IndexFormattedResult = $IndexObject->$OperationFormatFunction(
+    my $IndexFormattedResult = $IndexObject->SearchFormat(
         GloballyFormattedResult => $Param{Result},
         %Param
     );

@@ -20,6 +20,7 @@ our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search::Cluster',
     'Kernel::System::Search::Auth::ES',
+    'Kernel::System::JSON',
 );
 
 =head1 NAME
@@ -162,6 +163,7 @@ sub QueryExecute {
     my ( $Self, %Param ) = @_;
 
     my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
+    my $JSONObject    = $Kernel::OM->Get('Kernel::System::JSON');
     my $ConnectObject = $Param{ConnectObject};
 
     for my $Name (qw(Query Operation ConnectObject)) {
@@ -188,6 +190,12 @@ sub QueryExecute {
     if ($Error) {
 
         my $ErrorMessage = $@;
+
+        if ( !$ErrorMessage && IsHashRefWithData($Result) && $Result->{errors} && $Result->{items} ) {
+            $ErrorMessage = $JSONObject->Encode(
+                Data => $Result->{items},
+            );
+        }
 
         if ( !$Param{Silent} && $ErrorMessage ) {
             my $Engine = 'Kernel::System::Search::Engine::ES';

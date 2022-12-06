@@ -318,6 +318,44 @@ sub ObjectIndexRemove {
     );
 }
 
+=head2 IndexMappingSet()
+
+set mapping for index depending on configured fields in Object/Index module
+
+    my $Result = $SearchObject->IndexMappingSet(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexMappingSet {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexMappingSet",
+        Config        => $Param{Config},
+        MappingObject => $Param{MappingObject},
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "IndexMappingSet",
+        ConnectObject => $Param{ConnectObject},
+    );
+
+    return $Param{MappingObject}->IndexMappingSetFormat(
+        %Param,
+        Result => $Response,
+        Config => $Param{Config},
+    );
+}
+
 =head2 SQLObjectSearch()
 
 search in sql database for objects index related
@@ -547,14 +585,14 @@ sub SearchFormat {
     # return only number of records without formatting its attribute
     if ( $Param{ResultType} eq "COUNT" ) {
         return {
-            $IndexName => $GloballyFormattedResult->{$IndexName}->{ObjectData},
+            $IndexName => $GloballyFormattedResult->{$IndexName}->{ObjectData} // 0,
         };
     }
 
     my $IndexResponse;
 
     if ( $Param{ResultType} eq "ARRAY" ) {
-        $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData};
+        $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData} // [];
     }
     elsif ( $Param{ResultType} eq "HASH" ) {
 
@@ -584,7 +622,7 @@ sub SearchFormat {
                 next DATA;
             }
 
-            $IndexResponse->{$IndexName}->{ $Data->{$Identifier} } = $Data;
+            $IndexResponse->{$IndexName}->{ $Data->{$Identifier} } = $Data // {};
         }
     }
 

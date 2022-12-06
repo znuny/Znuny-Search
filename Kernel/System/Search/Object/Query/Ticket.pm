@@ -17,10 +17,13 @@ use parent qw( Kernel::System::Search::Object::Query );
 
 our @ObjectDependencies = (
     'Kernel::System::Search::Object::Default::Ticket',
-    'Kernel::System::Log',
     'Kernel::System::DynamicField',
     'Kernel::System::DynamicField::Backend',
+    'Kernel::System::Search::Object::Default::Article',
+    'Kernel::System::Search::Object::Default::ArticleDataMIME',
     'Kernel::System::Group',
+    'Kernel::System::Log',
+
 );
 
 =head1 NAME
@@ -386,8 +389,18 @@ check specified field for index
 sub _QueryFieldCheck {
     my ( $Self, %Param ) = @_;
 
-    return 1 if $Param{Name} =~ /DynamicField_+/;
     return 1 if $Param{Name} eq "GroupID";
+    return 1 if $Param{Name} =~ /^(DynamicField_.+)|(Article_DynamicField_.+)/;
+
+    if ( $Param{Name} =~ /^Article_(.+)/ ) {
+        my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
+        my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
+
+        if ( !$Param{NoMappingCheck} ) {
+            return 1 if $SearchArticleObject->{Fields}->{$1};
+            return 1 if $SearchArticleDataMIMEObject->{Fields}->{$1};
+        }
+    }
 
     # by default check if field is in index fields and mapping check is enabled
     return if !$Self->{IndexFields}->{ $Param{Name} } && !$Param{NoMappingCheck};

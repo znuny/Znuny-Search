@@ -14,7 +14,6 @@ use warnings;
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
-    'Kernel::System::Search::Object::Default::Ticket',
 );
 
 sub new {
@@ -47,28 +46,12 @@ sub Run {
 
     # execute only on group change
     if ( $Param{Data}{OldQueue}->{GroupID} != $Param{Data}{Queue}->{GroupID} ) {
-        my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::Ticket");
-
-        my $TicketWithGroupToChange = $IndexSearchObject->SQLObjectSearch(
+        $SearchObject->ObjectIndexUpdate(
+            Index       => 'Ticket',
             QueryParams => {
                 QueueID => $Param{Data}{OldQueue}->{QueueID},
             },
-            Fields => ['TicketID'],
-        );
-
-        my @TicketIDs;
-        for my $Ticket ( @{$TicketWithGroupToChange} ) {
-            push @TicketIDs, $Ticket->{id};
-        }
-
-        my %QueryParam = (
-            Index    => 'Ticket',
-            ObjectID => \@TicketIDs
-        );
-
-        $SearchObject->ObjectIndexUpdate(
-            %QueryParam,
-            Refresh => 1,    # live indexing should be refreshed every time
+            Refresh => 1,
         );
     }
 
