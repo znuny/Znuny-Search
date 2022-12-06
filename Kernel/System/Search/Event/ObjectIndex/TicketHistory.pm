@@ -130,7 +130,7 @@ sub Run {
 
     my %QueryParam = (
         Index    => $Param{Config}->{IndexName},
-        ObjectID => @{$Result}[0]->{id},
+        ObjectID => @{$Result}[0]->{TicketHistoryID},
     );
 
     $SearchObject->$FunctionName(
