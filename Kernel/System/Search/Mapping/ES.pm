@@ -62,22 +62,13 @@ sub Search {
     my ( $Self, %Param ) = @_;
 
     my %Body = $Self->_BuildQueryBodyFromParams(
-        FieldsDefinition => $Param{FieldsDefinition},
-        QueryParams      => $Param{QueryParams},
-        Object           => $Param{Object},
+        QueryParams => $Param{QueryParams},
+        Object      => $Param{Object},
     );
 
     my $QueryPath = "$Param{RealIndexName}/";
 
-    if ( $Param{ResultType} && $Param{ResultType} eq 'COUNT' ) {
-        $QueryPath .= '_count';
-    }
-    else {
-        # data source won't be "_source" key anymore
-        # instead it will be "fields"
-        $Body{_source} = "false";
-        $QueryPath .= '_search';
-        @{ $Body{fields} } = keys %{ $Param{Fields} };
+    if ( !$Param{ResultType} || $Param{ResultType} ne 'COUNT' ) {
 
         # set sorting field
         if ( $Param{SortBy} ) {
@@ -109,6 +100,30 @@ sub Search {
         if ( $Param{Limit} ) {
             $Body{size} = $Param{Limit};
         }
+
+        $QueryPath .= '_search';
+
+        # get original indexed lucene document from source or
+        # via fields - ES specific responses
+        if ( $Param{_Source} ) {
+            if ( !keys %{ $Param{Fields} } ) {
+
+                # push empty source
+                # in this way elasticsearch
+                # will return no fields at all
+                push @{ $Body{_source} }, "";
+            }
+            else {
+                @{ $Body{_source} } = keys %{ $Param{Fields} };
+            }
+        }
+        else {
+            $Body{_source} = "false";
+            @{ $Body{fields} } = keys %{ $Param{Fields} };
+        }
+    }
+    else {
+        $QueryPath .= '_count';
     }
 
     my $Query = {
@@ -515,22 +530,12 @@ process query data to structure that will be used to execute query
         Config   => $Config,
         Index    => $Index,
         ObjectID => $ObjectID,
-        FieldsDefinition => $FieldsDefinition,
     );
 
 =cut
 
 sub ObjectIndexRemove {
     my ( $Self, %Param ) = @_;
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    if ( !$Param{FieldsDefinition} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Need FieldsDefinition!"
-        );
-    }
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
 
@@ -544,9 +549,8 @@ sub ObjectIndexRemove {
 
     if ( $Param{QueryParams} ) {
         my %QueryBody = $Self->_BuildQueryBodyFromParams(
-            QueryParams      => $Param{QueryParams},
-            FieldsDefinition => $Param{FieldsDefinition},
-            Object           => $Param{Index},
+            QueryParams => $Param{QueryParams},
+            Object      => $Param{Index},
         );
 
         return {
@@ -882,11 +886,40 @@ returns query for engine mapping data types
 sub IndexMappingSet {
     my ( $Self, %Param ) = @_;
 
+    my %Body;
     my $Fields      = $Param{Fields};
     my $IndexConfig = $Param{IndexConfig};
 
-    my %Body;
-    my $DataTypes = {
+    my $DataTypes = $Self->MappingDataTypesGet();
+
+    for my $FieldName ( sort keys %{$Fields} ) {
+        $Body{$FieldName} = $DataTypes->{ $Fields->{$FieldName}->{Type} };
+    }
+
+    my $Query = {
+        Index => $IndexConfig->{IndexRealName},
+        Body  => {
+            properties => {
+                %Body
+            }
+        }
+    };
+
+    return $Query;
+}
+
+=head2 MappingDataTypesGet()
+
+get data types mapping
+
+    my $Result = $SearchMappingESObject->MappingDataTypesGet();
+
+=cut
+
+sub MappingDataTypesGet {
+    my ( $Self, %Param ) = @_;
+
+    return {
         Date => {
             type   => "date",
             format => "yyyy-MM-dd HH:mm:ss",
@@ -922,21 +955,6 @@ sub IndexMappingSet {
             }
         }
     };
-
-    for my $FieldName ( sort keys %{$Fields} ) {
-        $Body{$FieldName} = $DataTypes->{ $Fields->{$FieldName}->{Type} };
-    }
-
-    my $Query = {
-        Index => $IndexConfig->{IndexRealName},
-        Body  => {
-            properties => {
-                %Body
-            }
-        }
-    };
-
-    return $Query;
 }
 
 =head2 IndexMappingSetFormat()
@@ -1177,14 +1195,14 @@ sub _ResponseDataFormat {
         my $Hits   = $Param{Result}->{hits}->{hits};
         my @Fields = keys %{ $Param{Fields} };
 
-        # filter scalar/array fields by return type
-        my @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ /ARRAY|HASH/ } @Fields;
-        my @ArrayFields  = grep { $Param{Fields}->{$_}->{ReturnType} eq 'ARRAY' } @Fields;
-
         # when specified fields are filtered response
         # contains them inside "fields" key
         if ( $Param{QueryData}->{Query}->{Body}->{_source} && $Param{QueryData}->{Query}->{Body}->{_source} eq 'false' )
         {
+            # filter scalar/array fields by return type
+            my @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ /ARRAY|HASH/ } @Fields;
+            my @ArrayFields  = grep { $Param{Fields}->{$_}->{ReturnType} eq 'ARRAY' } @Fields;
+
             for my $Hit ( @{$Hits} ) {
                 my %Data;
 
@@ -1200,13 +1218,30 @@ sub _ResponseDataFormat {
         }
 
         # ES engine response stores objects inside "_source" key by default
-        # this method of retrieving data may not work correctly as it was
-        # used initially however there is a possibility to create query
-        # using this method so for compatibility&test reasons this will
-        # be still available and improved further
-        elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
-            for my $Hit ( @{$Hits} ) {
-                push @Objects, $Hit->{_source};
+        elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) || $Hits->[0]->{inner_hits} ) {
+
+            # check if there will be a need to look for child objects data
+            if ( $Param{NestedFieldsGet} ) {
+                for my $Hit ( @{$Hits} ) {
+                    my $Data = $Hit->{_source};
+                    if ( $Hit->{inner_hits} ) {
+                        for my $ChildKey ( sort keys %{ $Hit->{inner_hits} } ) {
+                            for my $ChildHit ( @{ $Hit->{inner_hits}->{$ChildKey}->{hits}->{hits} } ) {
+                                if ( IsHashRefWithData( $ChildHit->{_source} ) ) {
+                                    push @{ $Data->{$ChildKey} }, $ChildHit->{_source};
+                                }
+                            }
+                        }
+                    }
+                    if ( IsHashRefWithData($Data) ) {
+                        push @Objects, $Data;
+                    }
+                }
+            }
+            else {
+                for my $Hit ( @{$Hits} ) {
+                    push @Objects, $Hit->{_source};
+                }
             }
         }
     }
@@ -1229,7 +1264,6 @@ build query from params
 
     my %Query = $SearchMappingESObject->_BuildQueryBodyFromParams(
         QueryParams     => $QueryParams,
-        FieldDefinition => $FieldDefinition,
         Object          => $Object,
     );
 
