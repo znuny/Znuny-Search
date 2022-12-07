@@ -48,7 +48,7 @@
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Queue::EventModulePost###000-Ticket-Queue-ObjectIndexUpdate" Required="0" Valid="1">
+    <Setting Name="Queue::EventModulePost###100-Ticket-Queue-ObjectIndexUpdate" Required="0" Valid="1">
         <Description Translatable="1">Updates object data for index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
@@ -184,6 +184,26 @@
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField</Item>
                 <Item Key="Event">DynamicFieldDelete</Item>
                 <Item Key="FunctionName">ObjectIndexRemove</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="DynamicField::EventModulePost###100-DynamicField-Ticket-ObjectIndexRemove" Required="0" Valid="1">
+        <Description Translatable="1">Delete object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField::Ticket</Item>
+                <Item Key="Event">DynamicFieldDelete</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="DynamicField::EventModulePost###100-DynamicField-Ticket-ObjectIndexSet" Required="0" Valid="1">
+        <Description Translatable="1">Set object data for index based on specified events.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField::Ticket</Item>
+                <Item Key="Event">DynamicFieldUpdate</Item>
             </Hash>
         </Value>
     </Setting>

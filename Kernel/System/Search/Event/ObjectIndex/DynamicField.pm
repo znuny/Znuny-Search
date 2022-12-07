@@ -16,7 +16,6 @@ use Kernel::System::VariableCheck qw(:all);
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
-    'Kernel::System::Console::Command::Maint::Search::Reindex',
 );
 
 sub new {
@@ -60,7 +59,6 @@ sub Run {
 
     my $FunctionName = $Param{Config}->{FunctionName};
 
-    # delete dynamic field definition from advanced search engine
     my $Result = $SearchObject->$FunctionName(
         Index    => 'DynamicField',
         ObjectID => $Param{Data}->{NewData}->{ID}
@@ -78,63 +76,6 @@ sub Run {
                 FieldID => $Param{Data}->{NewData}->{ID}
             }
         );
-
-        # TO-DO optimize
-        $Self->_ReindexObject( Object => 'Ticket' );
-
-    }
-    elsif ( $FunctionName eq 'ObjectIndexSet' || $FunctionName eq 'ObjectIndexUpdate' ) {
-        if ( $Param{Data}->{NewData}->{Name} && $Param{Data}->{OldData}->{Name} ) {
-            my $DynamicFieldNameChanged = $Param{Data}->{NewData}->{Name} ne $Param{Data}->{OldData}->{Name};
-
-            # trigger reindexing all tickets in case dynamic field name has been changed
-            # TO-DO optimize
-            if ($DynamicFieldNameChanged) {
-                $Self->_ReindexObject( Object => 'Ticket' );
-            }
-        }
-    }
-
-    return 1;
-}
-
-sub _ReindexObject {
-    my ( $Self, %Param ) = @_;
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    for my $Name (qw(Object)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
-    }
-
-    # execute command to reindex specified object
-    my $CommandObject = $Kernel::OM->Get('Kernel::System::Console::Command::Maint::Search::Reindex');
-    my @CommandArgs   = ( '--Object', $Param{Object}, '--Recreate', 'latest' );
-
-    my $CommandOutput;
-    {
-        local *STDOUT;
-        open STDOUT, '>:utf8', \$CommandOutput;    ## no critic
-        $CommandObject->Execute(@CommandArgs);
-    }
-
-    if (
-        $CommandOutput =~ /Success with object fails\.|Status\: Failed/
-        &&
-        $CommandOutput !~ /Status: Success\./
-        )
-    {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Could not reindex object: \"$Param{Object}\" correctly!"
-        );
-        return;
     }
 
     return 1;
