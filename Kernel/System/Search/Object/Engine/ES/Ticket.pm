@@ -483,18 +483,50 @@ sub ExecuteSearch {
         my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
         my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
 
+        my %IgnoreDynamicFieldProcessing;
+
+        # search for event (live indexation) data
+        if ( $Param{Event} && $Param{Event}{Type} ) {
+            my $NewName = $Param{Event}{Data}{DynamicField}{Article}{New}{Name};
+
+            # ignore dynamic field further processing as it changed it's name
+            # on the OTRS side when updating, but there is a need to search for
+            # old name in ES engine
+            if ( $Param{Event}{Type} eq 'DynamicFieldUpdate' ) {
+                my $OldName = $Param{Event}{Data}{DynamicField}{Article}{Old}{Name};
+
+                if ( $NewName && $OldName && $ArticleDynamicFieldsSearchParams->{$OldName} ) {
+                    $IgnoreDynamicFieldProcessing{$OldName} = 1;
+                }
+            }
+
+            # ignore dynamic field further processing as it does not exists
+            # on the OTRS side when removing
+            elsif ( $Param{Event}{Type} eq 'DynamicFieldDelete' ) {
+
+                if ( $NewName && $ArticleDynamicFieldsSearchParams->{$NewName} ) {
+                    $IgnoreDynamicFieldProcessing{$NewName} = 1;
+                }
+            }
+        }
+
         DYNAMIC_FIELD:
         for my $ArticleDynamicFieldName ( sort keys %{$ArticleDynamicFieldsSearchParams} ) {
-            my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
-                Name => $ArticleDynamicFieldName,
-            );
 
-            next DYNAMIC_FIELD if !IsHashRefWithData($DynamicFieldConfig);
+            my $DynamicFieldConfig;
+            my $FieldValueType;
 
-            my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
-                DynamicFieldConfig => $DynamicFieldConfig,
-                FieldType          => 'Edit',
-            );
+            if ( !$IgnoreDynamicFieldProcessing{$ArticleDynamicFieldName} ) {
+                $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
+                    Name => $ArticleDynamicFieldName,
+                );
+                next DYNAMIC_FIELD if !IsHashRefWithData($DynamicFieldConfig);
+
+                $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
+                    DynamicFieldConfig => $DynamicFieldConfig,
+                    FieldType          => 'Edit',
+                );
+            }
 
             my $ReturnType = $FieldValueType->{"DynamicField_$ArticleDynamicFieldName"} || 'SCALAR';
 

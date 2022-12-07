@@ -429,6 +429,10 @@ sub _QueryFieldReturnTypeSet {
             Name => $1,
         );
 
+        # possible that dynamic field config won't be available
+        # on dynamic field delete events
+        return 'SCALAR' if !IsHashRefWithData($DynamicFieldConfig);
+
         my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
             DynamicFieldConfig => $DynamicFieldConfig,
             FieldType          => 'Edit',
