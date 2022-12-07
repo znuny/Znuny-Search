@@ -25,10 +25,27 @@ sub new {
 sub QueryBuild {
     my ( $Self, %Param ) = @_;
 
+    my %OperatorMapping = (
+        'AND' => 'and',
+        'OR'  => 'or'
+    );
+
+    my $Value;
+    if ( ref $Param{Value} ne 'HASH' ) {
+        $Value = {
+            query    => $Param{Value},
+            operator => $OperatorMapping{AND}
+        };
+    }
+    else {
+        $Value->{query}    = $Param{Value}->{Text};
+        $Value->{operator} = $OperatorMapping{ $Param{Value}->{QueryOperator} || "AND" };
+    }
+
     return {
         Query => {
             match => {
-                $Param{Field} => $Param{Value}
+                $Param{Field} => $Value
             }
         },
         Section => 'must'
