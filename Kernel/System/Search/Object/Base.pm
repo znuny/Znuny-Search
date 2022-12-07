@@ -500,7 +500,8 @@ sub SQLObjectSearch {
     }
 
     my $SQLSortQuery = $Self->SQLSortQueryGet(
-        SortBy     => $Param{SortBy},
+        OrderBy => $Param{OrderBy} // '',
+        SortBy  => $Param{SortBy}  // '',
         ResultType => $Param{ResultType},
         Silent     => 1
     );
