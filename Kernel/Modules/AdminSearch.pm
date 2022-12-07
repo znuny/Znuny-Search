@@ -714,7 +714,9 @@ sub Run {
     if ( $Self->{Subaction} eq 'TestNodeConnection' ) {
 
         my $ParamObject  = $Kernel::OM->Get('Kernel::System::Web::Request');
-        my $EngineObject = $Kernel::OM->Get("Kernel::System::Search::Engine::ES");
+        my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+        my $EngineObject = $Kernel::OM->Get("Kernel::System::Search::Engine::$SearchObject->{Config}->{ActiveEngine}");
+
         my %GetParam;
 
         for my $ParamName (
