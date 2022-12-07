@@ -53,6 +53,7 @@
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicFieldValue.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/Queue.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicField/Ticket.pm"/>
         <File Permission="660" Location="scripts/test/Search/ResponseEquality.t"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Engine/ES.pm"/>
