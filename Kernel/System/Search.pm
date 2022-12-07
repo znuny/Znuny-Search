@@ -112,7 +112,17 @@ search for specified object data
                          # for each objects in
                          # Kernel::System::Search::Object::"ObjectName" module
             SLAID => 2,
-            Title => 'New Title!',
+            Title => {
+                Operator => 'FULLTEXT',
+
+                Value => {
+                    Text => "Smart subject!", # "Text" is used with fulltext search operator
+                    QueryOperator => "AND"    # optional, possible: "OR", "AND" (default: "AND")
+                }
+                # OR
+                Value => "Smart subject!"     # "AND" operator will be used for fulltext search,
+                                              # and lookup for 'Smart subject!' phrase
+            }
             TicketID => [1,2,3,4,5],
             TicketHistoryID => 2, # this property does not exists inside index "Ticket"
                                   # and will not be applied for it as search param
