@@ -81,21 +81,21 @@ sub BuildNodeSection {
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
-    for my $Name (qw(UserID Action)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw(UserID Action)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
-    my $EngineID  = $Param{EngineID} || 'ES';
+    my $EngineID  = $Param{EngineID} // 'ES';
     my %ValidList = $ValidObject->ValidList();
 
     if ( $Param{Action} eq 'NodeChange' ) {
-
         my $NodeData = $SearchClusterObject->ClusterCommunicationNodeGet(
             NodeID => $Param{NodeID}
         );
@@ -153,10 +153,9 @@ sub BuildNodeSection {
         $Output .= $LayoutObject->Footer();
 
         return $Output;
-
     }
-    elsif ( $Param{Action} eq 'NodeAdd' ) {
 
+    if ( $Param{Action} eq 'NodeAdd' ) {
         my $Output = $LayoutObject->Header();
         $Output .= $LayoutObject->NavigationBar();
 

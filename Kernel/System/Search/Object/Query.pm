@@ -151,7 +151,6 @@ sub ObjectIndexAdd {
 
     NEEDED:
     for my $Needed (qw(MappingObject)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -171,7 +170,7 @@ sub ObjectIndexAdd {
     elsif ( !$Param{ObjectID} && !$Param{QueryParams} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "Parameter ObjectID or QueryParams is needed!",
+            Message  => "Either parameter ObjectID or QueryParams is needed!",
         );
         return;
     }
@@ -179,10 +178,9 @@ sub ObjectIndexAdd {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
-        {
-        $Identifier => $Param{ObjectID}
-        };
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} : {
+        $Identifier => $Param{ObjectID},
+    };
 
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         %Param,
@@ -236,7 +234,7 @@ sub ObjectIndexSet {
     elsif ( !$Param{ObjectID} && !$Param{QueryParams} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "Parameter ObjectID or QueryParams is needed!",
+            Message  => "Either parameter ObjectID or QueryParams is needed!",
         );
         return;
     }
@@ -244,10 +242,9 @@ sub ObjectIndexSet {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
-        {
-        $Identifier => $Param{ObjectID}
-        };
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} : {
+        $Identifier => $Param{ObjectID},
+    };
 
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         %Param,
@@ -281,7 +278,6 @@ sub ObjectIndexUpdate {
 
     NEEDED:
     for my $Needed (qw(MappingObject)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -301,7 +297,7 @@ sub ObjectIndexUpdate {
     elsif ( !$Param{ObjectID} && !$Param{QueryParams} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "Parameter ObjectID or QueryParams is needed!",
+            Message  => "Either parameter ObjectID or QueryParams is needed!",
         );
         return;
     }
@@ -309,10 +305,9 @@ sub ObjectIndexUpdate {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
-        {
-        $Identifier => $Param{ObjectID}
-        };
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} : {
+        $Identifier => $Param{ObjectID},
+    };
 
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         %Param,
@@ -349,7 +344,6 @@ sub ObjectIndexRemove {
 
     NEEDED:
     for my $Needed (qw(Config Index)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -362,10 +356,9 @@ sub ObjectIndexRemove {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
-        {
-        $Identifier => $Param{ObjectID}
-        };
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} : {
+        $Identifier => $Param{ObjectID},
+    };
 
     $QueryParams = $Self->_QueryParamsPrepare(
         QueryParams => $QueryParams,

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <otrs_config version="2.0" init="Application">
-    <Setting Name="Loader::SearchEngines###000-Framework" Required="0" Valid="1">
-        <Description Translatable="1">Register search engines.</Description>
+    <Setting Name="SearchEngine::Loader::Engine###000-Framework" Required="0" Valid="1">
+        <Description Translatable="1">Registers search engines.</Description>
         <Navigation>Core::Search</Navigation>
         <Value>
             <Hash>
@@ -9,8 +9,8 @@
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Loader::Search::ES###000-Framework" Required="0" Valid="1">
-        <Description Translatable="1">Register search indexes for elastic search engine.</Description>
+    <Setting Name="SearchEngine::Loader::Index::ES###000-Framework" Required="0" Valid="1">
+        <Description Translatable="1">Registers search indexes for elastic search engine.</Description>
         <Navigation>Core::Search</Navigation>
         <Value>
             <Hash>
@@ -25,7 +25,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Ticket-ObjectIndexAdd" Required="0" Valid="1">
-        <Description Translatable="1">Adds object data for index based on specified events.</Description>
+        <Description Translatable="1">Adds object data to search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -37,7 +37,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Ticket-ObjectIndexUpdate" Required="0" Valid="1">
-        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Description Translatable="1">Updates object data in search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -59,7 +59,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###001-Ticket-ObjectIndexUpdate" Required="0" Valid="1">
-        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Description Translatable="1">Updates object data in search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -71,7 +71,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Ticket-ObjectIndexRemove" Required="0" Valid="1">
-        <Description Translatable="1">Removes object data for index based on specified events.</Description>
+        <Description Translatable="1">Removes object data from search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -83,7 +83,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Article-ObjectIndexAdd" Required="0" Valid="1">
-        <Description Translatable="1">Adds object data for index based on specified events.</Description>
+        <Description Translatable="1">Adds object data to search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -95,7 +95,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Article-ObjectIndexUpdate" Required="0" Valid="1">
-        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Description Translatable="1">Updates object data in search index based on specified events.</Description>
         <Navigation>Core::Event::Article</Navigation>
         <Value>
             <Hash>
@@ -107,7 +107,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Article-ObjectIndexRemove" Required="0" Valid="1">
-        <Description Translatable="1">Removes object data for index based on specified events.</Description>
+        <Description Translatable="1">Removes object data from search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -119,7 +119,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-TicketHistory-ObjectIndexAdd" Required="0" Valid="1">
-        <Description Translatable="1">Adds object data for index based on specified events.</Description>
+        <Description Translatable="1">Adds object data to search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -131,7 +131,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-TicketHistory-ObjectIndexUpdate" Required="0" Valid="1">
-        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Description Translatable="1">Updates object data in search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -143,7 +143,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-TicketHistory-ObjectIndexRemove" Required="0" Valid="1">
-        <Description Translatable="1">Removes object data for index based on specified events.</Description>
+        <Description Translatable="1">Removes object data from search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -155,7 +155,7 @@
         </Value>
     </Setting>
     <Setting Name="DynamicField::EventModulePost###000-DynamicField-DynamicFieldAdd" Required="0" Valid="1">
-        <Description Translatable="1">Adds object data for index based on specified events.</Description>
+        <Description Translatable="1">Adds object data to search index based on specified events.</Description>
         <Navigation>Core::Event::DynamicField</Navigation>
         <Value>
             <Hash>
@@ -166,7 +166,7 @@
         </Value>
     </Setting>
     <Setting Name="DynamicField::EventModulePost###000-DynamicField-ObjectIndexUpdate" Required="0" Valid="1">
-        <Description Translatable="1">Updates object data for index based on specified events.</Description>
+        <Description Translatable="1">Updates object data in search index based on specified events.</Description>
         <Navigation>Core::Event::DynamicField</Navigation>
         <Value>
             <Hash>
@@ -177,7 +177,7 @@
         </Value>
     </Setting>
     <Setting Name="DynamicField::EventModulePost###000-DynamicField-ObjectIndexRemove" Required="0" Valid="1">
-        <Description Translatable="1">Removes object data for index based on specified events.</Description>
+        <Description Translatable="1">Removes object data from search index based on specified events.</Description>
         <Navigation>Core::Event::DynamicField</Navigation>
         <Value>
             <Hash>
@@ -208,7 +208,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-DynamicFieldValue-Ticket-ObjectIndexSet" Required="0" Valid="1">
-        <Description Translatable="1">Set object data for index based on specified events.</Description>
+        <Description Translatable="1">Sets object data in search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -220,7 +220,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-DynamicFieldValue-Article-ObjectIndexSet" Required="0" Valid="1">
-        <Description Translatable="1">Set object data for index based on specified events.</Description>
+        <Description Translatable="1">Sets object data in search index based on specified events.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -271,8 +271,8 @@
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Search::FieldsLoader::Ticket###000-Framework" Required="0" Valid="0">
-        <Description Translatable="1">Register for example custom mapping for "Ticket" index. Priority is used to define which configuration of the same attribute should be taken.</Description>
+    <Setting Name="SearchEngine::Loader::Fields::Ticket###000-Framework" Required="0" Valid="0">
+        <Description Translatable="1">Registers example custom mapping for search index Ticket. Priority is used to define which configuration of the same attribute should be taken.</Description>
         <Navigation>Core::Search::Ticket</Navigation>
         <Value>
             <Hash>
@@ -316,15 +316,15 @@
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="SearchEngine" Required="1" Valid="1">
-        <Description Translatable="1">Define if search engine feature should be enabled.</Description>
+    <Setting Name="SearchEngine###Enabled" Required="1" Valid="1">
+        <Description Translatable="1">Defines if search engine feature should be enabled.</Description>
         <Navigation>Core::Search</Navigation>
         <Value>
             <Item ValueType="Checkbox">0</Item>
         </Value>
     </Setting>
     <Setting Name="Daemon::SchedulerCronTaskManager::Task###SearchEngineReindex" Required="0" Valid="1">
-        <Description Translatable="1">Cron task for reindexing active cluster with mapping check.™.</Description>
+        <Description Translatable="1">Cron task for re-indexing active search index cluster with mapping check.</Description>
         <Navigation>Daemon::SchedulerCronTaskManager::Task</Navigation>
         <Value>
             <Hash>
@@ -341,8 +341,8 @@
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Reindexation###ReindexationSettings" Required="1" Valid="1">
-        <Description Translatable="1">Define settings used in reindexation command.</Description>
+    <Setting Name="SearchEngine::Reindexation###Settings" Required="1" Valid="1">
+        <Description Translatable="1">Defines settings used in re-indexation command.</Description>
         <Navigation>Core::Search</Navigation>
         <Value>
             <Hash>

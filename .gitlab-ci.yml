@@ -1,13 +1,5 @@
-image: registry.znuny.com/znuny/internal/docker-znuny-ci:$ZNUNY_TAG
+image: registry.znuny.com/znuny/internal/docker-znuny-ci:6.3
 
 include:
   - project: 'Znuny/Internal/Znuny'
     file: '/templates/gitlab/default/default-db.yml'
-
-variables:
-#  ADDITIONAL_SCRIPT_COMMAND: "bin/otrs.Console.pl Dev::UnitTest::Run --verbose --test Search/ResponseEquality"
-
-default:
-  before_script:
-    - /run.sh
-    - yum install -y "perl(Archive::Zip)"

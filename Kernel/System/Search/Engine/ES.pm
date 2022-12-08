@@ -88,9 +88,10 @@ sub Connect {
         if ( !$Param{Silent} ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message  => "Cannot find any cluster communication nodes! Connecting to Elastic search engine aborted.",
+                Message  => "Cannot find any cluster communication nodes! Connecting to Elasticsearch engine aborted.",
             );
         }
+
         return {
             Error => 1
         };
@@ -98,7 +99,6 @@ sub Connect {
 
     my @Nodes;
     for my $Node ( @{$ClusterNodes} ) {
-
         my $UserInfo = $Self->UserInfoStrgBuild(
             Login    => $Node->{Login},
             Password => $Node->{Password},
@@ -123,28 +123,27 @@ sub Connect {
         $ConnectObject->cluster()->health();
     };
 
+    return $ConnectObject if !$@;
+
     # If engine was not reachable than treat it like an error for further fallbacks.
-    if ($@) {
-        if ( !$Param{Silent} ) {
-            if ( $Param{Config}->{ActiveEngine} ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Connection failed for engine: $Param{Config}->{ActiveEngine}. Message: $@",
-                );
-            }
-            else {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Connection failed for search engine. Message: $@",
-                );
-            }
+    if ( !$Param{Silent} ) {
+        if ( $Param{Config}->{ActiveEngine} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Connection failed for engine $Param{Config}->{ActiveEngine}. Message: $@",
+            );
         }
-        return {
-            Error => 1
-        };
+        else {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Connection failed for search engine. Message: $@",
+            );
+        }
     }
 
-    return $ConnectObject;
+    return {
+        Error => 1
+    };
 }
 
 =head2 QueryExecute()
@@ -187,31 +186,29 @@ sub QueryExecute {
 
     my $Error = $@ || ( ref $Result eq 'HASH' && $Result->{errors} );
 
-    if ($Error) {
+    return $Result if !$Error;
 
-        my $ErrorMessage = $@;
+    my $ErrorMessage = $@;
 
-        if ( !$ErrorMessage && IsHashRefWithData($Result) && $Result->{errors} && $Result->{items} ) {
-            $ErrorMessage = $JSONObject->Encode(
-                Data => $Result->{items},
-            );
-        }
-
-        if ( !$Param{Silent} && $ErrorMessage ) {
-            my $Engine = 'Kernel::System::Search::Engine::ES';
-
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Query failed for engine: $Engine. Message: $ErrorMessage",
-            );
-        }
-        return {
-            __Error  => 1,
-            Response => $Result,
-        };
+    if ( !$ErrorMessage && IsHashRefWithData($Result) && $Result->{errors} && $Result->{items} ) {
+        $ErrorMessage = $JSONObject->Encode(
+            Data => $Result->{items},
+        );
     }
 
-    return $Result;
+    if ( !$Param{Silent} && $ErrorMessage ) {
+        my $Engine = 'Kernel::System::Search::Engine::ES';
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Query failed for engine: $Engine. Message: $ErrorMessage",
+        );
+    }
+
+    return {
+        __Error  => 1,
+        Response => $Result,
+    };
 }
 
 =head2 CheckNodeConnection()
@@ -258,19 +255,17 @@ sub CheckNodeConnection {
         $ConnectObject->cluster()->health();
     };
 
-    # if engine was not reachable than treat it like an error for further fallbacks
-    if ($@) {
-        if ( !$Param{Silent} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message =>
-                    "Communication node authentication failed for node connection check. Login:$Param{Login}. Message: $@"
-            );
-        }
-        return;
-    }
+    return 1 if !$@;
 
-    return 1;
+    # if engine was not reachable than treat it like an error for further fallbacks
+    if ( !$Param{Silent} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message =>
+                "Communication node authentication failed for node connection check. Login:$Param{Login}. Message: $@"
+        );
+    }
+    return;
 }
 
 =head2 UserInfoStrgBuild()

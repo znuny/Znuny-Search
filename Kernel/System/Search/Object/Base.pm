@@ -50,7 +50,7 @@ sub new {
 
     $LogObject->Log(
         Priority => 'error',
-        Message  => "Constructor needs to be overriden!",
+        Message  => "Constructor needs to be overridden!",
     );
 
     return $Self;
@@ -444,11 +444,10 @@ sub SQLObjectSearch {
         $SQL = 'SELECT ' . join( ',', @SQLTableColumns ) . ' FROM ' . $IndexRealName;
     }
 
-    my @Result;
-
-    my @QueryParamValues = ();
+    my @QueryParamValues;
     my $PrependOperator;
     my @QueryConditions;
+
     if ( IsHashRefWithData( $Param{QueryParams} ) ) {
         my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
 
@@ -536,16 +535,16 @@ sub SQLObjectSearch {
         my @Count = $DBObject->FetchrowArray();
         return $Count[0];
     }
-    else {
-        while ( my @Row = $DBObject->FetchrowArray() ) {
-            my %Data;
-            my $DataCounter = 0;
-            for my $ColumnName (@TableColumns) {
-                $Data{$ColumnName} = $Row[$DataCounter];
-                $DataCounter++;
-            }
-            push @Result, \%Data;
+
+    my @Result;
+    while ( my @Row = $DBObject->FetchrowArray() ) {
+        my %Data;
+        my $DataCounter = 0;
+        for my $ColumnName (@TableColumns) {
+            $Data{$ColumnName} = $Row[$DataCounter];
+            $DataCounter++;
         }
+        push @Result, \%Data;
     }
 
     return \@Result;
@@ -606,7 +605,7 @@ sub SearchFormat {
             if ( !$Param{Silent} ) {
                 $LogObject->Log(
                     Priority => 'error',
-                    Message  => "Missing '\$Self->{Config}->{Identifier} for $IndexName index.'",
+                    Message  => "Missing '\$Self->{Config}->{Identifier} for index $IndexName.'",
                 );
             }
             return;
@@ -621,7 +620,7 @@ sub SearchFormat {
                     $LogObject->Log(
                         Priority => 'error',
                         Message =>
-                            "Could not get object identifier: $Identifier for index: $IndexName in the response!",
+                            "Could not get object identifier $Identifier for index $IndexName in the response!",
                     );
                 }
                 next DATA;
@@ -657,9 +656,8 @@ sub ObjectListIDs {
         ResultType  => $Param{ResultType},
     );
 
-    my @Result = ();
-
     # push hash data into array
+    my @Result;
     if ( IsArrayRefWithData($SQLSearchResult) ) {
         for my $SQLData ( @{$SQLSearchResult} ) {
             push @Result, $SQLData->{$Identifier};
@@ -692,7 +690,7 @@ sub CustomFieldsConfig {
     }
 
     my $CustomPackageModuleConfigList = $ConfigObject->Get(
-        "Search::FieldsLoader::$Self->{Config}->{IndexName}"
+        "SearchEngine::Loader::Fields::$Self->{Config}->{IndexName}"
     );
 
     my %CustomFieldsMapping = (
@@ -835,38 +833,36 @@ sub SortParamApply {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-    my $SortBy;
 
-    if (
-        $Param{SortBy} && $Self->{Fields}->{ $Param{SortBy} }
-        )
-    {
-        my $Sortable = $Self->IsSortableResultType(
-            ResultType => $Param{ResultType},
-        );
+    return if !$Param{SortBy};
+    return if !$Self->{Fields}->{ $Param{SortBy} };
 
-        if ($Sortable) {
+    my $Sortable = $Self->IsSortableResultType(
+        ResultType => $Param{ResultType},
+    );
 
-            # apply sorting parameter as valid
-            $SortBy = {
-                Name       => $Param{SortBy},
-                Properties => $Self->{Fields}->{ $Param{SortBy} },
-            };
-        }
-        else {
-            if ( !$Param{Silent} ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Can't sort index: \"$Self->{Config}->{IndexName}\" with result type:" .
-                        " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
-                        " Specified result type is not sortable!\n" .
-                        " Sort operation won't be applied."
-                );
-            }
-        }
+    if ($Sortable) {
+
+        # apply sorting parameter as valid
+        my $SortBy = {
+            Name       => $Param{SortBy},
+            Properties => $Self->{Fields}->{ $Param{SortBy} },
+        };
+
+        return $SortBy;
     }
 
-    return $SortBy;
+    return if $Param{Silent};
+
+    $LogObject->Log(
+        Priority => 'error',
+        Message  => "Can't sort index: \"$Self->{Config}->{IndexName}\" with result type:" .
+            " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
+            " Specified result type is not sortable!\n" .
+            " Sort operation won't be applied."
+    );
+
+    return;
 }
 
 =head2 SQLSortQueryGet()
@@ -874,9 +870,9 @@ sub SortParamApply {
 return sql sort query if sort param is's valid
 
     my $SQLSortQuery = $SearchBaseObject->SQLSortQueryGet(
-        SortBy => $Param{SortBy},
+        SortBy     => $Param{SortBy},
         ResultType => $Param{ResultType},
-        Silent => 1 # optional, possible: 0, 1
+        Silent     => 1 # optional, possible: 0, 1
     );
 
 =cut
@@ -884,18 +880,16 @@ return sql sort query if sort param is's valid
 sub SQLSortQueryGet {
     my ( $Self, %Param ) = @_;
 
-    my $SortBy       = $Self->SortParamApply(%Param);
-    my $SQLSortQuery = '';
+    my $SortBy = $Self->SortParamApply(%Param);
+    return '' if !$SortBy;
 
-    if ($SortBy) {
-        $SQLSortQuery .= " ORDER BY $Self->{Fields}->{$SortBy->{Name}}->{ColumnName}";
-        if ( $Param{OrderBy} ) {
-            if ( $Param{OrderBy} eq 'Up' ) {
-                $SQLSortQuery .= " ASC";
-            }
-            else {
-                $SQLSortQuery .= " DESC";
-            }
+    my $SQLSortQuery = " ORDER BY $Self->{Fields}->{$SortBy->{Name}}->{ColumnName}";
+    if ( $Param{OrderBy} ) {
+        if ( $Param{OrderBy} eq 'Up' ) {
+            $SQLSortQuery .= " ASC";
+        }
+        else {
+            $SQLSortQuery .= " DESC";
         }
     }
 

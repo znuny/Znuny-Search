@@ -90,7 +90,7 @@ sub new {
         },
     };
 
-    $Self->{Config}->{AdditionalOTRSFields} = {
+    $Self->{Config}->{AdditionalZnunyFields} = {
         ValueText => {
             ColumnName => 'value_text',
             Type       => 'String'
@@ -122,7 +122,7 @@ sub new {
 validates fields for object and return only valid ones
 
     my %Fields = $SearchTicketESObject->ValidFieldsPrepare(
-        Object      => $ObjectName,
+        Object => $ObjectName,
     );
 
 =cut
@@ -130,28 +130,29 @@ validates fields for object and return only valid ones
 sub ValidFieldsPrepare {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
-    for my $Name (qw(Object)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return ();
-        }
+    NEEDED:
+    for my $Needed (qw(Object)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
-    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
 
-    my $Fields               = $IndexSearchObject->{Fields};
-    my $AdditionalOTRSFields = $IndexSearchObject->{Config}->{AdditionalOTRSFields};
+    my $Fields                = $IndexSearchObject->{Fields};
+    my $AdditionalZnunyFields = $IndexSearchObject->{Config}->{AdditionalZnunyFields};
 
-    my %ValidFields = ();
+    my %ValidFields;
 
     if ( !IsArrayRefWithData( $Param{Fields} ) ) {
-        %ValidFields = ( %{$Fields}, %{$AdditionalOTRSFields} );
+        %ValidFields = ( %{$Fields}, %{$AdditionalZnunyFields} );
         delete $ValidFields{Value} if ( $Param{Fallback} );
 
         return $SearchChildObject->_PostValidFieldsPrepare(
@@ -159,12 +160,13 @@ sub ValidFieldsPrepare {
         );
     }
 
-    %{$Fields} = ( %{$Fields}, %{$AdditionalOTRSFields} );
+    %{$Fields} = ( %{$Fields}, %{$AdditionalZnunyFields} );
 
+    PARAMFIELD:
     for my $ParamField ( @{ $Param{Fields} } ) {
-        if ( $Fields->{$ParamField} ) {
-            $ValidFields{$ParamField} = $Fields->{$ParamField};
-        }
+        next PARAMFIELD if !$Fields->{$ParamField};
+
+        $ValidFields{$ParamField} = $Fields->{$ParamField};
     }
 
     return $SearchChildObject->_PostValidFieldsPrepare(
@@ -194,8 +196,8 @@ sub SQLObjectSearch {
     my ( $Self, %Param ) = @_;
 
     my $QueryDynamicFieldValueObject = $Kernel::OM->Get('Kernel::System::Search::Object::Query::DynamicFieldValue');
-    my $ConvertResponse;
 
+    my $ConvertResponse;
     my $Fields = $Param{Fields};
 
     if ( IsHashRefWithData($Fields) ) {
@@ -207,8 +209,8 @@ sub SQLObjectSearch {
         @{$Fields} = keys %{ $Self->{Fields} };
     }
 
-    my @SQLSearchFields   = keys %{ $Self->{Config}->{AdditionalOTRSFields} };
-    my %CustomIndexFields = ( %{ $Self->{Fields} }, %{ $Self->{Config}->{AdditionalOTRSFields} } );
+    my @SQLSearchFields   = keys %{ $Self->{Config}->{AdditionalZnunyFields} };
+    my %CustomIndexFields = ( %{ $Self->{Fields} }, %{ $Self->{Config}->{AdditionalZnunyFields} } );
     delete $CustomIndexFields{Value};
     for my $Field ( sort keys %{ $Self->{Fields} } ) {
         if ( $Field ne 'Value' ) {
@@ -218,20 +220,20 @@ sub SQLObjectSearch {
 
     # handle denormalized value field
     if ( IsArrayRefWithData($Fields) ) {
-        FIELDS:
+        FIELD:
         for ( my $i = 0; $i < scalar @{$Fields}; $i++ ) {
-            if ( $Fields->[$i] eq 'Value' ) {
-                delete $Fields->[$i];
+            next FIELD if $Fields->[$i] ne 'Value';
 
-                my %AdditionalFields = %{ $Self->{Config}->{AdditionalOTRSFields} };
+            delete $Fields->[$i];
 
-                for my $Field ( sort keys %AdditionalFields ) {
-                    push @{$Fields}, $Field;
-                }
+            my %AdditionalFields = %{ $Self->{Config}->{AdditionalZnunyFields} };
 
-                @{$Fields} = grep {$_} @{$Fields};
-                last FIELDS;
+            for my $Field ( sort keys %AdditionalFields ) {
+                push @{$Fields}, $Field;
             }
+
+            @{$Fields} = grep {$_} @{$Fields};
+            last FIELD;
         }
     }
 
@@ -246,6 +248,7 @@ sub SQLObjectSearch {
             SQLSearchResult => $SQLSearchResult,
             Index           => 'DynamicFieldValue',
         );
+
         if ( IsHashRefWithData( $Param{Fields} ) ) {
             for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {
                 delete $Param{Fields}->{$ValueColumn};

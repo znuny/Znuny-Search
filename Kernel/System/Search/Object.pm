@@ -82,7 +82,6 @@ sub Fallback {
 
     NEEDED:
     for my $Needed (qw(IndexName)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -139,14 +138,15 @@ sub QueryPrepare {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    for my $Name (qw( Config MappingObject Operation )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Config MappingObject Operation )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $FunctionName = '_QueryPrepare' . $Param{Operation};
@@ -176,14 +176,15 @@ sub IndexIsValid {
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
 
-    for my $Name (qw(IndexName)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!",
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw(IndexName)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!",
+        );
+        return;
     }
 
     my %RegisteredIndexes = %{ $SearchObject->{Config}->{RegisteredIndexes} };
@@ -227,7 +228,6 @@ sub ValidResultType {
 
     NEEDED:
     for my $Needed (qw(SupportedResultTypes)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -268,14 +268,15 @@ sub ValidFieldsPrepare {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    for my $Name (qw(Object)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return ();
-        }
+    NEEDED:
+    for my $Needed (qw(Object)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return ();
     }
 
     my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
@@ -284,8 +285,8 @@ sub ValidFieldsPrepare {
         return $IndexSearchObject->ValidFieldsPrepare(%Param);
     }
 
-    my $Fields      = $IndexSearchObject->{Fields};
-    my %ValidFields = ();
+    my $Fields = $IndexSearchObject->{Fields};
+    my %ValidFields;
 
     if ( !IsArrayRefWithData( $Param{Fields} ) ) {
         %ValidFields = %{$Fields};
@@ -350,17 +351,18 @@ sub _QueryPrepareSearch {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    my $Result = {};
+    my $Result;
     my @Queries;
 
-    for my $Name (qw( Objects MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Objects MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     OBJECT:
@@ -432,14 +434,15 @@ sub _QueryPrepareObjectIndexAdd {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $Index = $Param{Index};
@@ -477,14 +480,15 @@ sub _QueryPrepareObjectIndexSet {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $Index = $Param{Index};
@@ -523,14 +527,15 @@ sub _QueryPrepareObjectIndexUpdate {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $Index = $Param{Index};
@@ -569,14 +574,15 @@ sub _QueryPrepareObjectIndexRemove {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $Index = $Param{Index};
@@ -585,7 +591,6 @@ sub _QueryPrepareObjectIndexRemove {
         Module => "Kernel::System::Search::Object::Query::${Index}",
     );
 
-    # TODO support for not loaded module
     return if !$Loaded;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
@@ -614,14 +619,15 @@ sub _QueryPrepareIndexRemove {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     if ( !$Param{IndexName} && !$Param{IndexRealName} || $Param{IndexName} && $Param{IndexRealName} ) {
@@ -664,14 +670,15 @@ sub _QueryPrepareIndexAdd {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( MappingObject Config IndexName )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( MappingObject Config IndexName )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{IndexName}");
@@ -700,14 +707,15 @@ sub _QueryPrepareIndexList {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query");
@@ -737,14 +745,15 @@ sub _QueryPrepareIndexClear {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $Index = $Param{Index};
@@ -782,14 +791,15 @@ sub _QueryPrepareIndexMappingSet {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $Index = $Param{Index};
@@ -827,14 +837,15 @@ sub _QueryPrepareIndexMappingGet {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $Index = $Param{Index};
@@ -871,14 +882,15 @@ sub _QueryPrepareDiagnosticDataGet {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query");
@@ -908,7 +920,6 @@ sub _LoadModule {
 
     NEEDED:
     for my $Needed (qw(Module)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -953,14 +964,15 @@ sub _QueryPrepareIndexInitialSettingsGet {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $Index = $Param{Index};
@@ -998,14 +1010,15 @@ sub _QueryPrepareIndexRefresh {
     my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
     my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
 
-    for my $Name (qw( Index MappingObject Config )) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $Index = $Param{Index};

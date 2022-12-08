@@ -252,7 +252,6 @@ sub Search {
     my %StandardizedObjectParams = $Self->_SearchParamsStandardize( Param => $Params );
 
     for my $Object ( sort keys %StandardizedObjectParams ) {
-
         my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Object");
 
         if ( exists &{"$IndexObject->{Module}::Search"} ) {
@@ -340,7 +339,6 @@ sub Search {
     # execute all valid queries
     QUERY:
     for my $Query (@ValidQueries) {
-
         my $Response = $Self->{EngineObject}->QueryExecute(
             Query         => $Query->{Query},
             Operation     => 'Search',
@@ -391,7 +389,7 @@ sub Search {
 
 =head2 ObjectIndexAdd()
 
-add object for specified index
+add object to specified index
 
     my $Success = $SearchObject->ObjectIndexAdd(
         Index    => 'Ticket',
@@ -445,7 +443,7 @@ sub ObjectIndexAdd {
 
 =head2 ObjectIndexSet()
 
-set (update if exists or create if not exists) object for specified index
+set (update if exists or create if not exists) object in specified index
 
     my $Success = $SearchObject->ObjectIndexSet(
         Index    => "Ticket",
@@ -500,7 +498,7 @@ sub ObjectIndexSet {
 
 =head2 ObjectIndexUpdate()
 
-update object for specified index
+update object in specified index
 
     my $Success = $SearchObject->ObjectIndexUpdate(
         Index => "Ticket",
@@ -553,7 +551,7 @@ sub ObjectIndexUpdate {
 
 =head2 ObjectIndexRemove()
 
-remove object for specified index
+remove object from specified index
 
     my $Success = $SearchObject->ObjectIndexRemove(
         Index => "Ticket",
@@ -606,7 +604,7 @@ sub ObjectIndexRemove {
 
 =head2 Connect()
 
-connect for active search engine
+connect to active search engine
 
     my $ConnectObject = $SearchObject->Connect(
         Config => $Self->{Config},
@@ -635,7 +633,7 @@ sub Connect {
 
 =head2 IndexAdd()
 
-add index on the search engine side
+add index to search engine
 
     my $Result = $SearchObject->IndexAdd(
         IndexName => "Ticket" # this will create 'ticket' index on the engine side
@@ -677,7 +675,7 @@ sub IndexAdd {
 
 =head2 IndexRemove()
 
-delete index on the search engine side
+delete index from search engine
 
     my $Result = $SearchObject->IndexRemove(
         IndexName => "Ticket" # this will delete 'ticket' index on the engine side
@@ -721,7 +719,7 @@ sub IndexRemove {
 
 =head2 IndexList()
 
-get list of indexes in engine search for active cluster
+get list of indexes from engine search for active cluster
 
     my @IndexList = $SearchObject->IndexList();
 
@@ -822,8 +820,8 @@ sub IndexMappingGet {
 
     NEEDED:
     for my $Needed (qw(Index)) {
-
         next NEEDED if defined $Param{$Needed};
+
         $LogObject->Log(
             Priority => 'error',
             Message  => "Parameter '$Needed' is needed!",
@@ -875,8 +873,8 @@ sub IndexMappingSet {
 
     NEEDED:
     for my $Needed (qw(Index)) {
-
         next NEEDED if defined $Param{$Needed};
+
         $LogObject->Log(
             Priority => 'error',
             Message  => "Parameter '$Needed' is needed!",
@@ -895,7 +893,7 @@ sub IndexMappingSet {
 
 =head2 IndexClear()
 
-deletes the entire contents of the index
+deletes the entire content of the index
 
     my $Result = $SearchObject->IndexClear(
         Index => $Index,
@@ -917,7 +915,11 @@ sub IndexClear {
     );
 
     # no data exists
-    if ( $Search->{ $Param{Index} } && !( IsArrayRefWithData( $Search->{ $Param{Index} } ) ) ) {
+    if (
+        $Search->{ $Param{Index} }
+        && !( IsArrayRefWithData( $Search->{ $Param{Index} } ) )
+        )
+    {
         return 1;
     }
 
@@ -961,8 +963,9 @@ sub ConfigGet {
 
     my $ActiveEngineConfig    = $SearchClusterObject->ActiveClusterGet();
     my $ActiveEngine          = $ActiveEngineConfig->{Engine} || '';
-    my $Enabled               = $ConfigObject->Get("SearchEngine");
-    my $RegisteredIndexConfig = $ConfigObject->Get("Loader::Search::$ActiveEngine");
+    my $SearchEngineConfig    = $ConfigObject->Get("SearchEngine");
+    my $Enabled               = IsHashRefWithData($SearchEngineConfig) && $SearchEngineConfig->{Enabled} ? 1 : 0;
+    my $RegisteredIndexConfig = $ConfigObject->Get("SearchEngine::Loader::Index::$ActiveEngine");
     my $RegisteredEngines     = $Self->EngineListGet();
 
     my $Config = {
@@ -1030,9 +1033,8 @@ sub BaseModulesCheck {
             }
             return;
         }
-        else {
-            $Self->{ $Module . "Object" } = $Kernel::OM->Get($Location);
-        }
+
+        $Self->{ $Module . "Object" } = $Kernel::OM->Get($Location);
     }
 
     return 1;
@@ -1108,7 +1110,6 @@ sub Fallback {
     my %Result;
     OBJECT:
     for my $Object ( sort keys %{ $Param{Objects} } ) {
-
         next OBJECT if !$Object;
 
         # get globally formatted fallback response
@@ -1119,7 +1120,7 @@ sub Fallback {
         );
 
         # on any error ignore response
-        next OBJECT if !$Response;
+        next OBJECT if !IsHashRefWithData($Response);
 
         # get valid result type from the response
         my $ResultType = delete $Response->{ResultType};
@@ -1157,7 +1158,7 @@ sub EngineListGet {
     my ( $Self, %Param ) = @_;
 
     my $ConfigObject     = $Kernel::OM->Get('Kernel::Config');
-    my $EngineListConfig = $ConfigObject->Get('Loader::SearchEngines');
+    my $EngineListConfig = $ConfigObject->Get('SearchEngine::Loader::Engine');
 
     my %Engines;
     for my $EngineConfigKey ( sort keys %{$EngineListConfig} ) {
@@ -1187,8 +1188,8 @@ sub SearchFormat {
 
     NEEDED:
     for my $Needed (qw(Operation IndexName)) {
-
         next NEEDED if $Param{$Needed};
+
         $LogObject->Log(
             Priority => 'error',
             Message  => "Missing param: $Needed",
@@ -1200,9 +1201,11 @@ sub SearchFormat {
     # Do not use it on fallback response
     # as fallback do not use advanced search engine
     # and should have response formatted globally already.
-    $Param{Result} = $Self->{MappingObject}->SearchFormat(
-        %Param,
-    ) if !$Param{Fallback};    # fallback skip
+    if ( !$Param{Fallback} ) {
+        $Param{Result} = $Self->{MappingObject}->SearchFormat(
+            %Param,
+        );    # fallback skip
+    }
 
     # object separately standarize response
     my $IndexFormattedResult = $IndexObject->SearchFormat(
@@ -1257,7 +1260,7 @@ sub IndexInitialSettingsGet {
 
 =head2 IndexRefresh()
 
-refreshes index on engine side
+refreshes index in search engine
 
     my $Success = $SearchObject->IndexRefresh(
         Index => $Index,
@@ -1314,7 +1317,6 @@ sub _SearchParamsStandardize {
         if ( IsArrayRefWithData( $Param{Param}->{Objects} ) ) {
             @Objects = @{ $Param{Param}->{Objects} };
             for my $Param (qw(OrderBy Limit)) {
-
                 if ( $Param{Param}->{$Param} && !IsArrayRefWithData( $Param{Param}->{$Param} ) ) {
                     my $ParamValue = $Param{Param}->{$Param};
 
@@ -1334,7 +1336,6 @@ sub _SearchParamsStandardize {
 
     OBJECT:
     for ( my $i = 0; $i < scalar @Objects; $i++ ) {
-
         my $ObjectName = $Objects[$i];
 
         my %ValidFields = $SearchChildObject->ValidFieldsPrepare(

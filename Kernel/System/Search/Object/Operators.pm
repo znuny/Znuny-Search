@@ -72,7 +72,7 @@ sub OperatorQueryGet {
     if ( !$IndexModule->{IndexOperatorMapping}->{ $Param{Operator} } ) {
         $LogObject->Log(
             Priority => 'error',
-            Message => "Operator '$Param{Operator}' is not supported for '$IndexModule->{$Param{Field}}->{Type}' type.",
+            Message => "Operator '$Param{Operator}' is not supported for type '$IndexModule->{$Param{Field}}->{Type}'.",
         );
         return;
     }

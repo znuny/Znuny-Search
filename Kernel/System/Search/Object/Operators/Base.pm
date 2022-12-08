@@ -76,10 +76,6 @@ sub OperatorQueryBuild {
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
-    # case when some critical error happened in engine after first check that passed
-    # TODO - check if that can happen at all
-    return if $SearchObject->{Fallback};
-
     # build engine query
     my $EngineOperatorModule
         = "Kernel::System::Search::Object::Operators::$Param{OperatorModuleName}::Engine::$SearchObject->{Config}->{ActiveEngine}";

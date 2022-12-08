@@ -19,7 +19,6 @@ our @ObjectDependencies = (
 sub new {
     my ( $Type, %Param ) = @_;
 
-    # allocate new hash for object
     my $Self = {};
     bless( $Self, $Type );
 
@@ -30,30 +29,31 @@ sub Run {
     my ( $Self, %Param ) = @_;
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
-    return if $SearchObject->{Fallback};
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
 
-    # check needed parameters
+    return if $SearchObject->{Fallback};
+
+    NEEDED:
     for my $Needed (qw(Data Event Config)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     # execute only on group change
-    if ( $Param{Data}{OldQueue}->{GroupID} != $Param{Data}{Queue}->{GroupID} ) {
-        $SearchObject->ObjectIndexUpdate(
-            Index       => 'Ticket',
-            QueryParams => {
-                QueueID => $Param{Data}{OldQueue}->{QueueID},
-            },
-            Refresh => 1,
-        );
-    }
+    return 1 if $Param{Data}->{OldQueue}->{GroupID} == $Param{Data}->{Queue}->{GroupID};
+
+    $SearchObject->ObjectIndexUpdate(
+        Index       => 'Ticket',
+        QueryParams => {
+            QueueID => $Param{Data}->{OldQueue}->{QueueID},
+        },
+        Refresh => 1,
+    );
 
     return 1;
 }

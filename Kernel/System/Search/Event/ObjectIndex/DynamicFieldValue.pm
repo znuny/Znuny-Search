@@ -23,7 +23,6 @@ our @ObjectDependencies = (
 sub new {
     my ( $Type, %Param ) = @_;
 
-    # allocate new hash for object
     my $Self = {};
     bless( $Self, $Type );
 
@@ -35,24 +34,26 @@ sub Run {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # check needed parameters
+    NEEDED:
     for my $Needed (qw(Data Event Config)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
+
+    NEEDED:
     for my $Needed (qw(FunctionName)) {
-        if ( !$Param{Config}->{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed in Config!"
-            );
-            return;
-        }
+        next NEEDED if $Param{Config}->{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed in Config!"
+        );
+        return;
     }
 
     my $SearchObject              = $Kernel::OM->Get('Kernel::System::Search');
@@ -61,16 +62,18 @@ sub Run {
 
     return if $SearchObject->{Fallback};
 
-    # get dynamic field
     my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
         Name => $Param{Data}->{FieldName},
     );
+    return if !IsHashRefWithData($DynamicFieldConfig);
 
     # get type of data that are stored in db
     my $FieldValueTypeGet = $DynamicFieldBackendObject->TemplateValueTypeGet(
         DynamicFieldConfig => $DynamicFieldConfig,
         FieldType          => 'Edit',
     );
+    return if !IsHashRefWithData($FieldValueTypeGet);
+
     my $FieldValueType = $FieldValueTypeGet->{ 'DynamicField_' . $DynamicFieldConfig->{Name} };
 
     my $FunctionName = $Param{Config}->{FunctionName};
@@ -87,8 +90,9 @@ sub Run {
         )
         )
     {
-        # dynamic_field_value removal is problematic as otrs won't send here
-        # id of record to delete, so instead custom id is defined for
+
+        # dynamic_field_value removal is problematic as Znuny won't return
+        # ID of record to delete, so instead custom ID is defined for
         # advanced search engine
         $SearchObject->ObjectIndexRemove(
             Index => 'DynamicFieldValue',
