@@ -82,17 +82,21 @@ sub Fallback {
     my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    my $SQLSearchResult = $Self->SQLObjectSearch(
-        QueryParams                 => $Param{QueryParams},
-        AdvancedQueryParams         => $Param{AdvancedQueryParams},
-        Limit                       => $Param{Limit} || $Self->{DefaultSearchLimit},
-        OrderBy                     => $Param{OrderBy},
-        SortBy                      => $Param{SortBy},
-        ResultType                  => $Param{ResultType},
-        Fields                      => $Param{Fields},
-        Silent                      => $Param{Silent},
-        ReturnDefaultSQLColumnNames => 0,
-    );
+    my $SQLSearchResult = [];
+
+    if ( IsHashRefWithData( $Param{Fields} ) ) {
+        $SQLSearchResult = $Self->SQLObjectSearch(
+            QueryParams                 => $Param{QueryParams},
+            AdvancedQueryParams         => $Param{AdvancedQueryParams},
+            Limit                       => $Param{Limit} || $Self->{DefaultSearchLimit},
+            OrderBy                     => $Param{OrderBy},
+            SortBy                      => $Param{SortBy},
+            ResultType                  => $Param{ResultType},
+            Fields                      => $Param{Fields},
+            Silent                      => $Param{Silent},
+            ReturnDefaultSQLColumnNames => 0,
+        );
+    }
 
     my $Result = {
         EngineData => {},

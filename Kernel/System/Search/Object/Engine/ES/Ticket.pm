@@ -404,11 +404,13 @@ sub ExecuteSearch {
     }
 
     my $Fields               = $Param{Fields}                  || {};
+    my $TicketFields         = $Fields->{Ticket}               || {};
     my $TicketDynamicFields  = $Fields->{Ticket_DynamicField}  || {};
+    my $ArticleFields        = $Fields->{Article}              || {};
     my $ArticleDynamicFields = $Fields->{Article_DynamicField} || {};
 
-    my %TicketFields  = ( %{ $Fields->{Ticket} },  %{$TicketDynamicFields} );
-    my %ArticleFields = ( %{ $Fields->{Article} }, %{$ArticleDynamicFields} );
+    my %TicketFields  = ( %{$TicketFields},  %{$TicketDynamicFields} );
+    my %ArticleFields = ( %{$ArticleFields}, %{$ArticleDynamicFields} );
 
     # build standard ticket query
     my $Query = $Param{MappingObject}->Search(
