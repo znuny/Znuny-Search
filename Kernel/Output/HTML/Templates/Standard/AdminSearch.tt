@@ -101,7 +101,7 @@
             </div>
             <div class="Content">
                 <p class="FieldExplanation">
-                    [% Translate("Here you can upload a configuration file to import elasticsearch nodes to your system. The file needs to be in .yml format.") | html %]
+                    [% Translate("Here you can upload a configuration file to import Elasticsearch nodes to your system. The file needs to be in YAML format.") | html %]
                 </p>
                 <ul class="ActionList">
                     <li>
@@ -120,7 +120,7 @@
                             </fieldset>
                             [% END %]
                             <button class="CallForAction Fullsize Center SpacingTop" type="submit" value="[% Translate("Upload nodes configuration") | html %]">
-                                <span><i class="fa fa-upload"></i>[% Translate("Import Nodes configuration(s)") | html %]</span>
+                                <span><i class="fa fa-upload"></i>[% Translate("Import nodes configuration(s)") | html %]</span>
                             </button>
                         </form>
                     </li>
@@ -302,7 +302,7 @@
                         [% RenderBlockEnd("CommunicationNode") %]
                         [% IF !Data.CommunicationNodes %]
                             <tr>
-                                <td colspan="9" style="text-align: center;">This cluster does not have communication nodes added.</td>
+                                <td colspan="9" style="text-align: center;">[% Translate("This cluster does not have any communication nodes added.") |html %]</td>
                             </tr>
                         [% END %]
                         </tbody>

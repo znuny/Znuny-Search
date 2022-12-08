@@ -56,7 +56,7 @@ sub Connect {
 
     $LogObject->Log(
         Priority => 'error',
-        Message  => "QueryExecute function was not properly overriden.",
+        Message  => "Connect function was not properly overriden.",
     );
 
     return {

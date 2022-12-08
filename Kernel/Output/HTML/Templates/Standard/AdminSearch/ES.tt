@@ -125,7 +125,7 @@
                             <div class="Hidden" id="NotSupportedDialogContainer">
                                 <div id="NotSupportedDialog" class="InnerContent GenericInterfaceDialog">
                                     <span class="WarningDialog ">&nbsp;</span>
-                                    <p class="Center Warning">[% Translate("This index is not valid. It's either not registered or modules can't be loaded properly. Please read documentation about 'Registering new index types'. Then reload this page.") | html %]</p>
+                                    <p class="Center Warning">[% Translate("This index is not valid. It's either not registered or modules can't be loaded properly. Please read documentation about 'registering new index types'. Then reload this page.") | html %]</p>
                                     <div class="SpacingTop"></div>
                                 </div>
                             </div>
@@ -135,7 +135,7 @@
                             <div class="Hidden" id="MissingDialogContainer">
                                 <div id="MissingDialog" class="InnerContent GenericInterfaceDialog">
                                     <span class="WarningDialog ">&nbsp;</span>
-                                    <p class="Center Warning">[% Translate("This index is missing by engine site. Please read documentation about 'Engine structure'.") | html %]</p>
+                                    <p class="Center Warning">[% Translate("This index is missing on engine side. Please read documentation about 'engine structure'.") | html %]</p>
                                     <div class="SpacingTop"></div>
                                 </div>
                             </div>
@@ -155,7 +155,7 @@
                             </td>
 [% IF Data.Style.Index != 'Missing' AND Data.Style.Index != 'Removed' %]
                             <td class="Center">
-                                <i title="[% Translate("Click, to remove index from engine site") | html %]" class="fa fa-trash-o IndexRemove" value="[% Translate(Data.Name) | html %]"></i>
+                                <i title="[% Translate("Click to remove index from engine side") | html %]" class="fa fa-trash-o IndexRemove" value="[% Translate(Data.Name) | html %]"></i>
                             </td>
 [% ELSE %]
                             <td class="Center"></td>
@@ -168,7 +168,7 @@
         <div class="Hidden" id="IndexRemoveContainer">
             <div id="IndexRemoveContainer" class="InnerContent GenericInterfaceDialog">
                 <span class="WarningDialog ">&nbsp;</span>
-                <p class="Center Warning">[% Translate("Do you really want to remove index from engine side?") | html %]</p>
+                <p class="Center Warning">[% Translate("Do you really want to remove the index from engine side?") | html %]</p>
                 <div class="SpacingTop"></div>
             </div>
         </div>

@@ -13,7 +13,7 @@ use warnings;
 
 use parent qw(Kernel::System::Console::BaseCommand);
 
-use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
+use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::Config',
@@ -36,12 +36,9 @@ sub PreRun {
     $Self->{SearchObject} = $Kernel::OM->Get('Kernel::System::Search');
 
     if ( !$Self->{SearchObject} || $Self->{SearchObject}->{Error} ) {
-        my $Message;
+        my $Message = "Errors occured. Exiting.";
         if ( !$Self->{SearchObject}->{ConnectObject} ) {
-            $Message = "Could not connect to the cluster. Exiting..";
-        }
-        else {
-            $Message = "Errors occured. Exiting..";
+            $Message = "Could not connect to the cluster. Exiting.";
         }
         $Self->Print("<red>$Message\n</red>");
         return $Self->ExitCodeError();
@@ -61,8 +58,6 @@ sub Run {
         Limit       => 100302,
     );
 
-    my $Strg = "";
-
     # engine search
     my $GeneralStartTime = Time::HiRes::time();
     my $Search           = $Self->{SearchObject}->Search(
@@ -70,7 +65,7 @@ sub Run {
     );
     my $GeneralStopTime             = Time::HiRes::time();
     my $AdvCallGeneralExecutionTime = sprintf( "%.6f", $GeneralStopTime - $GeneralStartTime );
-    $Strg .= "AdvancedCall time: $AdvCallGeneralExecutionTime seconds - ES\n";
+    my $PerformanceTestResult       = "Advanced call time: $AdvCallGeneralExecutionTime seconds - ES\n";
 
     # fallback search
     $GeneralStartTime = Time::HiRes::time();
@@ -82,7 +77,7 @@ sub Run {
     my $AdvCallGeneralExecutionTimeFallback = sprintf( "%.6f", $GeneralStopTime - $GeneralStartTime );
 
     # clean sql search
-    $Strg .= "AdvancedCall time: $AdvCallGeneralExecutionTimeFallback seconds - Fallback\n";
+    $PerformanceTestResult .= "Advanced call time: $AdvCallGeneralExecutionTimeFallback seconds - fallback\n";
     my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
     $GeneralStartTime = Time::HiRes::time();
     my @QueryResponse;
@@ -95,7 +90,7 @@ sub Run {
     $GeneralStopTime = Time::HiRes::time();
 
     my $PrepareTime = sprintf( "%.6f", $GeneralStopTime - $GeneralStartTime );
-    $Strg .= "CleanSQL: $PrepareTime seconds - CleanSQL\n";
+    $PerformanceTestResult .= "Clean SQL: $PrepareTime seconds - clean SQL\n";
 
     my $ResultsCount = {
         Engine   => scalar @{ $Search->{$ObjectToTest} },
@@ -104,7 +99,7 @@ sub Run {
     };
 
     $Self->Print("<yellow>Performance results:</yellow>\n");
-    $Self->Print("<yellow>--$Strg\n\n</yellow>");
+    $Self->Print("<yellow>--$PerformanceTestResult\n\n</yellow>");
     $Self->Print("<yellow>Results count: \n</yellow>");
     $Self->Print("<yellow>Engine: $ResultsCount->{Engine}\n</yellow>");
     $Self->Print("<yellow>Fallback: $ResultsCount->{Fallback}\n</yellow>");

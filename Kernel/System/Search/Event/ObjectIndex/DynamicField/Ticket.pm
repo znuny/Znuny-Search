@@ -19,7 +19,6 @@ our @ObjectDependencies = (
 sub new {
     my ( $Type, %Param ) = @_;
 
-    # allocate new hash for object
     my $Self = {};
     bless( $Self, $Type );
 
@@ -38,15 +37,15 @@ sub Run {
     return if $SearchObject->{Fallback};
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # check needed parameters
+    NEEDED:
     for my $Needed (qw(Data Event Config)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     # ticket index data will need to be set
@@ -82,7 +81,6 @@ sub Run {
     };
 
     if ( $Param{Config}->{Event} eq 'DynamicFieldDelete' ) {
-
         my $TicketIDs = $SearchObject->Search(
             Objects     => ['Ticket'],
             QueryParams => {
@@ -120,7 +118,6 @@ sub Run {
             );
 
             my @TicketIDs = keys %{ $TicketIDs->{Ticket} };
-
             return if !scalar @TicketIDs;
 
             $SearchObject->$FunctionName(

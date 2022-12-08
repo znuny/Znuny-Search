@@ -22,8 +22,6 @@ our @ObjectDependencies = (
     'Kernel::System::Search::Object::Default::Article',
     'Kernel::System::Search::Object::Default::ArticleDataMIME',
     'Kernel::System::Group',
-    'Kernel::System::Log',
-
 );
 
 =head1 NAME
@@ -62,92 +60,6 @@ sub new {
     bless( $Self, $Type );
 
     return $Self;
-}
-
-=head2 Search()
-
-create query for specified operation
-
-    my $Result = $SearchQueryObject->Search(
-        MappingObject   => $Config,
-        QueryParams     => $QueryParams,
-    );
-
-=cut
-
-sub Search {
-    my ( $Self, %Param ) = @_;
-
-    return {
-        Error    => 1,
-        Fallback => {
-            Enable => 1
-        },
-    } if !$Param{MappingObject};
-
-    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
-    my $ParamSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Object}");
-
-    if ( IsArrayRefWithData( $Param{AdvancedQueryParams} ) ) {
-
-        # return the query
-        my $Query = $Param{MappingObject}->AdvancedSearch(
-            Limit => $Self->{IndexDefaultSearchLimit},    # default limit or override with limit from param
-            %Param,
-        );
-
-        if ( !$Query ) {
-            return {
-                Error    => 1,
-                Fallback => {
-                    Enable => 1,
-                },
-            };
-        }
-
-        return {
-            Query => $Query,
-        };
-    }
-
-    my $SortBy;
-    if (
-        $Param{SortBy} && $Self->{IndexFields}->{ $Param{SortBy} }
-        )
-    {
-        my $Sortable = $ParamSearchObject->IsSortableResultType(
-            ResultType => $Param{ResultType},
-        );
-
-        if ($Sortable) {
-
-            # change into real column name
-            $SortBy = $Self->{IndexFields}->{ $Param{SortBy} };
-        }
-        else {
-            if ( !$Param{Silent} ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Can't sort index: \"$ParamSearchObject->{Config}->{IndexName}\" with result type:" .
-                        " \"$Param{ResultType}\" by field: \"$Param{SortBy}\"." .
-                        " Specified result type is not sortable!\n" .
-                        " Sort operation won't be applied."
-                );
-            }
-        }
-    }
-
-    my $SearchIndexObject
-        = $Kernel::OM->Get("Kernel::System::Search::Object::$Param{Config}->{ActiveEngine}::$Param{Object}");
-
-    return $SearchIndexObject->QuerySearch(
-        Limit => $Self->{IndexDefaultSearchLimit},    # default limit or override with limit from param
-        %Param,
-        Fields           => $Param{Fields},
-        FieldsDefinition => $Self->{IndexFields},
-        QueryParams      => $Param{QueryParams},
-        SortBy           => $SortBy,
-    );
 }
 
 =head2 LookupTicketFields()
@@ -390,9 +302,9 @@ sub _QueryFieldCheck {
     my ( $Self, %Param ) = @_;
 
     return 1 if $Param{Name} eq "GroupID";
-    return 1 if $Param{Name} =~ /^(DynamicField_.+)|(Article_DynamicField_.+)/;
+    return 1 if $Param{Name} =~ m{\A(DynamicField_.+)|(Article_DynamicField_.+)};
 
-    if ( $Param{Name} =~ /^Article_(.+)/ ) {
+    if ( $Param{Name} =~ m{\AArticle_(.+)} ) {
         my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
         my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
 
@@ -421,24 +333,26 @@ check specified return type field for index
 sub _QueryFieldReturnTypeSet {
     my ( $Self, %Param ) = @_;
 
-    if ( $Param{Name} =~ /DynamicField_(.+)/ ) {
-        my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
-        my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+
+    if ( $Param{Name} =~ m{DynamicField_(.+)} ) {
+        my $DynamicFieldName = $1;
 
         my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
-            Name => $1,
+            Name => $DynamicFieldName,
         );
 
         # possible that dynamic field config won't be available
         # on dynamic field delete events
-        return 'SCALAR' if !IsHashRefWithData($DynamicFieldConfig);
+        return if !IsHashRefWithData($DynamicFieldConfig);
 
         my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
             DynamicFieldConfig => $DynamicFieldConfig,
             FieldType          => 'Edit',
         );
 
-        return $FieldValueType->{"DynamicField_$1"} || 'SCALAR';
+        return $FieldValueType->{"DynamicField_$DynamicFieldName"} || 'SCALAR';
     }
 
     # return type is either specified or scalar

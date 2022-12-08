@@ -21,7 +21,6 @@ our @ObjectDependencies = (
 sub new {
     my ( $Type, %Param ) = @_;
 
-    # allocate new hash for object
     my $Self = {};
     bless( $Self, $Type );
 
@@ -33,24 +32,26 @@ sub Run {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # check needed parameters
+    NEEDED:
     for my $Needed (qw(Data Event Config)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
+
+    NEEDED:
     for my $Needed (qw(FunctionName)) {
-        if ( !$Param{Config}->{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed in Config!"
-            );
-            return;
-        }
+        next NEEDED if $Param{Config}->{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed in Config!"
+        );
+        return;
     }
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
@@ -69,7 +70,6 @@ sub Run {
     # even when sql engine delete them
     # delete dynamic field with dynamic field value data from advanced engine
     if ( $FunctionName eq 'ObjectIndexRemove' ) {
-
         $SearchObject->ObjectIndexRemove(
             Index       => 'DynamicFieldValue',
             QueryParams => {

@@ -33,31 +33,30 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
-    my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
-    my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
-    my $LogObject           = $Kernel::OM->Get('Kernel::System::Log');
-    my $ValidObject         = $Kernel::OM->Get('Kernel::System::Valid');
-    my $JSONObject          = $Kernel::OM->Get('Kernel::System::JSON');
-    my $ParamObject         = $Kernel::OM->Get('Kernel::System::Web::Request');
     my $CacheObject         = $Kernel::OM->Get('Kernel::System::Cache');
+    my $JSONObject          = $Kernel::OM->Get('Kernel::System::JSON');
+    my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
+    my $LogObject           = $Kernel::OM->Get('Kernel::System::Log');
+    my $ParamObject         = $Kernel::OM->Get('Kernel::System::Web::Request');
+    my $ReindexationObject  = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
+    my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
+    my $SearchObject        = $Kernel::OM->Get('Kernel::System::Search');
+    my $ValidObject         = $Kernel::OM->Get('Kernel::System::Valid');
+    my $YAMLObject          = $Kernel::OM->Get('Kernel::System::YAML');
 
     my $ClusterID = $ParamObject->GetParam( Param => 'ClusterID' ) || '';
 
     if ( $Self->{Subaction} eq 'Change' ) {
-
-        # check for ClusterID param
         if ( !$ClusterID ) {
             return $LayoutObject->ErrorScreen(
                 Message => Translatable('Need ClusterID !'),
             );
         }
 
-        # get cluster configuration
         my $ClusterData = $SearchClusterObject->ClusterGet(
             ClusterID => $ClusterID,
         );
 
-        # check for valid cluster configuration
         if ( !IsHashRefWithData($ClusterData) ) {
             return $LayoutObject->ErrorScreen(
                 Message =>
@@ -74,7 +73,6 @@ sub Run {
         );
     }
     elsif ( $Self->{Subaction} eq 'ChangeAction' ) {
-
         $LayoutObject->ChallengeTokenCheck();
 
         my $GetParam = $Self->_GetBaseClusterParams();
@@ -86,7 +84,6 @@ sub Run {
         }
 
         my %ClusterData;
-
         for my $Property (qw(Name ValidID Description EngineID)) {
             $ClusterData{$Property} = $GetParam->{$Property};
         }
@@ -94,30 +91,22 @@ sub Run {
         $ClusterData{UserID} = $Self->{UserID};
 
         my %Error;
-        my $Exists;
-
         if ( !$ClusterData{Name} ) {
-
-            # add server error error class
             $Error{NameServerError}        = 'ServerError';
             $Error{NameServerErrorMessage} = Translatable('This field is required.');
         }
         else {
-            # check if name is duplicated
-            $Exists = $SearchClusterObject->NameExistsCheck(
+            my $NameExists = $SearchClusterObject->NameExistsCheck(
                 ID   => $ClusterID,
                 Name => $ClusterData{Name},
             );
+
+            if ($NameExists) {
+                $Error{NameServerError}        = 'ServerError';
+                $Error{NameServerErrorMessage} = Translatable('There is another cluster with the same name.');
+            }
         }
 
-        if ($Exists)
-        {
-            # add server error error class
-            $Error{NameServerError}        = 'ServerError';
-            $Error{NameServerErrorMessage} = Translatable('There is another cluster with the same name.');
-        }
-
-        # if there is an error return to edit screen
         if (%Error) {
             return $Self->_ShowEdit(
                 %Error,
@@ -134,7 +123,6 @@ sub Run {
             %{$GetParam},
         );
 
-        # show error if cant update
         if ( !$Success ) {
             return $LayoutObject->ErrorScreen(
                 Message => Translatable('There was an error updating the web service.'),
@@ -153,110 +141,76 @@ sub Run {
                     "Action=AdminSearch;Subaction=Change;ClusterID=$ClusterID"
             );
         }
-        else {
 
-            # otherwise return to overview
-            return $LayoutObject->Redirect( OP => "Action=$Self->{Action}" );
-        }
+        # otherwise return to overview
+        return $LayoutObject->Redirect( OP => "Action=$Self->{Action}" );
     }
     elsif ( $Self->{Subaction} eq 'IndexRemoveAction' ) {
-
-        # challenge token check for write action
         $LayoutObject->ChallengeTokenCheck();
 
-        my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
-
+        my $Success       = 0;
         my $IndexRealName = $ParamObject->GetParam( Param => 'IndexRealName' ) || '';
 
-        my $JSON;
-
-        # check for valid cluster configuration
-        if ( !$IndexRealName ) {
-            $JSON = $LayoutObject->JSONEncode(
-                Data => {
-                    Success => 0
-                }
-            );
-
-        }
-        else {
-            my $Success = $SearchObject->IndexRemove(
-                IndexRealName => $IndexRealName
-            );
-
-            $JSON = $LayoutObject->JSONEncode(
-                Data => {
-                    Success => $Success
-                }
+        if ($IndexRealName) {
+            $Success = $SearchObject->IndexRemove(
+                IndexRealName => $IndexRealName,
             );
         }
 
-        # send JSON response
+        my $ResultJSON = $LayoutObject->JSONEncode(
+            Data => {
+                Success => $Success,
+            }
+        );
+
         return $LayoutObject->Attachment(
             ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
-            Content     => $JSON,
+            Content     => $ResultJSON,
             Type        => 'inline',
             NoCache     => 1,
         );
-
     }
-
-    if ( $Self->{Subaction} eq 'Add' ) {
+    elsif ( $Self->{Subaction} eq 'Add' ) {
         return $Self->_ShowEdit(
             Action => 'Add',
         );
-
     }
     elsif ( $Self->{Subaction} eq 'AddAction' ) {
-
-        # challenge token check for write action
         $LayoutObject->ChallengeTokenCheck();
 
-        # get cluster configuration
         my $ClusterData;
 
-        # get parameter from web browser
         my $GetParam = $Self->_GetBaseClusterParams();
 
-        # set new configuration
         $ClusterData->{Name}        = $GetParam->{Name};
         $ClusterData->{Description} = $GetParam->{Description};
         $ClusterData->{EngineID}    = $GetParam->{EngineID};
         $ClusterData->{ValidID}     = $GetParam->{ValidID};
 
         my %Error;
-        my $Exists;
-
         if ( !$GetParam->{Name} ) {
-
-            # add server error error class
             $Error{NameServerError}        = 'ServerError';
             $Error{NameServerErrorMessage} = Translatable('This field is required.');
         }
         else {
+
             # check if name is duplicated
-            $Exists = $SearchClusterObject->NameExistsCheck(
+            my $NameExists = $SearchClusterObject->NameExistsCheck(
                 ID   => $ClusterID,
                 Name => $GetParam->{Name},
             );
+
+            if ($NameExists) {
+                $Error{NameServerError}        = 'ServerError';
+                $Error{NameServerErrorMessage} = Translatable('There is another cluster with the same name.');
+            }
         }
 
         if ( !$GetParam->{EngineID} ) {
-
-            # add server error error class
             $Error{EngineIDError}        = 'ServerError';
             $Error{EngineIDErrorMessage} = Translatable('This field is required.');
         }
 
-        if ($Exists)
-        {
-
-            # add server error error class
-            $Error{NameServerError}        = 'ServerError';
-            $Error{NameServerErrorMessage} = Translatable('There is another cluster with the same name.');
-        }
-
-        # if there is an error return to edit screen
         if (%Error) {
             return $Self->_ShowEdit(
                 %Error,
@@ -268,8 +222,7 @@ sub Run {
             );
         }
 
-        # otherwise save configuration and return to overview screen
-        my $ID = $SearchClusterObject->ClusterAdd(
+        my $ClusterID = $SearchClusterObject->ClusterAdd(
             Name        => $ClusterData->{Name},
             ValidID     => $ClusterData->{ValidID},
             Description => $ClusterData->{Description},
@@ -277,17 +230,12 @@ sub Run {
             UserID      => $Self->{UserID},
         );
 
-        # show error if cant create
-        if ( !$ID ) {
+        if ( !$ClusterID ) {
             return $LayoutObject->ErrorScreen(
                 Message => Translatable('There was an error creating the cluster.'),
             );
         }
 
-        # set ClusterID to the new created cluster
-        $ClusterID = $ID;
-
-        # define notification
         my $Notify = $LayoutObject->{LanguageObject}->Translate(
             'Cluster "%s" created!',
             $ClusterData->{Name},
@@ -305,11 +253,8 @@ sub Run {
         );
     }
     elsif ( $Self->{Subaction} eq 'DeleteAction' ) {
-
-        # challenge token check for write action
         $LayoutObject->ChallengeTokenCheck();
 
-        # get cluster configuration
         my $ClusterData = $SearchClusterObject->ClusterGet(
             ClusterID => $ClusterID,
         );
@@ -319,7 +264,6 @@ sub Run {
             UserID    => $Self->{UserID},
         );
 
-        # build JSON output
         my $JSON = $LayoutObject->JSONEncode(
             Data => {
                 Success        => $Success,
@@ -327,7 +271,6 @@ sub Run {
             },
         );
 
-        # send JSON response
         return $LayoutObject->Attachment(
             ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
             Content     => $JSON,
@@ -336,29 +279,24 @@ sub Run {
         );
     }
     elsif ( $Self->{Subaction} eq 'SynchronizeAction' ) {
-
         return $Self->_ClusterSynchronize(
             ClusterID => $ClusterID,
         );
-
     }
     elsif ( $Self->{Subaction} eq 'Reindexation' ) {
-
         return $Self->_ShowReindexation(
             ClusterID => $ClusterID,
         );
 
     }
     elsif ( $Self->{Subaction} eq 'ReindexationAction' ) {
-
-        # challenge token check for write action
         $LayoutObject->ChallengeTokenCheck();
 
         my @IndexArray = $ParamObject->GetArray( Param => 'IndexArray[]' );
 
         my @Params;
         for my $Index (@IndexArray) {
-            push @Params, '--Object';
+            push @Params, '--index';
             push @Params, $Index;
         }
 
@@ -372,11 +310,10 @@ sub Run {
 
         my $JSON = $LayoutObject->JSONEncode(
             Data => {
-                Success => $ExitCode
+                Success => $ExitCode,
             }
         );
 
-        # send JSON response
         return $LayoutObject->Attachment(
             ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
             Content     => $JSON,
@@ -385,21 +322,16 @@ sub Run {
         );
     }
     elsif ( $Self->{Subaction} eq 'StopReindexationAction' ) {
-
-        # challenge token check for write action
         $LayoutObject->ChallengeTokenCheck();
-
-        my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
 
         my $Status = $ReindexationObject->StopReindexation();
 
         my $JSON = $LayoutObject->JSONEncode(
             Data => {
-                Success => $Status ? 1 : 0
+                Success => $Status ? 1 : 0,
             }
         );
 
-        # send JSON response
         return $LayoutObject->Attachment(
             ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
             Content     => $JSON,
@@ -408,9 +340,6 @@ sub Run {
         );
     }
     elsif ( $Self->{Subaction} eq 'ReindexingProcessPercentage' ) {
-
-        my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
-
         my $ReindexationQuery = $ReindexationObject->IndexReindexationStatus();
 
         my $Percentage = $CacheObject->Get(
@@ -433,7 +362,7 @@ sub Run {
 
         my $JSON = $LayoutObject->JSONEncode(
             Data => {
-                %ResponseData
+                %ResponseData,
             },
         );
 
@@ -445,13 +374,9 @@ sub Run {
         );
     }
     elsif ( $Self->{Subaction} eq 'CheckEqualityAction' ) {
-
-        # challenge token check for write action
         $LayoutObject->ChallengeTokenCheck();
 
         my @IndexArray = $ParamObject->GetArray( Param => 'IndexArray[]' );
-
-        my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
 
         my $Result = $ReindexationObject->DataEqualitySet(
             Indexes   => \@IndexArray,
@@ -460,11 +385,10 @@ sub Run {
 
         my $JSON = $LayoutObject->JSONEncode(
             Data => {
-                Success => $Result ? 1 : 0
-            }
+                Success => $Result ? 1 : 0,
+            },
         );
 
-        # send JSON response
         return $LayoutObject->Attachment(
             ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
             Content     => $JSON,
@@ -478,9 +402,7 @@ sub Run {
             Action    => 'NodeAdd',
         );
     }
-
     elsif ( $Self->{Subaction} eq 'NodeAddAction' ) {
-
         my $Result = $Self->_NodeBaseOperationAction(
             %Param,
             ClusterID => $ClusterID,
@@ -489,7 +411,6 @@ sub Run {
         my $Error    = $Result->{Error};
         my $GetParam = $Result->{GetParam};
 
-        # if there is an error return to add communication node screen
         if ( IsHashRefWithData($Error) ) {
             return $Self->_ShowNodeSection(
                 %{$Error},
@@ -509,8 +430,6 @@ sub Run {
         );
 
         if ( !$NodeID ) {
-
-            # add server error error class
             $Error->{OperationError}        = 'ServerError';
             $Error->{OperationErrorMessage} = Translatable("Can't add node. Check logs or contact with support.");
             return $Self->_ShowNodeSection(
@@ -525,11 +444,8 @@ sub Run {
             ClusterID => $ClusterID,
             Action    => 'Change',
         );
-
     }
-
     elsif ( $Self->{Subaction} eq 'NodeChange' ) {
-
         my $NodeID = $ParamObject->GetParam( Param => 'NodeID' ) || '';
 
         if ( !$ClusterID && !$NodeID ) {
@@ -544,9 +460,7 @@ sub Run {
             Action    => 'NodeChange'
         );
     }
-
     elsif ( $Self->{Subaction} eq 'NodeChangeAction' ) {
-
         my $NodeID = $ParamObject->GetParam( Param => 'NodeID' ) || '';
 
         my $Result = $Self->_NodeBaseOperationAction(
@@ -558,7 +472,6 @@ sub Run {
         my $Error    = $Result->{Error};
         my $GetParam = $Result->{GetParam};
 
-        # if there is an error return to add/edit communication node screen
         if ( IsHashRefWithData($Error) ) {
             return $Self->_ShowNodeSection(
                 %{$Error},
@@ -577,8 +490,6 @@ sub Run {
         );
 
         if ( !$Success ) {
-
-            # add server error error class
             $Error->{AddingError}        = 'ServerError';
             $Error->{AddingErrorMessage} = Translatable("Can't update node. Check logs or contact with support.");
             return $Self->_ShowNodeSection(
@@ -601,14 +512,11 @@ sub Run {
                 Action    => 'NodeChange'
             );
         }
-        else {
 
-            return $Self->_ShowEdit(
-                ClusterID => $ClusterID,
-                Action    => 'Change',
-            );
-        }
-
+        return $Self->_ShowEdit(
+            ClusterID => $ClusterID,
+            Action    => 'Change',
+        );
     }
     elsif ( $Self->{Subaction} eq 'NodeCopyAction' ) {
         my $ParamObject = $Kernel::OM->Get('Kernel::System::Web::Request');
@@ -626,10 +534,10 @@ sub Run {
             NodeID => $NodeID,
         );
 
-        # Create new node name.
         my $Count    = 1;
         my $NodeName = $LayoutObject->{LanguageObject}->Translate( '%s (copy) %s', $NodeData->{Name}, $Count );
 
+        # TODO: ???
         while (
             IsHashRefWithData(
                 $SearchClusterObject->ClusterCommunicationNodeGet(
@@ -675,8 +583,6 @@ sub Run {
         );
     }
     elsif ( $Self->{Subaction} eq 'NodeDeleteAction' ) {
-
-        # challenge token check for write action
         $LayoutObject->ChallengeTokenCheck();
 
         my $ParamObject = $Kernel::OM->Get('Kernel::System::Web::Request');
@@ -695,14 +601,12 @@ sub Run {
             UserID => $Self->{UserID},
         );
 
-        # build JSON output
         my $JSON = $LayoutObject->JSONEncode(
             Data => {
                 Success => $Success,
             },
         );
 
-        # send JSON response
         return $LayoutObject->Attachment(
             ContentType => 'application/json; charset=' . $LayoutObject->{Charset},
             Content     => $JSON,
@@ -710,9 +614,7 @@ sub Run {
             NoCache     => 1,
         );
     }
-
-    if ( $Self->{Subaction} eq 'TestNodeConnection' ) {
-
+    elsif ( $Self->{Subaction} eq 'TestNodeConnection' ) {
         my $ParamObject  = $Kernel::OM->Get('Kernel::System::Web::Request');
         my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
         my $EngineObject = $Kernel::OM->Get("Kernel::System::Search::Engine::$SearchObject->{Config}->{ActiveEngine}");
@@ -755,10 +657,6 @@ sub Run {
         );
     }
     elsif ( $Self->{Subaction} eq 'ClusterNodeExport' ) {
-
-        my $ParamObject = $Kernel::OM->Get('Kernel::System::Web::Request');
-        my $YAMLObject  = $Kernel::OM->Get('Kernel::System::YAML');
-
         my $NodeID    = $ParamObject->GetParam( Param => 'NodeID' );
         my $ClusterID = $ParamObject->GetParam( Param => 'ClusterID' );
         my $Filename;
@@ -836,7 +734,6 @@ sub Run {
 
         my $NodesDataYAML = $YAMLObject->Dump( Data => $DataToExport );
 
-        # send the result to the browser
         return $LayoutObject->Attachment(
             ContentType => 'text/html; charset=' . $LayoutObject->{Charset},
             Content     => $NodesDataYAML,
@@ -847,8 +744,6 @@ sub Run {
 
     }
     if ( $Self->{Subaction} eq 'ClusterNodeImport' ) {
-
-        # challenge token check for write action
         $LayoutObject->ChallengeTokenCheck();
 
         my %UploadStuff = $ParamObject->GetUploadAll(
@@ -877,7 +772,7 @@ sub Run {
 
         if ( $NodesImport->{AddedNodes} ) {
             my $Info = $LayoutObject->{LanguageObject}->Translate(
-                'The following nodes have been added successfully: %s',
+                'The following nodes have been added successfully: %s.',
                 $NodesImport->{AddedNodes}
             );
             push @{ $Param{Notify} }, {
@@ -886,7 +781,7 @@ sub Run {
         }
         if ( $NodesImport->{UpdatedNodes} ) {
             my $Info = $LayoutObject->{LanguageObject}->Translate(
-                'The following nodes have been updated successfully: %s',
+                'The following nodes have been updated successfully: %s.',
                 $NodesImport->{UpdatedNodes}
             );
             push @{ $Param{Notify} }, {
@@ -912,18 +807,14 @@ sub Run {
 
     }
 
-    my $DeletedCluster = $ParamObject->GetParam( Param => 'DeletedCluster' ) || '';
-
     my $Notify;
 
+    my $DeletedCluster = $ParamObject->GetParam( Param => 'DeletedCluster' ) || '';
     if ($DeletedCluster) {
-
-        # define notification
         $Notify = $LayoutObject->{LanguageObject}->Translate(
             'Cluster "%s" deleted!',
             $DeletedCluster,
         );
-
     }
 
     return $Self->_ShowOverview(
@@ -964,7 +855,8 @@ sub _ShowOverview {
         $Output .= $LayoutObject->Notify(
             Info     => 'Please activate search engine first!',
             Priority => 'Error',
-            Link => $LayoutObject->{Baselink} . 'Action=AdminSystemConfiguration;Subaction=View;Setting=SearchEngine;'
+            Link     => $LayoutObject->{Baselink}
+                . 'Action=AdminSystemConfiguration;Subaction=View;Setting=SearchEngine%23%23%23Enabled;'
         );
     }
 
@@ -987,18 +879,16 @@ sub _ShowOverview {
         $LayoutObject->Block( Name => 'NoDataFoundMsg' );
     }
     else {
-        CLUSTER:
-        for my $ClusterID (
-            sort { $ClusterList->{$a} cmp $ClusterList->{$b} }
-            keys %{$ClusterList}
-            )
-        {
-            next CLUSTER if !$ClusterID;
+        my @ClusterIDs = sort { $ClusterList->{$a} cmp $ClusterList->{$b} }
+            keys %{$ClusterList};
+
+        CLUSTERID:
+        for my $ClusterID (@ClusterIDs) {
+            next CLUSTERID if !$ClusterID;
 
             my $Cluster = $SearchClusterObject->ClusterGet( ClusterID => $ClusterID );
-            next CLUSTER if !$Cluster;
+            next CLUSTERID if !IsHashRefWithData($Cluster);
 
-            # convert ValidID to text
             my $ValidStrg = $ValidObject->ValidLookup(
                 ValidID => $Cluster->{ValidID},
             );
@@ -1008,7 +898,6 @@ sub _ShowOverview {
                 $Self->{Engines}->{ $Cluster->{EngineID} } = 'Unregistered';
             }
 
-            # prepare data to output
             my $Data = {
                 ID          => $ClusterID,
                 Name        => $Cluster->{Name},
@@ -1112,7 +1001,7 @@ sub _ShowNodeSection {
         "Kernel::System::Search::Admin::Node::$Cluster->{EngineID}"
     );
 
-    my $NodeAddViev = $CommunicationNodeObject->BuildNodeSection(
+    my $NodeAddView = $CommunicationNodeObject->BuildNodeSection(
         %Param,
         ClusterID => $Param{ClusterID},
         UserID    => $Self->{UserID},
@@ -1121,7 +1010,7 @@ sub _ShowNodeSection {
         Action    => $Param{Action},
     );
 
-    return $NodeAddViev;
+    return $NodeAddView;
 }
 
 sub _ShowEdit {
@@ -1142,7 +1031,6 @@ sub _ShowEdit {
     my $Output = $LayoutObject->Header();
     $Output .= $LayoutObject->NavigationBar();
 
-    # show notifications if any
     if ( IsArrayRefWithData( $Param{Notify} ) ) {
         for my $Notification ( @{ $Param{Notify} } ) {
             $Output .= $LayoutObject->Notify(
@@ -1194,6 +1082,7 @@ sub _ShowEdit {
                 },
             );
         }
+
         $LayoutObject->Block(
             Name => 'ActionDelete',
             Data => \%Param,
@@ -1212,7 +1101,6 @@ sub _ShowEdit {
 
     my %ValidList = $ValidObject->ValidList();
 
-    # create the validity select
     my $ValidtyStrg = $LayoutObject->BuildSelection(
         Data         => \%ValidList,
         Name         => 'ValidID',
@@ -1222,7 +1110,6 @@ sub _ShowEdit {
         Class        => 'Modernize',
     );
 
-    # create the validity select
     my $EngineStrg = $LayoutObject->BuildSelection(
         Data         => $Self->{Engines},
         Name         => 'EngineID',
@@ -1263,7 +1150,6 @@ sub _ShowEdit {
 
     my ($ValidID) = grep { $ValidList{$_} eq 'valid' } keys %ValidList;
     for my $CommunicationNode ( @{$CommunicationNodeList} ) {
-
         $CommunicationNode->{Connection} = $SearchObject->{EngineObject}
             ? $SearchObject->{EngineObject}->CheckNodeConnection(
             %{$CommunicationNode},
@@ -1287,11 +1173,11 @@ sub _ShowEdit {
 
     # check if mandatory fields was set
     my $MandatoryCheckOk = 1;
-    MANDATORY:
+    MANDATORYPROPERTY:
     for my $MandatoryProperty (qw(Name EngineID)) {
         if ( !$ClusterData->{$MandatoryProperty} ) {
-            undef $MandatoryCheckOk;
-            last MANDATORY;
+            $MandatoryCheckOk = 0;
+            last MANDATORYPROPERTY;
         }
     }
 
@@ -1305,7 +1191,6 @@ sub _ShowEdit {
         && $ClusterData->{ClusterID} eq $ActiveClusterConfig->{ClusterID}
         )
     {
-
         my $ClusterDetailsObject = $Kernel::OM->Get(
             "Kernel::System::Search::Admin::Details::$ActiveClusterConfig->{Engine}"
         );
@@ -1315,7 +1200,11 @@ sub _ShowEdit {
             UserID        => $Self->{UserID}
         );
 
-        if ( ( $Details->{Synchronize} ) && $SearchObject->{ConnectObject} ) {
+        if (
+            $Details->{Synchronize}
+            && $SearchObject->{ConnectObject}
+            )
+        {
             $LayoutObject->Block(
                 Name => 'ActionSynchronize',
                 Data => {},
@@ -1413,10 +1302,9 @@ sub _ShowReindexation {
 sub _GetBaseClusterParams {
     my ( $Self, %Param ) = @_;
 
-    my $GetParam;
     my $ParamObject = $Kernel::OM->Get('Kernel::System::Web::Request');
 
-    # get parameters from web browser
+    my $GetParam;
     for my $ParamName (
         qw( Name Description ValidID EngineID )
         )
@@ -1432,12 +1320,12 @@ sub _ClusterSynchronize {
 
     my $LogObject           = $Kernel::OM->Get('Kernel::System::Log');
     my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
+    my $SearchObject        = $Kernel::OM->Get('Kernel::System::Search');
     my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
     my $JSONObject          = $Kernel::OM->Get('Kernel::System::JSON');
 
     NEEDED:
     for my $Needed (qw(ClusterID)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -1447,10 +1335,7 @@ sub _ClusterSynchronize {
         return;
     }
 
-    # challenge token check for write action
     $LayoutObject->ChallengeTokenCheck();
-
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
     my $ActiveClusterConfig = $SearchClusterObject->ActiveClusterGet();
 
@@ -1496,7 +1381,6 @@ sub _NodeBaseOperationAction {
     my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
     my $LayoutObject        = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
 
-    # challenge token check for write action
     $LayoutObject->ChallengeTokenCheck();
 
     my $GetParam;
@@ -1524,41 +1408,27 @@ sub _NodeBaseOperationAction {
         }
     }
 
-    if ( $GetParam->{AuthRequired} ) {
-        if ( $GetParam->{AuthRequired} eq 'on' ) {
-            $GetParam->{AuthRequired} = 1;
-        }
-        elsif ( $GetParam->{AuthRequired} eq 'off' ) {
-            $GetParam->{AuthRequired} = 0;
-        }
-    }
+    $GetParam->{AuthRequired} = $GetParam->{AuthRequired} && $GetParam->{AuthRequired} eq 'on' ? 1 : 0;
 
     if ( $GetParam->{Name} ) {
-
-        # check if name is duplicated
         my $ClusterCommunicationNodeList = $SearchClusterObject->ClusterCommunicationNodeList(
             ClusterID => $Param{ClusterID},
         );
 
-        my $Exist = $SearchClusterObject->NodeNameExistsCheck(
+        my $NameExists = $SearchClusterObject->NodeNameExistsCheck(
             Name      => $GetParam->{Name},
             ClusterID => $Param{ClusterID},
             NodeID    => $Param{NodeID},
         );
 
-        if ($Exist) {
-
-            # add server error error class
+        if ($NameExists) {
             $Error{NameServerError}        = 'ServerError';
             $Error{NameServerErrorMessage} = Translatable('There is another communication node with the same name.');
         }
     }
 
     if ( $GetParam->{AuthRequired} ) {
-
         if ( !$GetParam->{Login} ) {
-
-            # add server error error class
             $Error{LoginServerError}        = 'ServerError';
             $Error{LoginServerErrorMessage} = Translatable('This field is required');
         }

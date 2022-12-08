@@ -51,8 +51,8 @@ sub new {
 =head2 BuildDetailsSection()
 
 Build details section based on default search engine
-structure(Cluster, Node, Index). There is possibility to override
-this function and template for specific engine.
+structure (Cluster, Node, Index). There is a possibility to override
+this function and template for a specific engine.
 
     my $Details = $DetailsObject->BuildDetailsSection(
         ClusterConfig => $ClusterConfig,
@@ -178,7 +178,6 @@ sub BuildDetailsSection {
         );
     }
 
-    INDEX:
     for my $RegisteredIndex ( sort keys %{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
         my $Loaded = $SearchChildObject->_LoadModule(
             Module => "Kernel::System::Search::Object::Default::$RegisteredIndex",
@@ -248,30 +247,31 @@ sub BuildDetailsSection {
         );
 
         # display each property for cluster health
+        PROPERTY:
         for my $Property ( sort keys %PropertiesMapping ) {
-            if ( defined $State->{Cluster}->{$Property} ) {
-                my $Value;
-                if ( !$State->{Cluster}->{$Property} ) {
-                    if ( $Property ne 'TimedOut' ) {
-                        $Value = 0;
-                    }
-                    else {
-                        $Value = 'no';
-                    }
+            next PROPERTY if !defined $State->{Cluster}->{$Property};
+
+            my $Value;
+            if ( !$State->{Cluster}->{$Property} ) {
+                if ( $Property ne 'TimedOut' ) {
+                    $Value = 0;
                 }
                 else {
-                    $Value = $State->{Cluster}->{$Property};
+                    $Value = 'no';
                 }
-
-                $LayoutObject->Block(
-                    Name => 'ClusterStatusDetailsRow',
-                    Data => {
-                        Title => $PropertiesMapping{$Property},
-                        Label => $PropertiesMapping{$Property},
-                        Value => $Value,
-                    },
-                );
             }
+            else {
+                $Value = $State->{Cluster}->{$Property};
+            }
+
+            $LayoutObject->Block(
+                Name => 'ClusterStatusDetailsRow',
+                Data => {
+                    Title => $PropertiesMapping{$Property},
+                    Label => $PropertiesMapping{$Property},
+                    Value => $Value,
+                },
+            );
         }
     }
 
@@ -297,7 +297,8 @@ sub BuildDetailsSection {
     }
 
     # check if sync is needed
-    my $SynchronizeNeeded = IsHashRefWithData( $StateChanges{Indexes} ) || IsHashRefWithData( $StateChanges{Nodes} );
+    my $SynchronizationNeeded = IsHashRefWithData( $StateChanges{Indexes} )
+        || IsHashRefWithData( $StateChanges{Nodes} );
 
     my $DetailsHTML = $LayoutObject->Output(
         TemplateFile => "AdminSearch/$Self->{Engine}",
@@ -312,7 +313,7 @@ sub BuildDetailsSection {
     return {
         HTML        => $DetailsHTML,
         Changes     => $State->{Changes},
-        Synchronize => $SynchronizeNeeded,
+        Synchronize => $SynchronizationNeeded,
     };
 }
 
@@ -347,8 +348,10 @@ sub ClusterStateSet {
 
     $Param{ClusterState} = $JSONObject->Encode( Data => $Param{ClusterState} );
 
-    my $SQL
-        = "INSERT INTO search_cluster_states (cluster_id, state, create_time, create_by ) VALUES (?, ?, current_timestamp, ?)";
+    my $SQL = '
+        INSERT INTO search_cluster_states (cluster_id, state, create_time, create_by )
+               VALUES (?, ?, current_timestamp, ?)
+    ';
 
     return if $DBObject->Do(
         SQL  => $SQL,
@@ -386,7 +389,12 @@ sub ClusterStateGet {
         return;
     }
 
-    my $SQL = "SELECT * FROM search_cluster_states WHERE cluster_id = ? ORDER BY create_time ASC";
+    my $SQL = '
+        SELECT   id, cluster_id, state, create_by, create_time
+        FROM     search_cluster_states
+        WHERE    cluster_id = ?
+        ORDER BY create_time ASC
+    ';
 
     $DBObject->Prepare(
         SQL   => $SQL,
@@ -453,7 +461,8 @@ sub StateCheck {
                 $State{Changes}{$Type}{$Index}{Index} = 'Removed';
                 next INDEX;
             }
-            ATTRIBUTE:
+
+            INDEXATTRIBUTES:
             for my $IndexAttributes ( sort keys %{ $StoreState->{$Type}->{$Index} } ) {
                 $StoreState->{$Type}->{$Index}->{$IndexAttributes}  //= '';
                 $EngineState->{$Type}->{$Index}->{$IndexAttributes} //= '';
@@ -466,7 +475,7 @@ sub StateCheck {
                     )
                 {
                     $State{Changes}{$Type}{$Index}{$IndexAttributes} = 'Change';
-                    next ATTRIBUTE;
+                    next INDEXATTRIBUTES;
                 }
             }
         }

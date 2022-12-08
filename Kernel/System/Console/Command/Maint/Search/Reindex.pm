@@ -13,7 +13,7 @@ use warnings;
 
 use parent qw(Kernel::System::Console::BaseCommand);
 
-use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
+use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::Config',
@@ -30,33 +30,33 @@ sub Configure {
     my ( $Self, %Param ) = @_;
 
     $Self->Description(
-        'Reindex all data for specified indexes. This includes deleting all specified index data first.'
+        'Re-index all data for specified indexes. This includes deleting all specified index data first.'
     );
     $Self->AddOption(
-        Name        => 'Object',
-        Description => "Use to specify which index to reindex.",
+        Name        => 'index',
+        Description => "Index to re-index.",
         Required    => 0,
         HasValue    => 1,
-        ValueRegex  => qr/.*/smx,
+        ValueRegex  => qr/.+/,
         Multiple    => 1,
     );
     $Self->AddOption(
-        Name        => 'Force',
-        Description => "Reindex even when there is another reindexation process in progress.",
+        Name        => 'force',
+        Description => "Re-index even when there is another re-indexation process in progress.",
         Required    => 0,
         HasValue    => 0,
     );
     $Self->AddOption(
-        Name => 'Recreate',
+        Name => 'recreate',
         Description =>
-            "(default|latest) Before reindexing delete and add all specified indexes again with default or latest settings instead of clearing it's data.",
+            "(default|latest) Before re-indexing, delete and add all specified indexes again with default or latest settings instead of clearing their data.",
         Required   => 0,
         HasValue   => 1,
         ValueRegex => qr/\A(default|latest)\z/,
         Multiple   => 0,
     );
     $Self->AddOption(
-        Name => 'Check-Data-Equality',
+        Name => 'check-data-equality',
         Description =>
             "Before reindexing check if search engine indexes are equal with SQL DB.",
         Required => 0,
@@ -75,12 +75,9 @@ sub PreRun {
     $Self->{SearchObject} = $Kernel::OM->Get('Kernel::System::Search');
 
     if ( !$Self->{SearchObject} || $Self->{SearchObject}->{Error} ) {
-        my $Message;
+        my $Message = "Errors occured. Exiting.";
         if ( !$Self->{SearchObject}->{ConnectObject} ) {
-            $Message = "Could not connect to the cluster. Exiting..";
-        }
-        else {
-            $Message = "Errors occured. Exiting..";
+            $Message = "Could not connect to the cluster.";
         }
         $Self->Print("<red>$Message\n</red>");
         return $Self->ExitCodeError();
@@ -100,31 +97,31 @@ sub Run {
     my $ClusterObject      = $Kernel::OM->Get('Kernel::System::Search::Cluster');
     my $ConfigObject       = $Kernel::OM->Get('Kernel::Config');
 
-    my $CheckDataEquality = $Self->GetOption('Check-Data-Equality');
-    my $Recreate          = $Self->GetOption('Recreate');
+    my $CheckDataEquality = $Self->GetOption('check-data-equality');
+    my $Recreate          = $Self->GetOption('recreate');
 
-    $Self->{ObjectOption} = $Self->GetOption('Object');
+    $Self->{Index} = $Self->GetOption('index');
 
-    if ( !IsArrayRefWithData( $Self->{ObjectOption} ) ) {
-        @{ $Self->{ObjectOption} } = sort keys %{ $Self->{SearchObject}->{Config}->{RegisteredIndexes} };
+    if ( !IsArrayRefWithData( $Self->{Index} ) ) {
+        @{ $Self->{Index} } = sort keys %{ $Self->{SearchObject}->{Config}->{RegisteredIndexes} };
 
-        if ( !IsArrayRefWithData( $Self->{ObjectOption} ) ) {
-            $Self->Print("No index found in Loader::Search config.\n");
+        if ( !IsArrayRefWithData( $Self->{Index} ) ) {
+            $Self->Print("No index found in SearchEngine::Loader::Index config.\n");
             return $Self->ExitCodeError();
         }
     }
 
-    my $ForcePID = $Self->GetOption('Force') // 0;
+    my $ForcePID = $Self->GetOption('force') // 0;
 
     %{ $Self->{ReindexingProcess} } = $PIDObject->PIDGet(
         Name => 'SearchEngineReindex',
     );
 
     if ( IsHashRefWithData( $Self->{ReindexingProcess} ) ) {
-        $Self->Print("<yellow>There is already locked process for reindexing process\n</yellow>");
+        $Self->Print("<yellow>There is already a locked re-indexing process\n</yellow>");
         return $Self->ExitCodeError() if !$ForcePID;
 
-        $Self->Print("Are you sure about trying to stop process and continue ? (y/n)\n");
+        $Self->Print("Are you sure about trying to stop the process and continue (y/n)?\n");
 
         my $Agreement = <STDIN>;    ## no critic
         chomp $Agreement;
@@ -134,7 +131,7 @@ sub Run {
         }
 
         $Self->Print(
-            "<yellow>Used force flag, trying to remove ongoing process PID: $Self->{ReindexingProcess}->{PID}</yellow>\n"
+            "<yellow>Used force flag, trying to remove ongoing process with ID $Self->{ReindexingProcess}->{PID}.</yellow>\n"
         );
 
         my $Success = kill 9, $Self->{ReindexingProcess}->{PID};
@@ -142,7 +139,7 @@ sub Run {
             $Self->Print("<yellow>Process was stopped</yellow>\n");
         }
         else {
-            $Self->Print("Could not stop process, are you about to continue ? (y/n)\n");
+            $Self->Print("Could not stop process, are you about to continue (y/n)?\n");
 
             $Agreement = <STDIN>;    ## no critic
             chomp $Agreement;
@@ -157,7 +154,7 @@ sub Run {
 
     my $Success = $ReindexationObject->DataEqualitySet(
         ClusterID => $Self->{ClusterConfig}->{ClusterID},
-        Indexes   => $Self->{ObjectOption}
+        Indexes   => $Self->{Index}
     );
 
     $Self->{SearchObject} = $Kernel::OM->Get('Kernel::System::Search');
@@ -168,43 +165,43 @@ sub Run {
 
     my %IndexObjectStatus;
     my @Objects;
-    if ( IsArrayRefWithData( $Self->{ObjectOption} ) ) {
-
+    if ( IsArrayRefWithData( $Self->{Index} ) ) {
         my $Counter = 0;
-        OBJECT_LOAD:
-        for my $IndexName ( @{ $Self->{ObjectOption} } ) {
 
-            # check index validity on otrs side
+        INDEX:
+        for my $Index ( @{ $Self->{Index} } ) {
+
+            # check index validity on Znuny side
             my $Result = $SearchChildObject->IndexIsValid(
-                IndexName => $IndexName,
+                IndexName => $Index,
                 RealName  => 0,
             );
 
             if ( !$Result ) {
-                $Self->Print("<red>Index: $IndexName is not valid! Ignoring reindexation for that index.\n</red>");
+                $Self->Print("<red>Index $Index is not valid! Ignoring re-indexation for this index.\n</red>");
                 $Counter++;
-                next OBJECT_LOAD;
+                next INDEX;
             }
 
-            my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
+            my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Index");
 
-            $IndexObject->{Index} = $IndexName;
+            $IndexObject->{Index} = $Index;
 
             if (
-                $EqualityDataStatus->{$IndexName}->{Percentage}
-                && $EqualityDataStatus->{$IndexName}->{Percentage} == 100
+                $EqualityDataStatus->{$Index}->{Percentage}
+                && $EqualityDataStatus->{$Index}->{Percentage} == 100
                 && $CheckDataEquality
                 )
             {
-                $Self->Print("<green>Index: $IndexName has 100% data equality, skipping...\n</green>");
+                $Self->Print("<green>Index $Index has 100% data equality, skipping...\n</green>");
                 $Counter++;
-                next OBJECT_LOAD;
+                next INDEX;
             }
 
             $Counter++;
 
             # add index to reindex query
-            $IndexObjectStatus{$IndexName} = {
+            $IndexObjectStatus{$Index} = {
                 Successfull => 0
             };
 
@@ -232,14 +229,14 @@ sub Run {
 
     # list all indexes on remote (engine) side
     my @ActiveClusterRemoteIndexList = $Self->{SearchObject}->IndexList();
-    my $ReindexationSettings         = $ConfigObject->Get('Reindexation')->{ReindexationSettings};
+    my $ReindexationSettings         = $ConfigObject->Get('SearchEngine::Reindexation')->{Settings};
 
     my $ReindexationStep = $ReindexationSettings->{ReindexationStep} // 500;
 
     OBJECT:
     for my $Object (@Objects) {
         $Self->Print("<yellow>-----\n</yellow>");
-        $Self->Print("<yellow>Reindexing: $Object->{Index}</yellow>\n");
+        $Self->Print("<yellow>Re-indexing $Object->{Index}</yellow>\n");
         $Self->Print("<yellow>--\n</yellow>");
 
         # get real name index name from sysconfig
@@ -272,9 +269,9 @@ sub Run {
             my $IndexRealName     = $SearchIndexObject->{Config}->{IndexRealName};
 
             $Self->Print(
-                "<yellow>$Object->{Index} index is valid on otrs backend side, but does not exists on the search engine.\n"
+                "<yellow>$Object->{Index} index is valid in Znuny, but does not exist in the search engine.\n"
                     .
-                    "Index on engide side with real name: \"$IndexRealName\" as \"$Object->{Index}\" (friendly name on otrs side) will be created.\n\n</yellow>"
+                    "Index in search engine with real name \"$IndexRealName\" as \"$Object->{Index}\" (friendly name in Znuny) will be created.\n\n</yellow>"
             );
 
             my $AddSuccess = $Self->{SearchObject}->IndexAdd(
@@ -295,7 +292,7 @@ sub Run {
 
             if ( !$RemoveSuccess ) {
                 $Self->Print(
-                    "<red>Could not remove index: $Object->{Index}! Ignoring reindexation for that index.\n</red>"
+                    "<red>Could not remove index $Object->{Index}! Ignoring re-indexation for that index.\n</red>"
                 );
                 next OBJECT;
             }
@@ -307,7 +304,7 @@ sub Run {
 
             if ( !$AddSuccess ) {
                 $Self->Print(
-                    "<red>Could not add index: $Object->{Index}! Ignoring reindexation for that index.\n</red>"
+                    "<red>Could not add index $Object->{Index}! Ignoring re-indexation for that index.\n</red>"
                 );
                 next OBJECT;
             }
@@ -324,7 +321,7 @@ sub Run {
 
             if ( !$ClearSuccess ) {
                 $Self->Print(
-                    "<red>Could not clear index: $Object->{Index} data! Ignoring reindexation for that index.\n</red>"
+                    "<red>Could not clear index $Object->{Index} data! Ignoring re-indexation for that index.\n</red>"
                 );
                 next OBJECT;
             }
@@ -336,7 +333,7 @@ sub Run {
         );
 
         if ( !$InitSuccess ) {
-            $Self->PrintError("Can't initialize index: $Object->{Index}!\n");
+            $Self->PrintError("Can't initialize index $Object->{Index}!\n");
             $IndexObjectStatus{ $Object->{Index} }{Successfull} = 0;
             next OBJECT;
         }
@@ -345,7 +342,7 @@ sub Run {
 
         if ( !IsArrayRefWithData($ObjectIDs) ) {
             $Self->Print(
-                "<yellow>No data to reindex.</yellow>\n\n"
+                "<yellow>No data to re-index.</yellow>\n\n"
             );
             $Self->Print("<green>Done.</green>\n");
             $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
@@ -472,27 +469,27 @@ sub PostRun {
     my $PIDObject          = $Kernel::OM->Get('Kernel::System::PID');
     my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
 
-    if ( $Self->{Started} ) {
-        $CacheObject->CleanUp(
-            Type => 'ReindexingProcess',
-        );
+    return $Self->ExitCodeOk() if !$Self->{Started};
 
-        $PIDObject->PIDDelete(
-            Name => 'SearchEngineReindex',
-        );
+    $CacheObject->CleanUp(
+        Type => 'ReindexingProcess',
+    );
 
-        for my $Index ( @{ $Self->{ObjectOption} } ) {
-            my $Result = $Self->{SearchObject}->IndexRefresh(
-                Index => $Index
-            );
-        }
-        my $Success = $ReindexationObject->DataEqualitySet(
-            ClusterID => $Self->{ClusterConfig}->{ClusterID},
-            Indexes   => $Self->{ObjectOption},
-        );
+    $PIDObject->PIDDelete(
+        Name => 'SearchEngineReindex',
+    );
 
-        $Self->Print("<red>Cleaned up Cache and PID for reindexing process</red>\n");
+    for my $Index ( @{ $Self->{Index} } ) {
+        my $Result = $Self->{SearchObject}->IndexRefresh(
+            Index => $Index
+        );
     }
+    my $Success = $ReindexationObject->DataEqualitySet(
+        ClusterID => $Self->{ClusterConfig}->{ClusterID},
+        Indexes   => $Self->{Index},
+    );
+
+    $Self->Print("<red>Cleaned up Cache and PID for reindexing process</red>\n");
 
     return $Self->ExitCodeOk();
 }

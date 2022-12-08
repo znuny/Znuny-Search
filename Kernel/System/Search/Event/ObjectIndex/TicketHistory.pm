@@ -38,24 +38,26 @@ sub Run {
     return if $SearchObject->{Fallback};
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # check needed parameters
+    NEEDED:
     for my $Needed (qw(Data Event Config)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
+
+    NEEDED:
     for my $Needed (qw(FunctionName IndexName)) {
-        if ( !$Param{Config}->{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed in Config!"
-            );
-            return;
-        }
+        next NEEDED if $Param{Config}->{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed in Config!"
+        );
+        return;
     }
 
     my $TicketHistoryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Config}->{IndexName}");
@@ -63,7 +65,6 @@ sub Run {
     my $TicketID            = $Param{Data}->{TicketID};
 
     my $Result;
-
     if ( $FunctionName eq 'ObjectIndexRemove' ) {
         $SearchObject->$FunctionName(
             Index       => $Param{Config}->{IndexName},
@@ -76,7 +77,6 @@ sub Run {
         return 1;
     }
     elsif ( $Param{Config}->{FunctionName} eq 'ObjectIndexUpdate' ) {
-
         my $TicketHistoryData = $SearchObject->Search(
             Objects     => ["TicketHistory"],
             QueryParams => {
@@ -98,8 +98,7 @@ sub Run {
         if ( IsArrayRefWithData( $TicketHistoryData->{TicketHistory} ) ) {
             TICKET_HISTORY:
             for my $TicketHistory ( @{ $TicketHistoryData->{TicketHistory} } ) {
-
-                next TICKET_HISTORY if !$TicketHistory;
+                next TICKET_HISTORY if !IsHashRefWithData($TicketHistory);
 
                 %QueryParam = (
                     Index    => $Param{Config}->{IndexName},

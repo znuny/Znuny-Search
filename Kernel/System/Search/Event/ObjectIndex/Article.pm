@@ -23,7 +23,6 @@ our @ObjectDependencies = (
 sub new {
     my ( $Type, %Param ) = @_;
 
-    # allocate new hash for object
     my $Self = {};
     bless( $Self, $Type );
 
@@ -33,32 +32,35 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     return if $SearchObject->{Fallback};
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # check needed parameters
+    NEEDED:
     for my $Needed (qw(Data Event Config)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
+
+    NEEDED:
     for my $Needed (qw(FunctionName IndexName)) {
-        if ( !$Param{Config}->{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed in Config!"
-            );
-            return;
-        }
+        next NEEDED if $Param{Config}->{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed in Config!"
+        );
+        return;
     }
 
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Config}->{IndexName}");
+
     my $ObjectIdentifierColumn = $IndexSearchObject->{Config}->{Identifier};
     my $ObjectIDData           = $Param{Data}->{$ObjectIdentifierColumn};
     my $IndexName              = $IndexSearchObject->{Config}->{IndexName};
@@ -103,9 +105,8 @@ sub Run {
             Refresh  => 1,
         );
 
-        # after succesfull article deletion
-        # there is a need to delete all it's data from
-        # linked tables
+        # after successful article deletion
+        # there is a need to delete all its data from linked tables
         # those are identified by communication channel
         if ($Success) {
             $Self->_LinkedTablesArticleAction(
@@ -118,7 +119,7 @@ sub Run {
             my $ArticleIDStrg = join ',', @{$ArticleIDsToDelete};
             $LogObject->Log(
                 Priority => 'error',
-                Message  => "Could not remove articles from search engine with ids: $ArticleIDStrg",
+                Message  => "Could not remove articles with IDs $ArticleIDStrg from search engine.",
             );
         }
 
@@ -144,16 +145,14 @@ sub Run {
             OrderBy    => 'Up',
         );
 
-        # temporary workaround untill support for "OR" connection in search
+        # TODO: temporary workaround until support for "OR" connection in search
         if ( IsArrayRefWithData( $ArticleData->{Article} ) ) {
             @{ $ArticleData->{Article} } = grep { $_->{ArticleID} } @{ $ArticleData->{Article} };
         }
 
         # ticket merge event change relation for id of merged ticket articles
-        # to main ticket
-        # but afterwards creates one article in merged ticket
-        # it is needed to be ignored as it will be indexed
-        # via ArticleCreate event itselves, not here
+        # to main ticket but afterwards creates one article in merged ticket
+        # it needs to be ignored as it will be indexed via ArticleCreate event itself, not here
         delete $ArticleData->{Article}[-1];
 
         @{ $QueryParam{ObjectID} } = map { $_->{ArticleID} } @{ $ArticleData->{Article} };
@@ -186,7 +185,7 @@ sub Run {
     elsif ($UpdateLinkedTables) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "The $FunctionName operation could not be performed for Article with id: $ObjectIDData",
+            Message  => "The $FunctionName operation could not be performed for Article with ID $ObjectIDData.",
         );
     }
 
@@ -198,14 +197,15 @@ sub _LinkedTablesArticleAction {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
+    NEEDED:
     for my $Needed (qw(FunctionName Articles IndexName)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my $CommunicationChannelObject = $Kernel::OM->Get('Kernel::System::CommunicationChannel');
@@ -217,19 +217,22 @@ sub _LinkedTablesArticleAction {
     # identify valid indexes
     my %ValidIndexes;
     my @IndexList = $SearchObject->IndexList();
+
+    INDEXREALNAME:
     for my $IndexRealName (@IndexList) {
         my $IsValid = $SearchChildObject->IndexIsValid(
             IndexName => $IndexRealName,
             RealName  => 1,
         );
-        if ($IsValid) {
-            $ValidIndexes{$IndexRealName} = $IsValid;
-            $ValidIndexes{Modules}{$IndexRealName}
-                = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{IndexName}");
-        }
+
+        next INDEXREALNAME if !$IsValid;
+
+        $ValidIndexes{$IndexRealName} = $IsValid;
+        $ValidIndexes{Modules}{$IndexRealName}
+            = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{IndexName}");
     }
 
-    # iterate through all articles ids to delete
+    # iterate through all IDs of articles to delete
     for my $ArticleDataToDelete ( @{ $Param{Articles}->{ $Param{IndexName} } } ) {
 
         # get communication channel data for article
@@ -242,45 +245,48 @@ sub _LinkedTablesArticleAction {
         my $ChannelData = $CommunicationChannels{ $ArticleDataToDelete->{CommunicationChannelID} }->{ChannelData};
 
         # Based on different communication channels there will
-        # be differences in linked data tables for actual article.
-        # Get a proper tables to clear data for actually iterated
+        # be a differences in linked data tables for actual article.
+        # Get a proper table to clear data for actually iterated
         # article id.
+
+        ARTICLEDATATABLE:
         for my $ArticleDataTable ( @{ $ChannelData->{ArticleDataTables} } ) {
 
             # article linked table needs to be available
-            if ( $ValidIndexes{$ArticleDataTable} ) {
-                my $ArticlesToDelete = $SearchObject->Search(
-                    Objects     => [ $ValidIndexes{$ArticleDataTable} ],
+            next ARTICLEDATATABLE if !$ValidIndexes{$ArticleDataTable};
+
+            my $ArticlesToDelete = $SearchObject->Search(
+                Objects     => [ $ValidIndexes{$ArticleDataTable} ],
+                QueryParams => {
+                    ArticleID => $ArticleDataToDelete->{ArticleID},
+                },
+                UseSQLSearch => 1,
+                Fields       => [ [ $ValidIndexes{Modules}{$ArticleDataTable}->{Config}->{Identifier} ] ]
+            );
+
+            my @ArticleIDs = map { $_->{ $ValidIndexes{Modules}{$ArticleDataTable}->{Config}->{Identifier} } }
+                @{ $ArticlesToDelete->{ $ValidIndexes{$ArticleDataTable} } };
+
+            my %Mapping = (
+                ObjectIndexRemove => {
                     QueryParams => {
                         ArticleID => $ArticleDataToDelete->{ArticleID},
                     },
-                    UseSQLSearch => 1,
-                    Fields       => [ [ $ValidIndexes{Modules}{$ArticleDataTable}->{Config}->{Identifier} ] ]
-                );
+                },
+                ObjectIndexUpdate => {
+                    ObjectID => \@ArticleIDs,
+                },
+                ObjectIndexAdd => {
+                    ObjectID => \@ArticleIDs,
+                }
+            );
 
-                my @ArticleIDs = map { $_->{ $ValidIndexes{Modules}{$ArticleDataTable}->{Config}->{Identifier} } }
-                    @{ $ArticlesToDelete->{ $ValidIndexes{$ArticleDataTable} } };
-
-                my %Mapping = (
-                    ObjectIndexRemove => {
-                        QueryParams => {
-                            ArticleID => $ArticleDataToDelete->{ArticleID},
-                        },
-                    },
-                    ObjectIndexUpdate => {
-                        ObjectID => \@ArticleIDs
-                    },
-                    ObjectIndexAdd => {
-                        ObjectID => \@ArticleIDs
-                    }
-                );
-                my $FunctionName = $Param{FunctionName};
-                my $Success      = $SearchObject->$FunctionName(
-                    Index => $ValidIndexes{$ArticleDataTable},
-                    %{ $Mapping{$FunctionName} },
-                    Refresh => 1,
-                );
-            }
+            my $FunctionName = $Param{FunctionName};
+            my $Success      = $SearchObject->$FunctionName(
+                Index => $ValidIndexes{$ArticleDataTable},
+                %{ $Mapping{$FunctionName} },
+                Refresh => 1,
+            );
         }
 
         # note: for now deleting article data from Article.* indexes

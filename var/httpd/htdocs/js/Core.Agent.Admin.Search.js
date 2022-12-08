@@ -30,33 +30,33 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         $('.IndexRemove').on('click', TargetNS.IndexRemove);
         $('#StopReindexation').on('click', TargetNS.StopReindexation);
 
-        if(Core.Config.Get('Subaction') == "Reindexation"){
+        if (Core.Config.Get('Subaction') == "Reindexation") {
             $('#Reindex').on('click', TargetNS.Reindex);
             $('#CheckEquality').on('click', TargetNS.CheckEquality);
 
-            $('#IndexSelectAll').change(function(){
-                $.each($('.IndexSelect'),function(){
+            $('#IndexSelectAll').change(function() {
+                $.each($('.IndexSelect'), function() {
                     $(this).prop("checked", $('#IndexSelectAll').prop("checked") ? true : false);
-                })
+                });
             })
 
-            if(Core.Config.Get('IsReindexingOngoing')){
+            if (Core.Config.Get('IsReindexingOngoing')) {
                 var Data = {
                     Action: 'AdminSearch',
                     Subaction: 'ReindexingProcessPercentage'
                 };
 
-                setInterval(function(){
+                setInterval(function() {
                     Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function (Response) {
                         var ReindexingStatusObjects = $('.ReindexingStatus'),
-                        IconClass = {
-                            Done: 'fa fa-check',
-                            Ongoing: 'fa fa-refresh fa-spin',
-                            Queued: 'fa fa-hourglass-half'
-                        },
-                        ProgressBarColor;
+                            IconClass = {
+                                Done: 'fa fa-check',
+                                Ongoing: 'fa fa-refresh fa-spin',
+                                Queued: 'fa fa-hourglass-half'
+                            },
+                            ProgressBarColor;
 
-                        if(Response.Finished){
+                        if (Response.Finished) {
                             Response.Percentage = 100;
                             window.location.reload();
                             return true;
@@ -64,11 +64,11 @@ Core.Agent.Admin.Search = (function (TargetNS) {
 
                         ProgressBarColor = Response.Percentage < 30 ? 'red' : Response.Percentage < 50 ? 'yellow' : 'green';
 
-                        $.each(ReindexingStatusObjects,function(Index){
+                        $.each(ReindexingStatusObjects, function(Index) {
                             var IconObject = $(ReindexingStatusObjects[Index]);
 
-                            if(Response.ReindexationQueue && Response.ReindexationQueue[IconObject.attr('value')]){
-                                IconObject.attr('class','ReindexingStatus ' + IconClass[Response.ReindexationQueue[IconObject.attr('value')].Status])
+                            if (Response.ReindexationQueue && Response.ReindexationQueue[IconObject.attr('value')]) {
+                                IconObject.attr('class','ReindexingStatus ' + IconClass[Response.ReindexationQueue[IconObject.attr('value')].Status]);
                             }
                         })
 
@@ -88,7 +88,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         $('#Submit').click();
     }
 
-    TargetNS.ShowDeleteDialog = function(Event){
+    TargetNS.ShowDeleteDialog = function(Event) {
         Core.UI.Dialog.ShowContentDialog(
             $('#DeleteDialogContainer'),
             Core.Language.Translate('Delete cluster'),
@@ -102,7 +102,6 @@ Core.Agent.Admin.Search = (function (TargetNS) {
                          Core.UI.Dialog.CloseDialog($('#DeleteDialog'));
                      }
                 },
-
                 {
                      Label: Core.Language.Translate('Delete'),
                      Function: function () {
@@ -136,6 +135,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         if(!TargetNS.NodeID) {
             return;
         }
+
         Core.UI.Dialog.ShowContentDialog(
             $('#DeleteDialogContainer'),
             Core.Language.Translate('Delete node'),
@@ -180,7 +180,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         Event.stopPropagation();
     };
 
-    TargetNS.SynchronizeCluster = function(Event){
+    TargetNS.SynchronizeCluster = function(Event) {
         var Data = {
             Action: 'AdminSearch',
             Subaction: 'SynchronizeAction',
@@ -196,7 +196,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         Event.stopPropagation();
     }
 
-    TargetNS.ShowNotSupportedDialog = function(Event){
+    TargetNS.ShowNotSupportedDialog = function(Event) {
         Core.UI.Dialog.ShowContentDialog(
             $('#NotSupportedDialogContainer'),
             Core.Language.Translate('Index is not supported!'),
@@ -207,7 +207,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         Event.stopPropagation();
     }
 
-    TargetNS.ShowMissingDialog = function(Event){
+    TargetNS.ShowMissingDialog = function(Event) {
         Core.UI.Dialog.ShowContentDialog(
             $('#MissingDialogContainer'),
             Core.Language.Translate('Index is missing by engine side!'),
@@ -224,15 +224,13 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             PasswordInput = $('#PasswordFieldNodeAuth'),
             AuthCheckbox  = document.getElementById('CommunicationNodeAuthRequired');
 
-        if(!AuthBox || !LoginInput || !PasswordInput || !AuthCheckbox) return;
+        if (!AuthBox || !LoginInput || !PasswordInput || !AuthCheckbox) return;
 
-        if(AuthCheckbox.checked) {
-
+        if (AuthCheckbox.checked) {
             AuthBox.css("display", "block");
             LoginInput.addClass('Validate_Required');
         }
         else {
-
             AuthBox.css("display", "none");
             LoginInput.removeClass('Validate_Required');
             PasswordInput.val('');
@@ -244,12 +242,10 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         var TestConnectionButton = $('#TestConnection'),
             SuccessBox           = $('#TestSuccess'),
             ValidationErrorBox   = $('#ValidationError'),
-            ErrorBox             = $('#TestError');
+            ErrorBox             = $('#TestError'),
 
-        TestConnectionButton.prop('disabled', true);
-
-        // node connection data
-        var Protocol  = $('.CommunicationNode #Protocol').val(),
+            // node connection data
+            Protocol  = $('.CommunicationNode #Protocol').val(),
             Host      = $('.CommunicationNode #Host').val(),
             Port      = $('.CommunicationNode #Port').val(),
             Path      = $('.CommunicationNode #Path').val(),
@@ -257,7 +253,22 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             Password  = $('.CommunicationNode #PasswordFieldNodeAuth').val(),
             NodeID       = $('form#CommunicationNode > #NodeID').val(),
             AuthRequired = $('.CommunicationNode #CommunicationNodeAuthRequired').is(":checked") ? 1 : 0,
-            URL       = Core.Config.Get('Baselink');
+            URL       = Core.Config.Get('Baselink'),
+
+            Data = {
+                Action:    'AdminSearch',
+                Subaction: 'TestNodeConnection',
+                Protocol:  Protocol,
+                Host:      Host,
+                Port:      Port,
+                Path:      Path,
+                Login:     Login,
+                Password:  Password,
+                NodeID:    NodeID,
+                AuthRequired: AuthRequired,
+            };
+
+        TestConnectionButton.prop('disabled', true);
 
         if (!Host || !Port) {
             // when user don't insert required data
@@ -266,22 +277,9 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             SuccessBox.addClass('Hidden');
             ErrorBox.addClass('Hidden');
             return 1;
-        } else {
-            ValidationErrorBox.addClass('Hidden');
         }
 
-        var Data = {
-            Action:    'AdminSearch',
-            Subaction: 'TestNodeConnection',
-            Protocol:  Protocol,
-            Host:      Host,
-            Port:      Port,
-            Path:      Path,
-            Login:     Login,
-            Password:  Password,
-            NodeID:    NodeID,
-            AuthRequired: AuthRequired,
-        };
+        ValidationErrorBox.addClass('Hidden');
 
         Core.AJAX.FunctionCall(
             URL,
@@ -307,7 +305,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         return 1;
     }
 
-    TargetNS.ShowClusterStatusDialog = function(Event){
+    TargetNS.ShowClusterStatusDialog = function(Event) {
         Core.UI.Dialog.ShowDialog({
             Modal: true,
             Title: Core.Language.Translate('Detailed cluster status'),
@@ -332,7 +330,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         Event.stopPropagation();
     }
 
-    TargetNS.Reindex = function(Event){
+    TargetNS.Reindex = function(Event) {
         Core.UI.Dialog.ShowDialog({
             Modal: true,
             Title: Core.Language.Translate('Confirm reindexation action.'),
@@ -357,18 +355,19 @@ Core.Agent.Admin.Search = (function (TargetNS) {
                             Subaction: 'ReindexingProcessPercentage'
                         }
 
-                        $.each($('.IndexSelect'), function(){
-                            if($(this).prop("checked")){
+                        $.each($('.IndexSelect'), function() {
+                            if ($(this).prop("checked")) {
                                 Data.IndexArray.push($(this).val());
                             }
                         })
 
-                        if(Data.IndexArray.length > 0){
-                            Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function(){
+                        if (Data.IndexArray.length > 0) {
+                            Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function() {
                                 window.location.reload();
                             });
                             Core.UI.Dialog.CloseDialog($('#ReindexConfirmationContainer'));
-                            $('.ActionButtons').html(Core.Language.Translate("Reindexation process initializated, waiting for response from server..."));
+                            $('.ActionButtons').html(Core.Language.Translate("Reindexation process initializated, waiting for response from server.."));
+
                             // check every second if reindexation started
                             setInterval(function(){
                                 Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), ReindexationCallData, function(Response){
@@ -397,7 +396,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         Event.preventDefault();
     }
 
-    TargetNS.CheckEquality = function(Event){
+    TargetNS.CheckEquality = function(Event) {
         var Data = {
             Action: 'AdminSearch',
             Subaction: 'CheckEqualityAction',
@@ -405,8 +404,8 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             IndexArray: []
         };
 
-        $.each($('.IndexSelect'), function(){
-            if($(this).prop("checked")){
+        $.each($('.IndexSelect'), function() {
+            if ($(this).prop("checked")) {
                 Data.IndexArray.push($(this).val());
             }
         })
@@ -430,11 +429,11 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         $('#ReindexationProcessContainer').html(Core.Language.Translate("Stopping currently ongoing reindexing process, please wait for the end of operation."));
 
         Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function (Response) {
-            if(!Response.Success){
+            if (!Response.Success) {
                 Core.UI.Dialog.ShowAlert("", Core.Language.Translate("Unable to stop the process within the GUI!"), function(){
                     window.location.reload();
                 });
-            }else{
+            } else {
                 window.location.reload();
             }
         });
