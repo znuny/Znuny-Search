@@ -165,7 +165,11 @@ sub DataEqualityGet {
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
     $DBObject->Prepare(
-        SQL => "SELECT index_name, percentage, create_time FROM search_cluster_data_equality ORDER BY create_time DESC",
+        SQL => '
+            SELECT   index_name, percentage, create_time
+            FROM     search_cluster_data_equality
+            ORDER BY create_time DESC
+        ',
     );
 
     my $IndexEqualityPercentage;
@@ -211,7 +215,6 @@ sub DataEqualitySet {
     my @ActiveIndexes;
     INDEX:
     for my $Index ( @{ $Param{Indexes} } ) {
-
         my $IndexRealName = $SearchObject->{Config}->{RegisteredIndexes}->{$Index};
 
         my $IsValid = $SearchChildObject->IndexIsValid(
@@ -226,9 +229,11 @@ sub DataEqualitySet {
 
         # cannot find index on engine side, set it percentage on 0%
         return if !$DBObject->Do(
-            SQL =>
-                "INSERT INTO search_cluster_data_equality (cluster_id, index_name, percentage, create_time) VALUES (?, ?, 0, current_timestamp)",
-            Bind => [ \$Param{ClusterID}, \$Index ]
+            SQL => '
+                INSERT INTO search_cluster_data_equality (cluster_id, index_name, percentage, create_time)
+                       VALUES (?, ?, 0, current_timestamp)
+            ',
+            Bind => [ \$Param{ClusterID}, \$Index, ]
         );
     }
 
@@ -266,8 +271,10 @@ sub DataEqualitySet {
         }
 
         return if !$DBObject->Do(
-            SQL =>
-                "INSERT INTO search_cluster_data_equality (cluster_id, index_name, percentage, create_time) VALUES (?, ?, ?, current_timestamp)",
+            SQL => '
+                INSERT INTO search_cluster_data_equality (cluster_id, index_name, percentage, create_time)
+                       VALUES (?, ?, ?, current_timestamp)
+            ',
             Bind => [ \$Param{ClusterID}, \$Index, \$IndexEqualityPercentage->{$Index} ]
         );
     }
@@ -301,49 +308,49 @@ sub IndexReindexationStatus {
     my %IndexReindexationStatus = (
         IsReindexingOngoing => $IsReindexingOngoing,
     );
-    if ($IsReindexingOngoing) {
-        my $ReindexingQueue = $CacheObject->Get(
-            Type => 'ReindexingProcess',
-            Key  => 'ReindexingQueue',
-        );
+    return \%IndexReindexationStatus if !$IsReindexingOngoing;
 
-        $ReindexingQueue = $JSONObject->Decode(
-            Data => $ReindexingQueue
-        );
+    my $ReindexingQueue = $CacheObject->Get(
+        Type => 'ReindexingProcess',
+        Key  => 'ReindexingQueue',
+    );
 
-        my $ReindexedIndex = $CacheObject->Get(
-            Type => 'ReindexingProcess',
-            Key  => 'ReindexedIndex',
-        );
+    $ReindexingQueue = $JSONObject->Decode(
+        Data => $ReindexingQueue
+    );
 
-        if ( !$ReindexingQueue && !$ReindexedIndex ) {
-            my $Success = $Self->StopReindexation(
-                Force => 1,
-            );
-            if ($Success) {
-                return;
-            }
-            else {
-                return \%IndexReindexationStatus;
-            }
+    my $ReindexedIndex = $CacheObject->Get(
+        Type => 'ReindexingProcess',
+        Key  => 'ReindexedIndex',
+    );
+
+    if ( !$ReindexingQueue && !$ReindexedIndex ) {
+        my $Success = $Self->StopReindexation(
+            Force => 1,
+        );
+        if ($Success) {
+            return;
+        }
+        else {
+            return \%IndexReindexationStatus;
+        }
+    }
+
+    my $Status       = 'Done';
+    my $OngoingFound = 0;
+    INDEX:
+    for my $Index ( sort keys %{$ReindexingQueue} ) {
+
+        $Status = 'Queued' if $OngoingFound;
+
+        if ( $Index eq $ReindexedIndex ) {
+            $Status       = 'Ongoing';
+            $OngoingFound = 1;
         }
 
-        my $Status       = 'Done';
-        my $OngoingFound = 0;
-        INDEX:
-        for my $Index ( sort keys %{$ReindexingQueue} ) {
-
-            $Status = 'Queued' if $OngoingFound;
-
-            if ( $Index eq $ReindexedIndex ) {
-                $Status       = 'Ongoing';
-                $OngoingFound = 1;
-            }
-
-            $IndexReindexationStatus{$Index} = {
-                Status => $Status
-            };
-        }
+        $IndexReindexationStatus{$Index} = {
+            Status => $Status
+        };
     }
 
     return \%IndexReindexationStatus;
@@ -399,38 +406,37 @@ sub StopReindexation {
         Name  => 'SearchEngineReindex',
         Force => $Param{Force},
     );
+    return if !$PIDDeleteSuccess;
 
-    if ($PIDDeleteSuccess) {
-        my $ActiveCluster = $ClusterObject->ActiveClusterGet();
+    my $ActiveCluster = $ClusterObject->ActiveClusterGet();
 
-        my $ReindexingQueue = $CacheObject->Get(
-            Type => 'ReindexingProcess',
-            Key  => 'ReindexingQueue',
+    my $ReindexingQueue = $CacheObject->Get(
+        Type => 'ReindexingProcess',
+        Key  => 'ReindexingQueue',
+    );
+
+    $ReindexingQueue = $JSONObject->Decode(
+        Data => $ReindexingQueue
+    );
+
+    my @ReindexedIndexList = keys %{$ReindexingQueue};
+    for my $Index (@ReindexedIndexList) {
+        my $Result = $SearchObject->IndexRefresh(
+            Index => $Index
         );
-
-        $ReindexingQueue = $JSONObject->Decode(
-            Data => $ReindexingQueue
-        );
-
-        my @ReindexedIndexList = keys %{$ReindexingQueue};
-        for my $Index (@ReindexedIndexList) {
-            my $Result = $SearchObject->IndexRefresh(
-                Index => $Index
-            );
-        }
-
-        my $DataEqualitySetSuccess = $Self->DataEqualitySet(
-            ClusterID => $ActiveCluster->{ClusterID},
-            Indexes   => \@ReindexedIndexList,
-        );
-
-        # cleanup cache type of reindexing process
-        my $CacheDeleteSuccess = $CacheObject->CleanUp(
-            Type => 'ReindexingProcess',
-        );
-
-        return 1 if $CacheDeleteSuccess && $DataEqualitySetSuccess;
     }
+
+    my $DataEqualitySetSuccess = $Self->DataEqualitySet(
+        ClusterID => $ActiveCluster->{ClusterID},
+        Indexes   => \@ReindexedIndexList,
+    );
+
+    # cleanup cache type of reindexing process
+    my $CacheDeleteSuccess = $CacheObject->CleanUp(
+        Type => 'ReindexingProcess',
+    );
+
+    return 1 if $CacheDeleteSuccess && $DataEqualitySetSuccess;
 
     return;
 }

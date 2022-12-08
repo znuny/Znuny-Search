@@ -74,7 +74,7 @@ create query for specified operation
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    for my $Field ( sort keys %{ $Self->{IndexConfig}->{AdditionalOTRSFields} } ) {
+    for my $Field ( sort keys %{ $Self->{IndexConfig}->{AdditionalZnunyFields} } ) {
         delete $Param{Fields}->{$Field};
     }
     return $Self->SUPER::Search(%Param);
@@ -100,7 +100,6 @@ sub ObjectIndexAdd {
 
     NEEDED:
     for my $Needed (qw(MappingObject)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -120,7 +119,7 @@ sub ObjectIndexAdd {
     elsif ( !$Param{ObjectID} && !$Param{QueryParams} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "Parameter ObjectID or QueryParams is needed!",
+            Message  => "Either parameter ObjectID or QueryParams is needed!",
         );
         return;
     }
@@ -128,14 +127,13 @@ sub ObjectIndexAdd {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
-        {
-        $Identifier => $Param{ObjectID}
-        };
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} : {
+        $Identifier => $Param{ObjectID},
+    };
 
     my $Fields = [ 'ID', 'ObjectID', 'FieldID', 'Value' ];
 
-    my %CustomIndexFields = ( %{ $IndexObject->{Fields} }, %{ $IndexObject->{Config}->{AdditionalOTRSFields} } );
+    my %CustomIndexFields = ( %{ $IndexObject->{Fields} }, %{ $IndexObject->{Config}->{AdditionalZnunyFields} } );
 
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         QueryParams       => $QueryParams,
@@ -172,7 +170,6 @@ sub ObjectIndexSet {
 
     NEEDED:
     for my $Needed (qw(MappingObject)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -192,7 +189,7 @@ sub ObjectIndexSet {
     elsif ( !$Param{ObjectID} && !$Param{QueryParams} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "Parameter ObjectID or QueryParams is needed!",
+            Message  => "Either parameter ObjectID or QueryParams is needed!",
         );
         return;
     }
@@ -207,7 +204,7 @@ sub ObjectIndexSet {
 
     my $Fields = [ 'ID', 'ObjectID', 'FieldID', 'Value' ];
 
-    my %CustomIndexFields = ( %{ $IndexObject->{Fields} }, %{ $IndexObject->{Config}->{AdditionalOTRSFields} } );
+    my %CustomIndexFields = ( %{ $IndexObject->{Fields} }, %{ $IndexObject->{Config}->{AdditionalZnunyFields} } );
 
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         QueryParams       => $QueryParams,
@@ -261,10 +258,9 @@ sub ObjectIndexRemove {
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
     my $Identifier  = $IndexObject->{Config}->{Identifier};
 
-    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} :
-        {
-        $Identifier => $Param{ObjectID}
-        };
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} : {
+        $Identifier => $Param{ObjectID},
+    };
 
     my $NoMappingCheck;
     if ( $QueryParams->{_id} ) {

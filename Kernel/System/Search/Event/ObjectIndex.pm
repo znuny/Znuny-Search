@@ -19,7 +19,6 @@ our @ObjectDependencies = (
 sub new {
     my ( $Type, %Param ) = @_;
 
-    # allocate new hash for object
     my $Self = {};
     bless( $Self, $Type );
 
@@ -33,24 +32,26 @@ sub Run {
     return if $SearchObject->{Fallback};
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # check needed parameters
+    NEEDED:
     for my $Needed (qw(Data Event Config)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
+
+    NEEDED:
     for my $Needed (qw(FunctionName IndexName)) {
-        if ( !$Param{Config}->{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed in Config!"
-            );
-            return;
-        }
+        next NEEDED if $Param{Config}->{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed in Config!"
+        );
+        return;
     }
 
     my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Config}->{IndexName}");

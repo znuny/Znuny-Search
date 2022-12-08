@@ -6,6 +6,8 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
+## nofilter(TidyAll::Plugin::Znuny4OTRS::Perl::ObjectManagerDirectCall)
+
 package Kernel::System::Search::Object::Engine::ES::Ticket;
 
 use strict;
@@ -203,7 +205,7 @@ then execute search.
     );
 
 On executing ticket search by Kernel::System::Search:
-    my $Result = $Kernel::OM->Get('Kernel::System::Search')->Search( ## nofilter(TidyAll::Plugin::Znuny4OTRS::Perl::ObjectManagerDirectCall)
+    my $Result = $Kernel::OM->Get('Kernel::System::Search')->Search(
         Objects => ["Ticket"],
         QueryParams => {
             # standard ticket fields
@@ -378,8 +380,9 @@ sub ExecuteSearch {
 
     my $OperatorModule   = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
-    my @QueryParamsKey   = keys %{ $Param{QueryParams} };
-    my $QueryParams      = $Param{QueryParams};
+
+    my @QueryParamsKey = keys %{ $Param{QueryParams} };
+    my $QueryParams    = $Param{QueryParams};
 
     # filter & prepare correct parameters
     my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
@@ -512,7 +515,7 @@ sub ExecuteSearch {
             }
         }
 
-        DYNAMIC_FIELD:
+        ARTICLEDYNAMICFIELDNAME:
         for my $ArticleDynamicFieldName ( sort keys %{$ArticleDynamicFieldsSearchParams} ) {
 
             my $DynamicFieldConfig;
@@ -522,7 +525,7 @@ sub ExecuteSearch {
                 $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
                     Name => $ArticleDynamicFieldName,
                 );
-                next DYNAMIC_FIELD if !IsHashRefWithData($DynamicFieldConfig);
+                next ARTICLEDYNAMICFIELDNAME if !IsHashRefWithData($DynamicFieldConfig);
 
                 $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
                     DynamicFieldConfig => $DynamicFieldConfig,
@@ -794,7 +797,7 @@ sub IndexMappingSet {
 
 =head2 SQLObjectSearch()
 
-TO-DO add support for child "Field" parameters.
+TODO: add support for child "Field" parameters.
 
 search in sql database for objects index related
 
@@ -815,7 +818,13 @@ search in sql database for objects index related
 sub SQLObjectSearch {
     my ( $Self, %Param ) = @_;
 
-    my $GroupObject = $Kernel::OM->Get('Kernel::System::Group');
+    my $GroupObject                 = $Kernel::OM->Get('Kernel::System::Group');
+    my $QueueObject                 = $Kernel::OM->Get('Kernel::System::Queue');
+    my $DBObject                    = $Kernel::OM->Get('Kernel::System::DB');
+    my $DynamicFieldObject          = $Kernel::OM->Get('Kernel::System::DynamicField');
+    my $DynamicFieldBackendObject   = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+    my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
+    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
 
     my $QueryParams = $Param{QueryParams};
     my $Fields      = $Param{Fields};
@@ -836,7 +845,7 @@ sub SQLObjectSearch {
         $GroupField = 'GroupID';
     }
 
-    my @GroupQueryParam = ();
+    my @GroupQueryParam;
 
     # delete groupid, userid, permissions from queryparams/fields
     # as those are not present in the ticket table
@@ -871,17 +880,6 @@ sub SQLObjectSearch {
 
     return $SQLSearchResult if !IsArrayRefWithData($SQLSearchResult);
 
-    my $QueueObject = $Kernel::OM->Get('Kernel::System::Queue');
-    my $DBObject    = $Kernel::OM->Get('Kernel::System::DB');
-
-    # get dynamic field objects
-    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
-    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
-
-    # get article objects
-    my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
-
     # get all dynamic fields for the object type Ticket
     my $TicketDynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
         ObjectType => 'Ticket'
@@ -894,7 +892,8 @@ sub SQLObjectSearch {
 
     TICKET:
     for my $Ticket ( @{$SQLSearchResult} ) {
-        DYNAMICFIELD:
+
+        DYNAMICFIELDCONFIG:
         for my $DynamicFieldConfig ( @{$TicketDynamicFieldList} ) {
 
             # get the current value for each dynamic field
@@ -905,9 +904,9 @@ sub SQLObjectSearch {
 
             # set the dynamic field name and value into the ticket hash
             # only if value is defined
-            if ( defined $Value ) {
-                $Ticket->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
-            }
+            next DYNAMICFIELDCONFIG if !defined $Value;
+
+            $Ticket->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
         }
 
         # search articles for specified ticket id
@@ -929,7 +928,7 @@ sub SQLObjectSearch {
             %{$Article} = ( %{$Article}, %{$ArticleDataMIMERow} );
 
             # add article dynamic fields
-            DYNAMICFIELD:
+            DYNAMICFIELDCONFIG:
             for my $DynamicFieldConfig ( @{$ArticleDynamicFields} ) {
 
                 # get the current value for each dynamic field
@@ -940,9 +939,9 @@ sub SQLObjectSearch {
 
                 # set the dynamic field name and value into the ticket hash
                 # only if value is defined
-                if ( defined $Value ) {
-                    $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
-                }
+                next DYNAMICFIELDCONFIG if !defined $Value;
+
+                $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
             }
         }
 
@@ -975,7 +974,14 @@ sub SQLObjectSearch {
                 # optionally to-do - can be optimized in a way that a parameter
                 # will decide if we can use cached response
                 return if !$DBObject->Prepare(
-                    SQL   => "SELECT group_id FROM queue WHERE id = $Row->{QueueID}",
+                    SQL => '
+                        SELECT group_id
+                        FROM   queue
+                        WHERE  id = ?
+                    ',
+                    Bind => [
+                        \$Row->{QueueID},
+                    ],
                     Limit => 1,
                 );
 
@@ -1016,22 +1022,22 @@ sub ValidFieldsPrepare {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    for my $Name (qw(Object)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return ();
-        }
+    NEEDED:
+    for my $Needed (qw(Object)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return ();
     }
 
     my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
 
     my $Fields         = $IndexSearchObject->{Fields};
     my $ExternalFields = $IndexSearchObject->{ExternalFields};
-
-    my %ValidFields = ();
+    my %ValidFields;
 
     # when no fields are specified use all standard fields
     # (without dynamic fields)
@@ -1055,17 +1061,14 @@ sub ValidFieldsPrepare {
 
         # get information about field types if field
         # matches specified regexp
-        if ( $ParamField =~ /^(?:Ticket_DynamicField_(.+))|(?:Article_DynamicField_(.+))/ ) {
-            if ( $1 && $1 eq '*' || $2 && $2 eq '*' ) {
+        if ( $ParamField =~ m{\A(?:Ticket_DynamicField_(.+))|(?:Article_DynamicField_(.+))} ) {
 
-                my $ObjectType;
+            my $DynamicFieldName = $1 || $2;
+
+            if ( $DynamicFieldName eq '*' ) {
+
                 my $DFColumnNamePre = '';
-                if ( $ParamField =~ /^Article/ ) {
-                    $ObjectType = 'Article';
-                }
-                else {
-                    $ObjectType = 'Ticket';
-                }
+                my $ObjectType      = $2 ? 'Article' : 'Ticket';
 
                 # get all dynamic fields for object type "Ticket" or "Article"
                 my $DynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
@@ -1106,22 +1109,14 @@ sub ValidFieldsPrepare {
             else {
                 # get single dynamic field config
                 my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
-                    Name => $1 || $2,
+                    Name => $DynamicFieldName,
                 );
 
                 # get object - "Ticket" or "Article"
                 my $ObjectType = $DynamicFieldConfig->{ObjectType};
 
                 if ( IsHashRefWithData($DynamicFieldConfig) && $DynamicFieldConfig->{Name} ) {
-
-                    my $DynamicFieldColumnName;
-
-                    if ( $ObjectType eq 'Article' ) {
-                        $DynamicFieldColumnName = 'DynamicField_' . $DynamicFieldConfig->{Name};
-                    }
-                    else {
-                        $DynamicFieldColumnName = 'DynamicField_' . $DynamicFieldConfig->{Name};
-                    }
+                    my $DynamicFieldColumnName = 'DynamicField_' . $DynamicFieldConfig->{Name};
 
                     # get return type for dynamic field
                     my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
@@ -1152,36 +1147,38 @@ sub ValidFieldsPrepare {
         }
 
         # apply "Ticket" fields
-        elsif ( $ParamField =~ /^Ticket_(.+)$/ ) {
+        elsif ( $ParamField =~ m{\ATicket_(.+)\z} ) {
+            my $TicketField = $1;
 
             # get single "Ticket" field
-            if ( $Fields->{$1} ) {
-                $ValidFields{Ticket}->{$1} = $Fields->{$1};
+            if ( $Fields->{$TicketField} ) {
+                $ValidFields{Ticket}->{$TicketField} = $Fields->{$TicketField};
             }
 
             # get single field from external fields
             # that is for example "GroupID"
-            elsif ( $ExternalFields->{$1} ) {
-                $ValidFields{Ticket}->{$1} = $ExternalFields->{$1};
+            elsif ( $ExternalFields->{$TicketField} ) {
+                $ValidFields{Ticket}->{$TicketField} = $ExternalFields->{$TicketField};
             }
 
             # get all "Ticket" fields
-            elsif ( $1 eq '*' ) {
+            elsif ( $TicketField eq '*' ) {
                 my $TicketFields = $ValidFields{Ticket} // {};
                 %{ $ValidFields{Ticket} } = ( %{$Fields}, %{$ExternalFields}, %{$TicketFields} );
             }
         }
 
         # apply "Article" fields
-        elsif ( $ParamField =~ /^Article_(.+)/ ) {
+        elsif ( $ParamField =~ m{\AArticle_(.+)\z} ) {
+            my $ArticleField = $1;
 
             # get single "Article" field
-            if ( $AllArticleFields{$1} ) {
-                $ValidFields{Article}{$1} = $AllArticleFields{$1};
+            if ( $AllArticleFields{$ArticleField} ) {
+                $ValidFields{Article}{$ArticleField} = $AllArticleFields{$ArticleField};
             }
 
             # get all "Article" fields
-            elsif ( $1 && $1 eq '*' ) {
+            elsif ( $ArticleField && $ArticleField eq '*' ) {
                 for my $ArticleField ( sort keys %AllArticleFields ) {
                     $ValidFields{Article}{$ArticleField} = $AllArticleFields{$ArticleField};
                 }

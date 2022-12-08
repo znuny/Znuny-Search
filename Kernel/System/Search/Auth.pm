@@ -59,20 +59,19 @@ sub ClusterCommunicationNodeAuthPwd {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    # check needed params
-    for my $Name (qw(Login Pw)) {
-        if ( !$Param{$Name} ) {
-            if ( !$Param{Silent} ) {
-                $LogObject->Log(
-                    Priority => 'error',
-                    Message  => "Need $Name!"
-                );
-            }
-            return;
+    NEEDED:
+    for my $Needed (qw(Login Pw)) {
+        next NEEDED if $Param{$Needed};
+
+        if ( !$Param{Silent} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Needed!"
+            );
         }
+        return;
     }
 
-    # get params
     my $Login = $Param{Login} || '';
     my $Pw    = $Param{Pw}    || '';
 
@@ -113,14 +112,15 @@ sub _ClusterCommunicationNodeSetPassword {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    for my $Name (qw(NodeID)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw(NodeID)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     if ( !$Param{PasswordClear} && ( !$Param{Password} && !$Param{Login} ) ) {
@@ -151,7 +151,7 @@ sub _ClusterCommunicationNodeSetPassword {
     if ( !$ClusterCommunicationNode ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => 'No such Node!',
+            Message  => 'No such node!',
         );
         return;
     }
@@ -163,11 +163,10 @@ sub _ClusterCommunicationNodeSetPassword {
 
     my $Login = $Param{Login};
 
-    # TODO: Possible add another ways of storing passwords to be more protected
-    # OTRS needs decrypted password when sending to engine,
+    # TODO: Add another way of storing passwords to be more protected
+    # Znuny needs decrypted password when sending to search engine,
     # so no hash alghoritms can be used here.
     # For now only plain storage.
-
     if ( !$Param{PasswordClear} ) {
 
         # crypt plain (no crypt at all)
@@ -181,8 +180,11 @@ sub _ClusterCommunicationNodeSetPassword {
 
     # update db
     return if !$DBObject->Do(
-        SQL => "UPDATE search_cluster_nodes SET node_password = ? "
-            . " WHERE id = ?",
+        SQL => '
+            UPDATE search_cluster_nodes
+            SET    node_password = ?
+            WHERE  id = ?
+        ',
         Bind => [ \$CryptedPw, \$Param{NodeID} ],
     );
 
@@ -192,7 +194,7 @@ sub _ClusterCommunicationNodeSetPassword {
         $LogObject->Log(
             Priority => 'notice',
             Message =>
-                "Cluster communication node name: $ClusterCommunicationNode->{Name}, login: '$Login' changed password successfully!",
+                "Cluster communication node name $ClusterCommunicationNode->{Name}, login '$Login' changed password successfully!",
         );
     }
 

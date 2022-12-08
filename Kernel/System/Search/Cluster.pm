@@ -86,19 +86,18 @@ sub ClusterGet {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
 
-    # check needed stuff
+    NEEDED:
     for my $Needed (qw(ClusterID)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
-    }
+        next NEEDED if $Param{$Needed};
 
-    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
+    }
 
     return if !$DBObject->Prepare(
         SQL => 'SELECT id, name, engine, valid_id, create_time, change_time, description '
@@ -116,7 +115,7 @@ sub ClusterGet {
             ValidID     => $Data[3],
             CreateTime  => $Data[4],
             ChangeTime  => $Data[5],
-            Description => $Data[6]
+            Description => $Data[6],
         );
     }
 
@@ -140,16 +139,17 @@ sub ClusterAdd {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
 
-    # check needed stuff
+    NEEDED:
     for my $Needed (qw(Name ValidID EngineID UserID)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     return if $Self->NameExistsCheck(
@@ -157,8 +157,6 @@ sub ClusterAdd {
     );
 
     $Param{Description} ||= '';
-
-    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
 
     return if !$DBObject->Do(
         SQL =>
@@ -190,15 +188,15 @@ sub ClusterDelete {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
     my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
 
-    # check needed stuff
+    NEEDED:
     for my $Needed (qw(ClusterID UserID)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     # delete all cluster nodes
@@ -248,15 +246,15 @@ sub ClusterUpdate {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
     my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
 
-    # check needed stuff
+    NEEDED:
     for my $Needed (qw(ClusterID)) {
-        if ( !$Param{$Needed} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Needed!"
-            );
-            return;
-        }
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
     my %FieldMapping = (
@@ -325,7 +323,7 @@ sub ActiveClusterGet {
             ValidID     => $Data[3],
             CreateTime  => $Data[4],
             ChangeTime  => $Data[5],
-            Description => $Data[6]
+            Description => $Data[6],
         );
     }
 
@@ -375,12 +373,11 @@ sub ClusterCommunicationNodeAdd {
         ClusterID => $Param{ClusterID}
     );
 
-    my $Result = $Self->NodeNameExistsCheck(
+    my $NodeNameExists = $Self->NodeNameExistsCheck(
         Name      => $Param{Name},
         ClusterID => $Param{ClusterID},
     );
-
-    if ($Result) {
+    if ($NodeNameExists) {
         $LogObject->Log(
             Priority => 'error',
             Message  => "Can't add two nodes with the same names!",
@@ -587,7 +584,6 @@ sub ClusterCommunicationNodeList {
 
     my @CommunicationNodes;
     if ( $Param{Valid} && $Param{Valid} eq 1 ) {
-
         my %List = $ValidObject->ValidList();
 
         my ($ValidID) = grep { $List{$_} eq 'valid' } keys %List;
@@ -669,10 +665,11 @@ sub ClusterCommunicationNodeGet {
         if ( !$Param{Name} || !$Param{ClusterID} ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message  => "Missing params!",
+                Message  => "Missing params Name and/or ClusterID!",
             );
             return;
         }
+
         return if !$DBObject->Prepare(
             SQL =>
                 'SELECT id, name, valid_id, node_comment, protocol, host, port, node_path, node_login, node_password, cluster_id '
@@ -745,19 +742,19 @@ set password for communication node
 sub ClusterCommunicationNodeSetPassword {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    for my $Name (qw(ClusterID NodeID Action)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
-    }
-
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    NEEDED:
+    for my $Needed (qw(ClusterID NodeID Action)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
+    }
 
     my $Cluster = $Self->ClusterGet(
         ClusterID => $Param{ClusterID},
@@ -784,6 +781,7 @@ sub ClusterCommunicationNodeSetPassword {
             );
         }
     }
+
     if ( !$Success ) {
         my $OperationMsg = '(unknown action)';
         if ( $Param{Action} eq 'Add' ) {
@@ -837,7 +835,7 @@ sub ClusterCommunicationNodesImport {
     if ( !IsArrayRefWithData($NodesData) ) {
         return {
             Success => 0,
-            Message => "Couldn't read Nodes configuration file. Please make sure the file is valid.",
+            Message => "Couldn't read nodes configuration file. Please make sure the file is valid.",
         };
     }
 
@@ -849,11 +847,11 @@ sub ClusterCommunicationNodesImport {
     my @AddedNodes;
     my @NodesErrors;
 
-    NODE:
+    NODETOIMPORT:
     for my $NodeToImport ( @{$NodesData} ) {
 
-        next NODE if !$NodeToImport;
-        next NODE if ref $NodeToImport ne 'HASH';
+        next NODETOIMPORT if !$NodeToImport;
+        next NODETOIMPORT if ref $NodeToImport ne 'HASH';
 
         my @ExistingNodes = @{$ClusterNodesList};
         @ExistingNodes = grep { $_->{Name} eq $NodeToImport->{Name} } @ExistingNodes;
@@ -919,7 +917,7 @@ return 1 if another cluster with this name already exists
 
     $Exist = $ClusterObject->NameExistsCheck(
         Name => 'Cluster1',
-        ID => 1, # optional
+        ID   => 1, # optional
     );
 
 =cut
@@ -927,8 +925,8 @@ return 1 if another cluster with this name already exists
 sub NameExistsCheck {
     my ( $Self, %Param ) = @_;
 
-    # get database object
     my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
+
     return if !$DBObject->Prepare(
         SQL  => 'SELECT id FROM search_clusters WHERE name = ?',
         Bind => [ \$Param{Name} ],
@@ -965,19 +963,19 @@ sub NodeNameExistsCheck {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
 
-    for my $Name (qw(ClusterID Name)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw(ClusterID Name)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
     }
 
-    # get database object
-    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
     return if !$DBObject->Prepare(
         SQL  => 'SELECT id FROM search_cluster_nodes WHERE name = ? AND cluster_id = ?',
         Bind => [ \$Param{Name}, \$Param{ClusterID} ],

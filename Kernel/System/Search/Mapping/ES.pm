@@ -207,11 +207,13 @@ sub SearchFormat {
     my $IndexName = $Param{IndexName};
     my $Result    = $Param{Result};
 
-    return {
-        Reason => $Result->{reason},
-        Status => $Result->{status},
-        Type   => $Result->{type}
-    } if $Result->{status};
+    if ( $Result->{status} ) {
+        return {
+            Reason => $Result->{reason},
+            Status => $Result->{status},
+            Type   => $Result->{type},
+        };
+    }
 
     my $GloballyFormattedObjData;
 
@@ -232,7 +234,7 @@ sub SearchFormat {
     }
 
     return {
-        "$IndexName" => {
+        $IndexName => {
             ObjectData => $GloballyFormattedObjData,
             EngineData => {
                 Shards       => $Result->{_shards},
@@ -262,7 +264,6 @@ sub ObjectIndexAdd {
 
     NEEDED:
     for my $Needed (qw(Config Index Body)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -277,17 +278,19 @@ sub ObjectIndexAdd {
     # workaround for elastic search date validation
     # this issue won't be fully supported for now
     # TODO analyze start
-    my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} };
-
+    my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} // {} };
     for my $DataTypeWithBlackList (@DataTypesWithBlackList) {
-
         my $BlackListedValues = $IndexObject->{DataTypeValuesBlackList}->{$DataTypeWithBlackList};
         my @ColumnsWithBlackListedType
             = grep { $IndexObject->{Fields}->{$_}->{Type} eq $DataTypeWithBlackList } keys %{ $IndexObject->{Fields} };
+
         for my $Object ( @{ $Param{Body} } ) {
-            COLUMN:
             for my $Column (@ColumnsWithBlackListedType) {
-                if ( $Object->{$Column} && grep { $Object->{$Column} eq $_ } @{$BlackListedValues} ) {
+                if (
+                    $Object->{$Column} &&
+                    grep { $Object->{$Column} eq $_ } @{$BlackListedValues}
+                    )
+                {
                     $Object->{$Column} = undef;
                 }
             }
@@ -295,7 +298,6 @@ sub ObjectIndexAdd {
     }
 
     # TODO analyze start end
-
     my $IndexConfig = $IndexObject->{Config};
 
     my $BodyForBulkRequest;
@@ -361,7 +363,6 @@ sub ObjectIndexSet {
 
     NEEDED:
     for my $Needed (qw(Config Index Body)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -379,7 +380,6 @@ sub ObjectIndexSet {
     my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} };
 
     for my $DataTypeWithBlackList (@DataTypesWithBlackList) {
-
         my $BlackListedValues = $IndexObject->{DataTypeValuesBlackList}->{$DataTypeWithBlackList};
         my @ColumnsWithBlackListedType
             = grep { $IndexObject->{Fields}->{$_}->{Type} eq $DataTypeWithBlackList } keys %{ $IndexObject->{Fields} };
@@ -394,7 +394,6 @@ sub ObjectIndexSet {
     }
 
     # TODO analyze end
-
     my $IndexConfig = $IndexObject->{Config};
 
     my $BodyForBulkRequest;
@@ -462,7 +461,6 @@ sub ObjectIndexUpdate {
 
     NEEDED:
     for my $Needed (qw(Config Index Body)) {
-
         next NEEDED if defined $Param{$Needed};
 
         $LogObject->Log(
@@ -482,8 +480,8 @@ sub ObjectIndexUpdate {
             {
             id  => $Object->{ $IndexConfig->{Identifier} },
             doc => {
-                %{$Object}
-            }
+                %{$Object},
+            },
             };
     }
 
@@ -751,8 +749,8 @@ sub IndexClear {
         Index => $IndexObject->{Config}->{IndexRealName},
         Body  => {
             query => {
-                match_all => {}
-            }
+                match_all => {},
+            },
         },
         Refresh => $Refresh,
     };
@@ -900,9 +898,9 @@ sub IndexMappingSet {
         Index => $IndexConfig->{IndexRealName},
         Body  => {
             properties => {
-                %Body
-            }
-        }
+                %Body,
+            },
+        },
     };
 
     return $Query;
@@ -981,14 +979,14 @@ sub IndexMappingSetFormat {
 
     # if there was any problems on index mapping set, then check mapping
     my $ActualIndexMapping = $SearchObject->IndexMappingGet(
-        Index => $Param{Index}
+        Index => $Param{Index},
     );
 
     if ( IsHashRefWithData($ActualIndexMapping) ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "There is already existing mapping for index: '$Param{Index}'. " .
-                "Depending on the engine, the index may need to be reinitialized on the engine side.",
+            Message  => "There is already an existing mapping for index '$Param{Index}'. " .
+                "Depending on the search engine, the index may need to be re-initialized on the search engine side.",
         );
     }
 
@@ -1043,7 +1041,7 @@ sub IndexMappingGetFormat {
         date    => "Date",
         text    => "String",
         integer => "Integer",
-        long    => "Long"
+        long    => "Long",
     };
 
     # prepare formatted result
@@ -1051,7 +1049,6 @@ sub IndexMappingGetFormat {
 
     ATTRIBUTE:
     for my $Attribute ( sort keys %{$Properties} ) {
-
         my $ColumnName = $Attribute;
 
         my $FieldConfig = $IndexObject->{Fields}->{$ColumnName};
@@ -1143,7 +1140,7 @@ sub IndexInitialSettingsGetFormat {
     my $Response = $Param{Response};
 
     # Attributes which needs to be removed from response.
-    my @BlackListedValues = ( 'uuid', 'creation_date', 'version', 'provided_name' );
+    my @BlackListedValues = qw( uuid creation_date version provided_name );
 
     my $IndexSettings = {};
     if ( $Response->{ $SearchObject->{Config}->{RegisteredIndexes}->{ $Param{Index} } } ) {
@@ -1189,7 +1186,7 @@ globally formats response data from engine
 sub _ResponseDataFormat {
     my ( $Self, %Param ) = @_;
 
-    my @Objects = ();
+    my @Objects;
 
     if ( IsArrayRefWithData( $Param{Result}->{hits}->{hits} ) ) {
         my $Hits   = $Param{Result}->{hits}->{hits};
@@ -1197,10 +1194,13 @@ sub _ResponseDataFormat {
 
         # when specified fields are filtered response
         # contains them inside "fields" key
-        if ( $Param{QueryData}->{Query}->{Body}->{_source} && $Param{QueryData}->{Query}->{Body}->{_source} eq 'false' )
+        if (
+            $Param{QueryData}->{Query}->{Body}->{_source}
+            && $Param{QueryData}->{Query}->{Body}->{_source} eq 'false'
+            )
         {
             # filter scalar/array fields by return type
-            my @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ /ARRAY|HASH/ } @Fields;
+            my @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ m{\AARRAY|HASH\z} } @Fields;
             my @ArrayFields  = grep { $Param{Fields}->{$_}->{ReturnType} eq 'ARRAY' } @Fields;
 
             for my $Hit ( @{$Hits} ) {
@@ -1210,9 +1210,11 @@ sub _ResponseDataFormat {
                 for my $Field (@ScalarFields) {
                     $Data{$Field} = $Hit->{fields}->{$Field}->[0];
                 }
+
                 for my $Field (@ArrayFields) {
                     $Data{$Field} = $Hit->{fields}->{$Field};
                 }
+
                 push @Objects, \%Data;
             }
         }
@@ -1276,7 +1278,6 @@ sub _BuildQueryBodyFromParams {
     my $SearchParams = $Param{QueryParams};
 
     # build query from parameters
-    PARAM:
     for my $FieldName ( sort keys %{$SearchParams} ) {
         for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Query} } ) {
             my $OperatorValue  = $OperatorData->{Value};
