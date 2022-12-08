@@ -267,10 +267,8 @@ sub ObjectIndexRemove {
         };
 
     my $NoMappingCheck;
-    my %FieldsDefinition = %{ $Self->{IndexFields} };
     if ( $QueryParams->{_id} ) {
         $NoMappingCheck = 1;
-        $FieldsDefinition{_id}->{ColumnName} = '_id';
     }
 
     $QueryParams = $Self->_QueryParamsPrepare(
@@ -281,8 +279,7 @@ sub ObjectIndexRemove {
     # build and return query
     return $Param{MappingObject}->ObjectIndexRemove(
         %Param,
-        FieldsDefinition => \%FieldsDefinition,
-        QueryParams      => $QueryParams,
+        QueryParams => $QueryParams,
     );
 }
 

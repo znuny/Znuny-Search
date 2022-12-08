@@ -71,6 +71,12 @@ sub Search {
         },
     } if !$Param{MappingObject};
 
+    # no need to fallback if fields from
+    # parameter aren't valid for the object
+    return {
+        Error => 1,
+    } if ( !IsHashRefWithData( $Param{Fields} ) );
+
     if ( IsArrayRefWithData( $Param{AdvancedQueryParams} ) ) {
 
         # return the query
@@ -701,6 +707,8 @@ check specified return type field for index
 
 sub _QueryFieldReturnTypeSet {
     my ( $Self, %Param ) = @_;
+
+    return 'SCALAR' if $Param{Name} eq '_id';
 
     # return type is either specified or scalar
     return $Self->{IndexFields}->{ $Param{Name} }->{ReturnType} || 'SCALAR';

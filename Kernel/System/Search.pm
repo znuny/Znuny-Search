@@ -11,7 +11,7 @@ package Kernel::System::Search;
 use strict;
 use warnings;
 
-use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
+use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::System::Log',
@@ -244,7 +244,6 @@ sub Search {
     }
 
     my %IndexResponse;
-    my $NoValidQueries = 1;
 
     # copy standard param to avoid overwriting on standarization
     my $Params = \%Param;
@@ -269,7 +268,6 @@ sub Search {
             ) // {};
 
             %IndexResponse = ( %IndexResponse, %{$IndexSearch} );
-            undef $NoValidQueries;
         }
     }
 
@@ -299,34 +297,45 @@ sub Search {
     );
 
     my %FailedObjectParams;
-    my @ValidQueries = ();
+    my @ValidQueries;
+
+    my $ResultType = $Param{ResultType} || 'ARRAY';
+    my %Result     = %IndexResponse;
 
     # define valid queries
     if ( IsArrayRefWithData( $PreparedQuery->{Queries} ) ) {
-        my @FailedQueries = grep { $_->{Fallback}->{Enable} } @{ $PreparedQuery->{Queries} };
+        my @FailedQueries = grep { $_->{Error} } @{ $PreparedQuery->{Queries} };
         if ( scalar @FailedQueries > 0 ) {
             for my $Query (@FailedQueries) {
-                $FailedObjectParams{ $Query->{Object} } = $StandardizedObjectParams{ $Query->{Object} };
+                if ( $Query->{Fallback}->{Enable} ) {
+                    $FailedObjectParams{ $Query->{Object} } = $StandardizedObjectParams{ $Query->{Object} };
+                }
+                else {
+                    my $EmptyResult = {
+                        $Query->{Object} => {
+                            ObjectData => {}
+                        }
+                    };
+
+                    my $FormattedEmptyResult = $Self->SearchFormat(
+                        %{$Params},
+                        %{ $StandardizedObjectParams{ $Query->{Object} } },
+                        Result     => $EmptyResult,
+                        Config     => $Self->{Config},
+                        IndexName  => $Query->{Object},
+                        Operation  => "Search",
+                        ResultType => $ResultType,
+                        QueryData  => $Query,
+                    );
+
+                    if ( IsHashRefWithData($FormattedEmptyResult) ) {
+                        %Result = ( %Result, %{$FormattedEmptyResult} );
+                    }
+                }
             }
         }
         @ValidQueries = grep { !$_->{Error} } @{ $PreparedQuery->{Queries} };
     }
-
-    my %Result = %IndexResponse;
-
-    if ($NoValidQueries) {
-        $NoValidQueries = !scalar @ValidQueries;
-    }
-
-    # use full fallback when no valid queries were built
-    return {
-        %{
-            $Self->Fallback(
-                %{$Params}, Objects => \%StandardizedObjectParams
-            )
-        },
-        %IndexResponse
-    } if ($NoValidQueries);
 
     # execute all valid queries
     QUERY:
@@ -354,7 +363,7 @@ sub Search {
             Config     => $Self->{Config},
             IndexName  => $Query->{Object},
             Operation  => "Search",
-            ResultType => $Param{ResultType} || 'ARRAY',
+            ResultType => $ResultType,
             QueryData  => $Query,
         );
 
@@ -1334,12 +1343,7 @@ sub _SearchParamsStandardize {
             QueryParams => $Param{Param}{QueryParams},
         );
 
-        if ( keys %ValidFields ) {
-            $ObjectData{ $Param{Param}->{Objects}->[$i] }->{Fields} = \%ValidFields;
-        }
-        else {
-            next OBJECT;
-        }
+        $ObjectData{ $Param{Param}->{Objects}->[$i] }->{Fields} = \%ValidFields // {};
 
         for my $Param (qw (SortBy)) {
             $ObjectData{ $Param{Param}->{Objects}->[$i] }->{$Param} =
