@@ -1,5 +1,5 @@
 // --
-// Copyright (C) 2012-2022 Znuny GmbH, http://znuny.com/
+// Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
 // --
 // This software comes with ABSOLUTELY NO WARRANTY. For details, see
 // the enclosed file COPYING for license information (AGPL). If you
@@ -15,6 +15,8 @@ Core.Agent.Admin = Core.Agent.Admin || {};
 Core.Agent.Admin.Search = (function (TargetNS) {
 
     TargetNS.Init = function () {
+        var Data;
+
         TargetNS.ClusterID = $('#ClusterID').val();
         TargetNS.NodeID = $('#NodeID').val();
 
@@ -41,7 +43,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             })
 
             if (Core.Config.Get('IsReindexingOngoing')) {
-                var Data = {
+                Data = {
                     Action: 'AdminSearch',
                     Subaction: 'ReindexingProcessPercentage'
                 };
