@@ -29,7 +29,7 @@ my $Helper             = $Kernel::OM->Get('Kernel::System::UnitTest::Helper');
 my $SearchObject       = $Kernel::OM->Get('Kernel::System::Search');
 my $ZnunyHelperObject  = $Kernel::OM->Get('Kernel::System::ZnunyHelper');
 my $ConfigObject       = $Kernel::OM->Get('Kernel::Config');
-my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Ticket');
+my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
 
 # just for gitlab pipeline to pass this test
 if ( !$SearchObject->{ConnectObject} ) {
