@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, http://znuny.com/
+# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -216,7 +216,7 @@ On executing ticket search by Kernel::System::Search:
             LockID => 1,
             TypeID => 1,
             ServiceID => 1,
-            SLAID => 1, ## nofilter(TidyAll::Plugin::OTRS::Perl::Pod::SpellCheck)
+            SLAID => 1,
             OwnerID => 1,
             ResponsibleID => 1,
             PriorityID => 1,

@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, http://znuny.com/
+# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -1362,7 +1362,7 @@ sub _ClusterSynchronize {
     );
 }
 
-=head2 _NodeBaseOperationAction()
+=head1 _NodeBaseOperationAction()
 
 base operation action checks for node edit/add screens
 
