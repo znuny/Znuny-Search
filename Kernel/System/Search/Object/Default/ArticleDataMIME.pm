@@ -122,7 +122,7 @@ sub new {
         },
         Body => {
             ColumnName => 'a_body',
-            Type       => 'String'
+            Type       => 'Textarea'
         },
         IncomingTime => {
             ColumnName => 'incoming_time',

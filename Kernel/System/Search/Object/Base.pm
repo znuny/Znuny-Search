@@ -788,6 +788,30 @@ sub DefaultConfigGet {
                 "IS DEFINED"     => 1,
                 "IS NOT DEFINED" => 1,
             }
+        },
+        Long => {
+            Operator => {
+                ">="             => 1,
+                "="              => 1,
+                "!="             => 1,
+                "<="             => 1,
+                "<"              => 1,
+                ">"              => 1,
+                "BETWEEN"        => 1,
+                "IS EMPTY"       => 1,
+                "IS NOT EMPTY"   => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
+            }
+        },
+        Textarea => {
+            Operator => {
+                "FULLTEXT"       => 1,
+                "IS EMPTY"       => 1,
+                "IS NOT EMPTY"   => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
+            }
         }
     };
 
