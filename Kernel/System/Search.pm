@@ -910,8 +910,9 @@ sub IndexClear {
 
     # check if any data exists
     my $Search = $Self->Search(
-        Objects     => [ $Param{Index} ],
-        QueryParams => {},
+        Objects       => [ $Param{Index} ],
+        QueryParams   => {},
+        NoPermissions => 1,
     );
 
     # no data exists
