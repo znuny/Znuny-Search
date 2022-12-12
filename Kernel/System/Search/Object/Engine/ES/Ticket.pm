@@ -376,7 +376,13 @@ sub ExecuteSearch {
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
 
-    if ( !$Param{QueryParams}->{UserID} && !IsArrayRefWithData( $Param{QueryParams}->{GroupID} ) ) {
+    if (
+        !$Param{NoPermissions}
+        &&
+        !$Param{QueryParams}->{UserID} &&
+        !IsArrayRefWithData( $Param{QueryParams}->{GroupID} )
+        )
+    {
         $LogObject->Log(
             Priority => 'error',
             Message  => "Either UserID or GroupID is required for ticket search!"
@@ -396,7 +402,8 @@ sub ExecuteSearch {
 
     # filter & prepare correct parameters
     my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
-        QueryParams => $QueryParams,
+        QueryParams   => $QueryParams,
+        NoPermissions => $Param{NoPermissions},
     );
 
     my $SegregatedQueryParams;
@@ -674,6 +681,7 @@ sub ObjectIndexAdd {
 
     return $Self->SUPER::ObjectIndexAdd(
         %Param,
+        NoPermissions => 1,
     );
 }
 
@@ -707,6 +715,7 @@ sub ObjectIndexSet {
 
     return $Self->SUPER::ObjectIndexSet(
         %Param,
+        NoPermissions => 1,
     );
 }
 
@@ -740,6 +749,7 @@ sub ObjectIndexUpdate {
 
     return $Self->SUPER::ObjectIndexUpdate(
         %Param,
+        NoPermissions => 1,
     );
 }
 
@@ -898,62 +908,68 @@ sub SQLObjectSearch {
         ObjectType => 'Article',
     );
 
-    TICKET:
-    for my $Ticket ( @{$SQLSearchResult} ) {
+    if ( !$Param{IgnoreDynamicFields} && !$Param{IgnoreArticles} ) {
+        TICKET:
+        for my $Ticket ( @{$SQLSearchResult} ) {
+            if ( !$Param{IgnoreDynamicFields} ) {
+                DYNAMICFIELDCONFIG:
+                for my $DynamicFieldConfig ( @{$TicketDynamicFieldList} ) {
 
-        DYNAMICFIELDCONFIG:
-        for my $DynamicFieldConfig ( @{$TicketDynamicFieldList} ) {
+                    # get the current value for each dynamic field
+                    my $Value = $DynamicFieldBackendObject->ValueGet(
+                        DynamicFieldConfig => $DynamicFieldConfig,
+                        ObjectID           => $Ticket->{TicketID},
+                    );
 
-            # get the current value for each dynamic field
-            my $Value = $DynamicFieldBackendObject->ValueGet(
-                DynamicFieldConfig => $DynamicFieldConfig,
-                ObjectID           => $Ticket->{TicketID},
-            );
+                    # set the dynamic field name and value into the ticket hash
+                    # only if value is defined
+                    next DYNAMICFIELDCONFIG if !defined $Value;
 
-            # set the dynamic field name and value into the ticket hash
-            # only if value is defined
-            next DYNAMICFIELDCONFIG if !defined $Value;
-
-            $Ticket->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
-        }
-
-        # search articles for specified ticket id
-        my $Articles = $SearchArticleObject->SQLObjectSearch(
-            QueryParams => {
-                TicketID => $Ticket->{TicketID},
-            }
-        ) || [];
-
-        for my $Article ( @{$Articles} ) {
-            my $ArticlesDataMIME = $SearchArticleDataMIMEObject->SQLObjectSearch(
-                QueryParams => {
-                    ArticleID => $Article->{ArticleID},
+                    $Ticket->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
                 }
-            ) || [];
+            }
 
-            my $ArticleDataMIMERow = $ArticlesDataMIME->[0];
+            if ( !$Param{IgnoreArticles} ) {
 
-            %{$Article} = ( %{$Article}, %{$ArticleDataMIMERow} );
+                # search articles for specified ticket id
+                my $Articles = $SearchArticleObject->SQLObjectSearch(
+                    QueryParams => {
+                        TicketID => $Ticket->{TicketID},
+                    }
+                ) || [];
 
-            # add article dynamic fields
-            DYNAMICFIELDCONFIG:
-            for my $DynamicFieldConfig ( @{$ArticleDynamicFields} ) {
+                for my $Article ( @{$Articles} ) {
+                    my $ArticlesDataMIME = $SearchArticleDataMIMEObject->SQLObjectSearch(
+                        QueryParams => {
+                            ArticleID => $Article->{ArticleID},
+                        }
+                    ) || [];
 
-                # get the current value for each dynamic field
-                my $Value = $DynamicFieldBackendObject->ValueGet(
-                    DynamicFieldConfig => $DynamicFieldConfig,
-                    ObjectID           => $Article->{ArticleID},
-                );
+                    my $ArticleDataMIMERow = $ArticlesDataMIME->[0];
 
-                # set the dynamic field name and value into the ticket hash
-                # only if value is defined
-                next DYNAMICFIELDCONFIG if !defined $Value;
+                    %{$Article} = ( %{$Article}, %{$ArticleDataMIMERow} );
 
-                $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
+                    # add article dynamic fields
+                    DYNAMICFIELDCONFIG:
+                    for my $DynamicFieldConfig ( @{$ArticleDynamicFields} ) {
+
+                        # get the current value for each dynamic field
+                        my $Value = $DynamicFieldBackendObject->ValueGet(
+                            DynamicFieldConfig => $DynamicFieldConfig,
+                            ObjectID           => $Article->{ArticleID},
+                        );
+
+                        # set the dynamic field name and value into the ticket hash
+                        # only if value is defined
+                        next DYNAMICFIELDCONFIG if !defined $Value;
+
+                        $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
+                    }
+                }
+
+                $Ticket->{Articles} = $Articles;
             }
         }
-
-        $Ticket->{Articles} = $Articles;
     }
 
     # support user id, group id, permissions params
@@ -1198,6 +1214,42 @@ sub ValidFieldsPrepare {
         ValidFields => \%ValidFields,
         QueryParams => $Param{QueryParams},
     );
+}
+
+=head2 ObjectListIDs()
+
+return all sql data of object ids
+
+    my $ResultIDs = $SearchTicketObject->ObjectListIDs();
+
+=cut
+
+sub ObjectListIDs {
+    my ( $Self, %Param ) = @_;
+
+    my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Self->{Config}->{IndexName}");
+    my $Identifier  = $IndexObject->{Config}->{Identifier};
+
+    # search for all objects
+    my $SQLSearchResult = $IndexObject->SQLObjectSearch(
+        QueryParams         => {},
+        Fields              => [$Identifier],
+        OrderBy             => $Param{OrderBy},
+        SortBy              => $Identifier,
+        ResultType          => $Param{ResultType},
+        IgnoreArticles      => 1,
+        IgnoreDynamicFields => 1,
+    );
+
+    # push hash data into array
+    my @Result;
+    if ( IsArrayRefWithData($SQLSearchResult) ) {
+        for my $SQLData ( @{$SQLSearchResult} ) {
+            push @Result, $SQLData->{$Identifier};
+        }
+    }
+
+    return \@Result;
 }
 
 =head2 _SearchEmptyResponse()

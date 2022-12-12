@@ -452,7 +452,8 @@ sub SQLObjectSearch {
         my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
 
         my $SearchParams = $QueryObject->_QueryParamsPrepare(
-            QueryParams => $Param{QueryParams},
+            QueryParams   => $Param{QueryParams},
+            NoPermissions => $Param{NoPermissions},
         );
 
         # apply search params for columns that are supported

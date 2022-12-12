@@ -153,8 +153,9 @@ sub Run {
     $Self->{ClusterConfig} = $ClusterObject->ActiveClusterGet();
 
     my $Success = $ReindexationObject->DataEqualitySet(
-        ClusterID => $Self->{ClusterConfig}->{ClusterID},
-        Indexes   => $Self->{Index}
+        ClusterID     => $Self->{ClusterConfig}->{ClusterID},
+        Indexes       => $Self->{Index},
+        NoPermissions => 1,
     );
 
     $Self->{SearchObject} = $Kernel::OM->Get('Kernel::System::Search');
@@ -485,8 +486,9 @@ sub PostRun {
         );
     }
     my $Success = $ReindexationObject->DataEqualitySet(
-        ClusterID => $Self->{ClusterConfig}->{ClusterID},
-        Indexes   => $Self->{Index},
+        ClusterID     => $Self->{ClusterConfig}->{ClusterID},
+        Indexes       => $Self->{Index},
+        NoPermissions => 1,
     );
 
     $Self->Print("<red>Cleaned up Cache and PID for reindexing process</red>\n");
