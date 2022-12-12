@@ -276,6 +276,14 @@ sub _QueryParamsPrepare {
         push @{ $Param{QueryParams}{GroupID} }, keys %GroupList;
     }
 
+    # additional check if valid groups was specified
+    # based on UserID and GroupID params
+    # if no, treat it as there is no permissions
+    # empty response will be retrieved
+    if ( !IsArrayRefWithData( $Param{QueryParams}{GroupID} ) ) {
+        $Param{QueryParams}{GroupID} = [-1];
+    }
+
     my $SearchParams = $Self->SUPER::_QueryParamsPrepare(%Param) // {};
 
     # merge lookupped fields with standard fields
