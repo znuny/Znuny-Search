@@ -1175,7 +1175,7 @@ sub EngineListGet {
 format response data globally, then format again for index separately
 
     my $Result = $SearchObject->SearchFormat(
-        Config => $Self->{Config},
+        IndexName => 'Ticket',
     );
 
 =cut
@@ -1187,7 +1187,7 @@ sub SearchFormat {
     my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed (qw(Operation IndexName)) {
+    for my $Needed (qw(IndexName)) {
         next NEEDED if $Param{$Needed};
 
         $LogObject->Log(

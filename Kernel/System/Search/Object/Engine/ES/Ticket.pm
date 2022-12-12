@@ -255,6 +255,7 @@ On executing ticket search by Kernel::System::Search:
             Article_DynamicField_Multiselect => [1,2,3],
 
             # permission parameters
+            # required either group id or UserID
             GroupID => [1,2,3],
             # when combined witch UserID, there is used "OR" match
             # meaning groups for specified user including groups from
@@ -373,6 +374,15 @@ sub ExecuteSearch {
     my ( $Self, %Param ) = @_;
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !$Param{QueryParams}->{UserID} && !IsArrayRefWithData( $Param{QueryParams}->{GroupID} ) ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Either UserID or GroupID is required for ticket search!"
+        );
+        return $Self->_SearchEmptyResponse(%Param);
+    }
 
     if ( $Param{UseSQLSearch} || $SearchObject->{Fallback} ) {
         return $Self->FallbackExecuteSearch(%Param);
@@ -589,7 +599,6 @@ sub ExecuteSearch {
         NestedFieldsGet => $NestedFieldsGet,
         Result          => $Response,
         IndexName       => 'Ticket',
-        Operation       => 'Search',
         ResultType      => $Param{ResultType} || 'ARRAY',
         QueryData       => {
             Query => $Query
@@ -626,7 +635,6 @@ sub FallbackExecuteSearch {
         Result     => $Result,
         Config     => $Param{GlobalConfig},
         IndexName  => $Self->{Config}->{IndexName},
-        Operation  => "Search",
         ResultType => $Param{ResultType} || 'ARRAY',
         Fallback   => 1,
         Silent     => $Param{Silent},
@@ -1190,6 +1198,30 @@ sub ValidFieldsPrepare {
         ValidFields => \%ValidFields,
         QueryParams => $Param{QueryParams},
     );
+}
+
+=head2 _SearchEmptyResponse()
+
+return empty formatted response
+
+    my $Response = $SearchTicketESObject->_SearchEmptyResponse();
+
+=cut
+
+sub _SearchEmptyResponse {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+
+    # format query
+    my $FormattedResult = $SearchObject->SearchFormat(
+        %Param,
+        Result     => undef,
+        IndexName  => 'Ticket',
+        ResultType => $Param{ResultType} || 'ARRAY',
+    );
+
+    return $FormattedResult;
 }
 
 =head2 _DenormalizedArticleFieldsGet()
