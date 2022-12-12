@@ -280,7 +280,7 @@ sub _QueryParamsPrepare {
     # based on UserID and GroupID params
     # if no, treat it as there is no permissions
     # empty response will be retrieved
-    if ( !IsArrayRefWithData( $Param{QueryParams}{GroupID} ) ) {
+    if ( !$Param{NoPermissions} && !IsArrayRefWithData( $Param{QueryParams}{GroupID} ) ) {
         $Param{QueryParams}{GroupID} = [-1];
     }
 

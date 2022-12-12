@@ -193,7 +193,8 @@ set information about data equality for given cluster
 
     my $Details = $ReindexationObject->DataEqualitySet(
         ClusterID => $ClusterID,
-        Indexes => $Indexes
+        Indexes => $Indexes,
+        NoPermissions => 1, # optional
     );
 
 =cut
@@ -247,12 +248,14 @@ sub DataEqualitySet {
 
     my $EngineResponse = $SearchObject->Search(
         %QueryParams,
-        Fields => [ [] ],
+        Fields        => [ [] ],
+        NoPermissions => $Param{NoPermissions},
     ) || {};
 
     my $DBResponse = $SearchObject->Search(
         %QueryParams,
-        UseSQLSearch => 1,
+        UseSQLSearch  => 1,
+        NoPermissions => $Param{NoPermissions},
     ) || {};
 
     $Kernel::OM->ObjectsDiscard(
