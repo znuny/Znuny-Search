@@ -940,7 +940,8 @@ sub MappingDataTypesGet {
             type   => "text",
             fields => {
                 keyword => {
-                    type => "keyword",
+                    type         => "keyword",
+                    ignore_above => 8191
                 }
             }
         },
@@ -951,7 +952,10 @@ sub MappingDataTypesGet {
                     type => "keyword",
                 }
             }
-        }
+        },
+        Textarea => {
+            type => "text",
+        },
     };
 }
 
