@@ -432,8 +432,9 @@ sub StopReindexation {
     }
 
     my $DataEqualitySetSuccess = $Self->DataEqualitySet(
-        ClusterID => $ActiveCluster->{ClusterID},
-        Indexes   => \@ReindexedIndexList,
+        ClusterID     => $ActiveCluster->{ClusterID},
+        Indexes       => \@ReindexedIndexList,
+        NoPermissions => 1,
     );
 
     # cleanup cache type of reindexing process

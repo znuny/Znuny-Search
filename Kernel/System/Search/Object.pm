@@ -296,9 +296,17 @@ sub ValidFieldsPrepare {
         );
     }
 
+    FIELD:
     for my $ParamField ( @{ $Param{Fields} } ) {
-        if ( $Fields->{$ParamField} ) {
-            $ValidFields{$ParamField} = $Fields->{$ParamField};
+        if ( $ParamField =~ m{^$Param{Object}_(.+)$} ) {
+            my $Field = $1;
+
+            if ( $Fields->{$Field} ) {
+                $ValidFields{$Field} = $Fields->{$Field};
+            }
+            elsif ( $Field eq '*' ) {
+                %ValidFields = %{$Fields};
+            }
         }
     }
 

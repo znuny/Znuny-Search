@@ -672,6 +672,8 @@ add object for specified index
                 Operator => 'IS NOT EMPTY'
             },
         },
+
+        NoPermissions => 1 # optional, skip permissions check
     );
 
 =cut
@@ -706,6 +708,8 @@ set (update if exists or create if not exists) object for specified index
                 Operator => 'IS NOT EMPTY'
             },
         },
+
+        NoPermissions => 1 # optional, skip permissions check
     );
 
 =cut
@@ -740,6 +744,8 @@ update object for specified index
                 Operator => 'IS NOT EMPTY'
             },
         },
+
+        NoPermissions => 1 # optional, skip permissions check
     );
 
 =cut
@@ -748,6 +754,42 @@ sub ObjectIndexUpdate {
     my ( $Self, %Param ) = @_;
 
     return $Self->SUPER::ObjectIndexUpdate(
+        %Param,
+        NoPermissions => 1,
+    );
+}
+
+=head2 ObjectIndexRemove()
+
+remove object from specified index
+
+    my $Success = $SearchObject->ObjectIndexRemove(
+        Index => "Ticket",
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
+
+        NoPermissions => 1 # optional, skip permissions check
+    );
+
+=cut
+
+sub ObjectIndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->SUPER::ObjectIndexRemove(
         %Param,
         NoPermissions => 1,
     );

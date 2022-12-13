@@ -89,7 +89,7 @@ sub Run {
                 SortBy     => ["Changed"],
                 OrderBy    => "Down",
             },
-            Fields => [ ["TicketHistoryID"] ]
+            Fields => [ ["TicketHistory_TicketHistoryID"] ]
         );
 
         delete $TicketHistoryData->{TicketHistory}[-1];

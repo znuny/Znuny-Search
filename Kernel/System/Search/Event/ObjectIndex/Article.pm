@@ -78,7 +78,7 @@ sub Run {
                 QueryParams => {
                     TicketID => $Param{Data}->{TicketID},
                 },
-                Fields => [ [ $ObjectIdentifierColumn, 'CommunicationChannelID' ] ],
+                Fields => [ [ 'Article_' . $ObjectIdentifierColumn, 'Article_CommunicationChannelID' ] ],
             );
 
             @{$ArticleIDsToDelete} = map { $_->{ArticleID} } @{ $ArticlesToDelete->{$IndexName} };
@@ -91,7 +91,7 @@ sub Run {
                 QueryParams => {
                     $ObjectIdentifierColumn => $ArticleIDsToDelete,
                 },
-                Fields => [ [ $ObjectIdentifierColumn, 'CommunicationChannelID' ] ],
+                Fields => [ [ 'Article_' . $ObjectIdentifierColumn, 'Article_CommunicationChannelID' ] ],
             );
             @{$ArticleIDsToDelete} = map { $_->{ArticleID} } @{ $ArticlesToDelete->{$IndexName} };
         }
@@ -139,7 +139,7 @@ sub Run {
             QueryParams => {
                 TicketID => $Param{Data}->{TicketID},
             },
-            Fields     => [ ['ArticleID'] ],
+            Fields     => [ ['Article_ArticleID'] ],
             ResultType => 'ARRAY',
             SortBy     => ['ArticleID'],
             OrderBy    => 'Up',
@@ -172,7 +172,7 @@ sub Run {
             QueryParams => {
                 ArticleID => $Param{Data}->{ArticleID},
             },
-            Fields       => [ [ $ObjectIdentifierColumn, 'CommunicationChannelID' ] ],
+            Fields       => [ [ 'Article_' . $ObjectIdentifierColumn, 'Article_CommunicationChannelID' ] ],
             UseSQLSearch => 1,
         );
 
@@ -211,6 +211,7 @@ sub _LinkedTablesArticleAction {
     my $CommunicationChannelObject = $Kernel::OM->Get('Kernel::System::CommunicationChannel');
     my $SearchObject               = $Kernel::OM->Get('Kernel::System::Search');
     my $SearchChildObject          = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $FunctionName               = $Param{FunctionName};
 
     my %CommunicationChannels;
 
@@ -220,29 +221,30 @@ sub _LinkedTablesArticleAction {
 
     INDEXREALNAME:
     for my $IndexRealName (@IndexList) {
-        my $IsValid = $SearchChildObject->IndexIsValid(
+        my $IndexName = $SearchChildObject->IndexIsValid(
             IndexName => $IndexRealName,
             RealName  => 1,
         );
 
-        next INDEXREALNAME if !$IsValid;
-
-        $ValidIndexes{$IndexRealName} = $IsValid;
+        next INDEXREALNAME if !$IndexName;
+        $ValidIndexes{$IndexRealName} = $IndexName;
         $ValidIndexes{Modules}{$IndexRealName}
-            = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{IndexName}");
+            = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
     }
 
+    my $UseSQLSearch = $FunctionName eq 'ObjectIndexRemove' ? 0 : 1;
+
     # iterate through all IDs of articles to delete
-    for my $ArticleDataToDelete ( @{ $Param{Articles}->{ $Param{IndexName} } } ) {
+    for my $ArticleData ( @{ $Param{Articles}->{ $Param{IndexName} } } ) {
 
         # get communication channel data for article
-        if ( !$CommunicationChannels{ $ArticleDataToDelete->{CommunicationChannelID} } ) {
-            %{ $CommunicationChannels{ $ArticleDataToDelete->{CommunicationChannelID} } } =
+        if ( !$CommunicationChannels{ $ArticleData->{CommunicationChannelID} } ) {
+            %{ $CommunicationChannels{ $ArticleData->{CommunicationChannelID} } } =
                 $CommunicationChannelObject->ChannelGet(
-                ChannelID => $ArticleDataToDelete->{CommunicationChannelID},
+                ChannelID => $ArticleData->{CommunicationChannelID},
                 );
         }
-        my $ChannelData = $CommunicationChannels{ $ArticleDataToDelete->{CommunicationChannelID} }->{ChannelData};
+        my $ChannelData = $CommunicationChannels{ $ArticleData->{CommunicationChannelID} }->{ChannelData};
 
         # Based on different communication channels there will
         # be a differences in linked data tables for actual article.
@@ -258,19 +260,26 @@ sub _LinkedTablesArticleAction {
             my $ArticlesToDelete = $SearchObject->Search(
                 Objects     => [ $ValidIndexes{$ArticleDataTable} ],
                 QueryParams => {
-                    ArticleID => $ArticleDataToDelete->{ArticleID},
+                    ArticleID => $ArticleData->{ArticleID},
                 },
-                UseSQLSearch => 1,
-                Fields       => [ [ $ValidIndexes{Modules}{$ArticleDataTable}->{Config}->{Identifier} ] ]
+                UseSQLSearch => $UseSQLSearch,
+                Fields       => [
+                    [
+                        "$ValidIndexes{$ArticleDataTable}_"
+                            . $ValidIndexes{Modules}{$ArticleDataTable}->{Config}->{Identifier}
+                    ]
+                ]
             );
 
             my @ArticleIDs = map { $_->{ $ValidIndexes{Modules}{$ArticleDataTable}->{Config}->{Identifier} } }
                 @{ $ArticlesToDelete->{ $ValidIndexes{$ArticleDataTable} } };
 
+            next ARTICLEDATATABLE if !scalar @ArticleIDs;
+
             my %Mapping = (
                 ObjectIndexRemove => {
                     QueryParams => {
-                        ArticleID => $ArticleDataToDelete->{ArticleID},
+                        ArticleID => $ArticleData->{ArticleID},
                     },
                 },
                 ObjectIndexUpdate => {
@@ -281,15 +290,14 @@ sub _LinkedTablesArticleAction {
                 }
             );
 
-            my $FunctionName = $Param{FunctionName};
-            my $Success      = $SearchObject->$FunctionName(
+            my $Success = $SearchObject->$FunctionName(
                 Index => $ValidIndexes{$ArticleDataTable},
                 %{ $Mapping{$FunctionName} },
                 Refresh => 1,
             );
         }
 
-        # note: for now deleting article data from Article.* indexes
+        # note: for now add/update/remove article data from Article.* indexes
         # are supported
     }
 
