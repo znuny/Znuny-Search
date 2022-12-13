@@ -106,7 +106,8 @@ sub Search {
     );
 
     my $SearchParams = $Self->_QueryParamsPrepare(
-        QueryParams => $Param{QueryParams},
+        QueryParams   => $Param{QueryParams},
+        NoPermissions => $Param{NoPermissions},
     );
 
     # return the query
@@ -361,7 +362,8 @@ sub ObjectIndexRemove {
     };
 
     $QueryParams = $Self->_QueryParamsPrepare(
-        QueryParams => $QueryParams,
+        QueryParams   => $QueryParams,
+        NoPermissions => $Param{NoPermissions},
     );
 
     # build and return query
@@ -578,8 +580,9 @@ sub IndexRefresh {
 prepare valid structure output for query params
 
     my $QueryParams = $SearchQueryObject->_QueryParamsPrepare(
-        QueryParams => $Param{QueryParams},
+        QueryParams    => $Param{QueryParams},
         NoMappingCheck => $Param{NoMappingCheck},
+        NoPermissions  => 1, # optional, skip permissions check
     );
 
 =cut

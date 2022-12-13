@@ -379,8 +379,9 @@ sub Run {
         my @IndexArray = $ParamObject->GetArray( Param => 'IndexArray[]' );
 
         my $Result = $ReindexationObject->DataEqualitySet(
-            Indexes   => \@IndexArray,
-            ClusterID => $ClusterID,
+            Indexes       => \@IndexArray,
+            ClusterID     => $ClusterID,
+            NoPermissions => 1,
         );
 
         my $JSON = $LayoutObject->JSONEncode(
