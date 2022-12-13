@@ -461,7 +461,17 @@ sub SQLObjectSearch {
         for my $FieldName ( sort keys %{$SearchParams} ) {
             for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Query} } ) {
                 my $OperatorValue = $OperatorData->{Value};
-                my $Result        = $OperatorModule->OperatorQueryGet(
+
+                if ( !$Fields->{$FieldName}->{ColumnName} ) {
+                    $Kernel::OM->Get('Kernel::System::Log')->Log(
+                        Priority => 'error',
+                        Message =>
+                            "Fallback SQL search does not support searching by $FieldName column in $IndexRealName table!"
+                    );
+                    return [];
+                }
+
+                my $Result = $OperatorModule->OperatorQueryGet(
                     Field    => $Fields->{$FieldName}->{ColumnName},
                     Value    => $OperatorValue,
                     Operator => $OperatorData->{Operator},

@@ -186,12 +186,14 @@ search for specified object data
             # optional, possible: empty string (default value) or integer
             # - for multiple objects:  [500, 10000, '']
             # - for all objects specified in "Objects" param: '1000'
-        Fields => [["TicketID", "SLAID"],["TicketHistoryID", "Name"]],
+        Fields => [["Ticket_TicketID", "Ticket_SLAID"],["TicketHistory_TicketHistoryID", "TicketHistory_Name"]],
             # optional, possible: any valid column name
             # - for multiple objects:
             # [["TicketColumnName1", "TicketColumnName2"], ["TicketHistoryColumnName1", "TicketHistoryColumnName2"]]
             # - for only selected filtering on objects:
             # [[],["TicketHistoryColumn1", "TicketHistoryColumn2"]]
+            # - for getting all fields (both ways acceptable):
+            # - [[][TicketHistory_*]]
         UseSQLSearch => 1 # define if sql search should be used
     );
 
@@ -219,7 +221,7 @@ search for specified object data
         SortBy => ['TicketID', 'TicketHistoryID'],
         OrderBy => ['Down', 'Up'],
         Limit => ['', 10],
-        Fields => [["TicketID", "SLAID"],["TicketHistoryID", "Name"]],
+        Fields => [["Ticket_TicketID", "Ticket_SLAID"],["TicketHistory_TicketHistoryID", "TicketHistory_Name"]],
     );
 
     for objects with custom search support
@@ -897,6 +899,7 @@ deletes the entire content of the index
 
     my $Result = $SearchObject->IndexClear(
         Index => $Index,
+        NoPermissions => $NoPermissions, # optional, skip permissions check
     );
 
 =cut
