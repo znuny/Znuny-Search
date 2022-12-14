@@ -157,6 +157,12 @@ sub Run {
 
         @{ $QueryParam{ObjectID} } = map { $_->{ArticleID} } @{ $ArticleData->{Article} };
         undef $UpdateLinkedTables;
+
+        # update main ticket (ticket that another one was merged within)
+        $SearchObject->ObjectIndexSet(
+            Index    => 'Ticket',
+            ObjectID => $Param{Data}->{MainTicketID},
+        );
     }
 
     my $FunctionName = $Param{Config}->{FunctionName};
@@ -189,7 +195,7 @@ sub Run {
         );
     }
 
-    # update "Ticket" index as it also have articles
+    # update ticket that contains changed article
     $SearchObject->ObjectIndexSet(
         Index    => 'Ticket',
         ObjectID => $Param{Data}->{TicketID},
