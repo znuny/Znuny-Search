@@ -978,7 +978,8 @@ sub ConfigGet {
 
     for my $Key ( sort keys %{$RegisteredEngines} ) {
         if ( $Key eq $ActiveEngine ) {
-            $Config->{ActiveEngine} = $ActiveEngine;
+            $Config->{ActiveEngine}     = $ActiveEngine;
+            $Config->{ActiveEngineName} = $RegisteredEngines->{$Key};
         }
     }
 

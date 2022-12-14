@@ -5,7 +5,7 @@
         <Navigation>Core::Search</Navigation>
         <Value>
             <Hash>
-                <Item Key="ES">Elastic Search</Item>
+                <Item Key="ES">Elasticsearch</Item>
             </Hash>
         </Value>
     </Setting>
