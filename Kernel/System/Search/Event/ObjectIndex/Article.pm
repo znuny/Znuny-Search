@@ -189,6 +189,12 @@ sub Run {
         );
     }
 
+    # update "Ticket" index as it also have articles
+    $SearchObject->ObjectIndexSet(
+        Index    => 'Ticket',
+        ObjectID => $Param{Data}->{TicketID},
+    );
+
     return 1;
 }
 
