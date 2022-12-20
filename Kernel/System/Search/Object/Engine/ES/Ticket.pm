@@ -824,6 +824,13 @@ sub IndexMappingSet {
     my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
     my $ArticleFields               = $SearchArticleObject->{Fields};
     my $ArticleDataMIMEFields       = $SearchArticleDataMIMEObject->{Fields};
+    my $ExternalFields              = $Self->{ExternalFields};
+
+    # apply mapping for external field
+    for my $ExternalField ( sort keys %{$ExternalFields} ) {
+        $MappingQuery->{Body}->{properties}->{$ExternalField}
+            = $DataTypes->{ $ExternalFields->{$ExternalField}->{Type} };
+    }
 
     # add nested type relation for articles && article data mime tables
     if ( IsHashRefWithData($ArticleFields) && IsHashRefWithData($ArticleDataMIMEFields) ) {
