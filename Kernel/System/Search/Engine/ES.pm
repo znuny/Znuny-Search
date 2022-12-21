@@ -360,6 +360,7 @@ sub _QueryExecuteObjectIndexAdd {
     my $BulkHelper = $Param{ConnectObject}->bulk_helper(
         index => $Param{Query}->{Index},
         %{ $Param{Query}->{Refresh} },
+        %{ $Param{AdditionalParameters} }
     );
 
     for my $Object ( @{ $Param{Query}->{Body} } ) {
@@ -387,6 +388,7 @@ sub _QueryExecuteObjectIndexSet {
     my $BulkHelper = $Param{ConnectObject}->bulk_helper(
         index => $Param{Query}->{Index},
         %{ $Param{Query}->{Refresh} },
+        %{ $Param{AdditionalParameters} }
     );
 
     for my $Object ( @{ $Param{Query}->{Body} } ) {
@@ -504,6 +506,7 @@ sub _QueryExecuteObjectIndexUpdate {
     my $BulkHelper = $Param{ConnectObject}->bulk_helper(
         index => $Param{Query}->{Index},
         %{ $Param{Query}->{Refresh} },
+        %{ $Param{AdditionalParameters} }
     );
 
     for my $Object ( @{ $Param{Query}->{Body} } ) {

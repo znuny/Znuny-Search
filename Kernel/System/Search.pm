@@ -77,6 +77,10 @@ sub new {
             Silent => $Param{Silent},
         );
 
+        my $MappingObjectApply = $Self->MappingObjectApply(
+            Config => $Self->{Config}
+        );
+
         if ( !$ModulesCheckOk ) {
             $Self->{Fallback} = 1;
             $Self->{Error}    = { BaseModules => { NotFound => 1 } };
@@ -257,12 +261,15 @@ sub Search {
         my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Object");
 
         if ( exists &{"$IndexObject->{Module}::Search"} ) {
+
+            my $MappingObject = $Self->{MappingIndexObject}->{$Object};
+
             my $IndexSearch = $IndexObject->Search(
                 %{$Params},
                 Objects => {
                     $Object => delete $StandardizedObjectParams{$Object}
                 },    # pass & delete single object data
-                MappingObject => $Self->{MappingObject},
+                MappingObject => $MappingObject,
                 EngineObject  => $Self->{EngineObject},
                 ConnectObject => $Self->{ConnectObject},
                 GlobalConfig  => $Self->{Config},
@@ -420,6 +427,8 @@ sub ObjectIndexAdd {
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
     NEEDED:
     for my $Needed (qw(Index)) {
         next NEEDED if $Param{$Needed};
@@ -437,7 +446,7 @@ sub ObjectIndexAdd {
     return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->ObjectIndexAdd(
         %Param,
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
         EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
     );
@@ -489,10 +498,12 @@ sub ObjectIndexSet {
 
     return if $Self->{Fallback};
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
     return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->ObjectIndexSet(
         %Param,
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
         EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
     );
@@ -542,10 +553,12 @@ sub ObjectIndexUpdate {
 
     return if $Self->{Fallback};
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
     return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->ObjectIndexUpdate(
         %Param,
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
         EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
     );
@@ -595,10 +608,12 @@ sub ObjectIndexRemove {
 
     return if $Self->{Fallback};
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
     return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->ObjectIndexRemove(
         %Param,
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
         EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
     );
@@ -651,11 +666,13 @@ sub IndexAdd {
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{IndexName} };
+
     my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "IndexAdd",
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
     );
 
     return if !$PreparedQuery;
@@ -668,7 +685,7 @@ sub IndexAdd {
         Config        => $Self->{Config},
     );
 
-    return $Self->{MappingObject}->IndexAddFormat(
+    return $MappingObject->IndexAddFormat(
         %Param,
         Response => $Response,
         Config   => $Self->{Config},
@@ -695,11 +712,23 @@ sub IndexRemove {
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
+    my $MappingObject;
+    if ( $Param{IndexName} ) {
+        $MappingObject = $Self->{MappingIndexObject}->{ $Param{IndexName} };
+    }
+    elsif ( $Param{IndexRealName} ) {
+        my %RegisteredIndexesRealNameMapping = reverse %{ $Self->{Config}->{RegisteredIndexes} };
+        $MappingObject = $Self->{MappingIndexObject}->{ $RegisteredIndexesRealNameMapping{ $Param{IndexRealName} } };
+    }
+    else {
+        return;
+    }
+
     my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "IndexRemove",
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
     );
 
     return if !$PreparedQuery;
@@ -712,7 +741,7 @@ sub IndexRemove {
         Config        => $Self->{Config},
     );
 
-    return $Self->{MappingObject}->IndexRemoveFormat(
+    return $MappingObject->IndexRemoveFormat(
         %Param,
         Response => $Response,
         Config   => $Self->{Config},
@@ -831,13 +860,15 @@ sub IndexMappingGet {
         return;
     }
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
     my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "IndexMappingGet",
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
     );
 
     return if !$PreparedQuery;
@@ -849,7 +880,7 @@ sub IndexMappingGet {
         ConnectObject => $Self->{ConnectObject},
     );
 
-    return $Self->{MappingObject}->IndexMappingGetFormat(
+    return $MappingObject->IndexMappingGetFormat(
         %Param,
         Response => $Response,
         Config   => $Self->{Config},
@@ -884,10 +915,12 @@ sub IndexMappingSet {
         return;
     }
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
     return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->IndexMappingSet(
         %Param,
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
         EngineObject  => $Self->{EngineObject},
         ConnectObject => $Self->{ConnectObject},
     );
@@ -927,11 +960,13 @@ sub IndexClear {
         return 1;
     }
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
     my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "IndexClear",
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
     );
 
     return if !$PreparedQuery;
@@ -944,7 +979,7 @@ sub IndexClear {
         Config        => $Self->{Config},
     );
 
-    return $Self->{MappingObject}->IndexClearFormat(
+    return $MappingObject->IndexClearFormat(
         %Param,
         Response => $Response,
         Config   => $Self->{Config},
@@ -965,12 +1000,13 @@ sub ConfigGet {
     my $ConfigObject        = $Kernel::OM->Get('Kernel::Config');
     my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
 
-    my $ActiveEngineConfig    = $SearchClusterObject->ActiveClusterGet();
-    my $ActiveEngine          = $ActiveEngineConfig->{Engine} || '';
-    my $SearchEngineConfig    = $ConfigObject->Get("SearchEngine");
-    my $Enabled               = IsHashRefWithData($SearchEngineConfig) && $SearchEngineConfig->{Enabled} ? 1 : 0;
-    my $RegisteredIndexConfig = $ConfigObject->Get("SearchEngine::Loader::Index::$ActiveEngine");
-    my $RegisteredEngines     = $Self->EngineListGet();
+    my $ActiveEngineConfig      = $SearchClusterObject->ActiveClusterGet();
+    my $ActiveEngine            = $ActiveEngineConfig->{Engine} || '';
+    my $SearchEngineConfig      = $ConfigObject->Get("SearchEngine");
+    my $Enabled                 = IsHashRefWithData($SearchEngineConfig) && $SearchEngineConfig->{Enabled} ? 1 : 0;
+    my $RegisteredIndexConfig   = $ConfigObject->Get("SearchEngine::Loader::Index::$ActiveEngine");
+    my $RegisteredPluginsConfig = $ConfigObject->Get("SearchEngine::Loader::Index::${ActiveEngine}::Plugins");
+    my $RegisteredEngines       = $Self->EngineListGet();
 
     my $Config = {
         Enabled => $Enabled,
@@ -978,7 +1014,8 @@ sub ConfigGet {
 
     for my $Key ( sort keys %{$RegisteredEngines} ) {
         if ( $Key eq $ActiveEngine ) {
-            $Config->{ActiveEngine} = $ActiveEngine;
+            $Config->{ActiveEngine}     = $ActiveEngine;
+            $Config->{ActiveEngineName} = $RegisteredEngines->{$Key};
         }
     }
 
@@ -987,11 +1024,17 @@ sub ConfigGet {
     }
 
     if ( IsHashRefWithData($RegisteredIndexConfig) ) {
-        my @RegisteredIndex;
         $Config->{RegisteredIndexes} = {};
         for my $RegisteredIndexes ( sort values %{$RegisteredIndexConfig} ) {
             %{ $Config->{RegisteredIndexes} } = ( %{ $Config->{RegisteredIndexes} }, %{$RegisteredIndexes} );
         }    # key: friendly name for calls, value: name in search engine structure
+    }
+
+    if ( IsHashRefWithData($RegisteredPluginsConfig) ) {
+        $Config->{RegisteredPlugins} = {};
+        for my $RegisteredPlugins ( sort values %{$RegisteredPluginsConfig} ) {
+            %{ $Config->{RegisteredPlugins} } = ( %{ $Config->{RegisteredPlugins} }, %{$RegisteredPlugins} );
+        }
     }
 
     return $Config;
@@ -1206,7 +1249,9 @@ sub SearchFormat {
     # as fallback do not use advanced search engine
     # and should have response formatted globally already.
     if ( !$Param{Fallback} ) {
-        $Param{Result} = $Self->{MappingObject}->SearchFormat(
+        my $MappingObject = $Self->{MappingIndexObject}->{ $Param{IndexName} };
+
+        $Param{Result} = $MappingObject->SearchFormat(
             %Param,
         );    # fallback skip
     }
@@ -1238,11 +1283,13 @@ sub IndexInitialSettingsGet {
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
     my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "IndexInitialSettingsGet",
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
     );
 
     return if !$PreparedQuery;
@@ -1255,7 +1302,7 @@ sub IndexInitialSettingsGet {
         Config        => $Self->{Config},
     );
 
-    return $Self->{MappingObject}->IndexInitialSettingsGetFormat(
+    return $MappingObject->IndexInitialSettingsGetFormat(
         %Param,
         Response => $Response,
         Config   => $Self->{Config},
@@ -1280,11 +1327,13 @@ sub IndexRefresh {
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
     my $PreparedQuery = $SearchObject->QueryPrepare(
         %Param,
         Operation     => "IndexRefresh",
         Config        => $Self->{Config},
-        MappingObject => $Self->{MappingObject},
+        MappingObject => $MappingObject,
     );
 
     return if !$PreparedQuery;
@@ -1298,6 +1347,78 @@ sub IndexRefresh {
     );
 
     return $Response;
+}
+
+=head2 ClusterInit()
+
+use to initialize container with their default settings
+
+    my $Success = $SearchObject->ClusterInit(
+        Force => 0 # if enabled skip a check for already initialized cluster
+                   # possible: 0,1
+    );
+
+=cut
+
+sub ClusterInit {
+    my ( $Self, %Param ) = @_;
+
+    return if $Self->{Fallback};
+
+    my $SearchChildObject   = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $SearchClusterObject = $Kernel::OM->Get('Kernel::System::Search::Cluster');
+
+    my $ActiveCluster = $SearchClusterObject->ActiveClusterGet();
+
+    return if $ActiveCluster->{ClusterInitialized} && !$Param{Force};
+
+    my %Operations;
+    PLUGINS:
+    for my $Plugin ( sort keys %{ $Self->{Config}->{RegisteredPlugins} } ) {
+        my $ContainerInitPluginOperation
+            = $Kernel::OM->Get( $Self->{Config}->{RegisteredPlugins}->{$Plugin} )->ClusterInit();
+
+        next PLUGINS if !IsHashRefWithData($ContainerInitPluginOperation);
+        $Operations{ $ContainerInitPluginOperation->{PluginName} } = $ContainerInitPluginOperation->{Status};
+    }
+
+    $SearchClusterObject->ClusterInit(
+        ClusterID => $ActiveCluster->{ClusterID}
+    );
+
+    return \%Operations;
+}
+
+=head2 MappingObjectApply()
+
+apply default or custom mapping module for each index
+
+    my $Success = $SearchObject->MappingObjectApply();
+
+=cut
+
+sub MappingObjectApply {
+    my ( $Self, %Param ) = @_;
+
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+    for my $RegisteredIndex ( sort keys %{ $Param{Config}->{RegisteredIndexes} } ) {
+        my $Location = "Kernel::System::Search::Mapping::$Self->{Config}->{ActiveEngine}::$RegisteredIndex";
+
+        # load object mapping module if exist
+        my $Loaded = $MainObject->Require(
+            $Location,
+            Silent => 1,
+        );
+
+        if ($Loaded) {
+            $Self->{MappingIndexObject}->{$RegisteredIndex} = $Kernel::OM->Get($Location);
+        }
+        else {
+            $Self->{MappingIndexObject}->{$RegisteredIndex} = $Self->{MappingObject};
+        }
+    }
+
+    return 1;
 }
 
 =head2 _SearchParamsStandardize()
@@ -1346,6 +1467,7 @@ sub _SearchParamsStandardize {
             Fields      => $Param{Param}->{Fields}->[$i],
             Object      => $ObjectName,
             QueryParams => $Param{Param}{QueryParams},
+            %Param,
         );
 
         $ObjectData{ $Param{Param}->{Objects}->[$i] }->{Fields} = \%ValidFields // {};

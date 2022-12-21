@@ -63,6 +63,14 @@ sub Configure {
         HasValue => 0,
         Multiple => 0,
     );
+    $Self->AddOption(
+        Name => 'cluster-reinitialize',
+        Description =>
+            "Run cluster initialization process without checking if cluster was initialized previously.",
+        Required => 0,
+        HasValue => 0,
+        Multiple => 0,
+    );
 
     return;
 }
@@ -80,7 +88,7 @@ sub PreRun {
             $Message = "Could not connect to the cluster.";
         }
         $Self->Print("<red>$Message\n</red>");
-        return $Self->ExitCodeError();
+        $Self->{Abort} = 1;
     }
 
     return 1;
@@ -89,6 +97,7 @@ sub PreRun {
 sub Run {
     my ( $Self, %Param ) = @_;
 
+    return $Self->ExitCodeError() if ( $Self->{Abort} );
     my $SearchChildObject  = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $PIDObject          = $Kernel::OM->Get('Kernel::System::PID');
     my $CacheObject        = $Kernel::OM->Get('Kernel::System::Cache');
@@ -97,8 +106,9 @@ sub Run {
     my $ClusterObject      = $Kernel::OM->Get('Kernel::System::Search::Cluster');
     my $ConfigObject       = $Kernel::OM->Get('Kernel::Config');
 
-    my $CheckDataEquality = $Self->GetOption('check-data-equality');
-    my $Recreate          = $Self->GetOption('recreate');
+    my $ClusterReinitializate = $Self->GetOption('cluster-reinitialize');
+    my $CheckDataEquality     = $Self->GetOption('check-data-equality');
+    my $Recreate              = $Self->GetOption('recreate');
 
     $Self->{Index} = $Self->GetOption('index');
 
@@ -228,6 +238,10 @@ sub Run {
         TTL   => 24 * 60 * 60,
     );
 
+    $Self->{SearchObject}->ClusterInit(
+        Force => $ClusterReinitializate,
+    );
+
     # list all indexes on remote (engine) side
     my @ActiveClusterRemoteIndexList = $Self->{SearchObject}->IndexList();
     my $ReindexationSettings         = $ConfigObject->Get('SearchEngine::Reindexation')->{Settings};
@@ -351,14 +365,14 @@ sub Run {
         }
 
         my $GeneralStartTime = Time::HiRes::time();
+        my $ObjectCount      = scalar @{$ObjectIDs};
 
-        my @ObjectIDsArr = @{$ObjectIDs};
-        my @ObjectIDs    = @ObjectIDsArr;
-        my $Refresh      = 0;
+        my $Refresh = 0;
         STEP:
-        for ( my $i = 0; $i <= $#ObjectIDsArr; $i = $i + $ReindexationStep ) {
+        for ( my $i = 0; $i <= $ObjectCount; $i = $i + $ReindexationStep ) {
 
-            my @ArrayPiece = splice( @ObjectIDs, 0, $ReindexationStep );
+            my $IterationNumber = $i + 1;
+            my @ArrayPiece      = splice( @{$ObjectIDs}, 0, $ReindexationStep );
 
             my $Result = $Self->{SearchObject}->ObjectIndexAdd(
                 Index    => $Object->{Index},
@@ -366,7 +380,7 @@ sub Run {
                 Refresh  => 0,
             );
 
-            my $Percent = int( $i / ( $#ObjectIDsArr / 100 ) );
+            my $Percent = int( $i / ( scalar $ObjectCount / 100 ) );
 
             my $ReindexingQueue = $CacheObject->Get(
                 Type => 'ReindexingProcess',
@@ -402,7 +416,7 @@ sub Run {
             {
                 $Refresh = $Seconds;
                 $Self->Print(
-                    "<yellow>$i</yellow> of <yellow>$#ObjectIDsArr</yellow> processed (<yellow>$Percent %</yellow> done).\n"
+                    "<yellow>$IterationNumber</yellow> of <yellow>$ObjectCount</yellow> processed (<yellow>$Percent %</yellow> done).\n"
                 );
             }
 
@@ -417,7 +431,7 @@ sub Run {
         }
 
         $Self->Print(
-            "<yellow>$#ObjectIDsArr</yellow> of <yellow>$#ObjectIDsArr</yellow> processed (<yellow>100%</yellow> done).\n"
+            "<yellow>$ObjectCount</yellow> of <yellow>$ObjectCount</yellow> processed (<yellow>100%</yellow> done).\n"
         ) if !IsArrayRefWithData( $IndexObjectStatus{ $Object->{Index} }{ObjectFails} );
 
         $CacheObject->Set(

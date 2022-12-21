@@ -310,20 +310,21 @@ sub ActiveClusterGet {
     my $DBObject    = $Kernel::OM->Get('Kernel::System::DB');
 
     return if !$DBObject->Prepare(
-        SQL => 'SELECT id, name, engine, valid_id, create_time, change_time, description '
+        SQL => 'SELECT id, name, engine, valid_id, create_time, change_time, description, cluster_initialized '
             . 'FROM search_clusters WHERE valid_id IN (' . join ', ', $ValidObject->ValidIDsGet() . ') LIMIT 1',
     );
 
     my %Data;
     while ( my @Data = $DBObject->FetchrowArray() ) {
         %Data = (
-            ClusterID   => $Data[0],
-            Name        => $Data[1],
-            Engine      => $Data[2],
-            ValidID     => $Data[3],
-            CreateTime  => $Data[4],
-            ChangeTime  => $Data[5],
-            Description => $Data[6],
+            ClusterID          => $Data[0],
+            Name               => $Data[1],
+            Engine             => $Data[2],
+            ValidID            => $Data[3],
+            CreateTime         => $Data[4],
+            ChangeTime         => $Data[5],
+            Description        => $Data[6],
+            ClusterInitialized => $Data[7]
         );
     }
 
@@ -935,9 +936,7 @@ sub NameExistsCheck {
     # fetch the result
     my $Flag;
     while ( my @Row = $DBObject->FetchrowArray() ) {
-        if ( !$Param{ID} || $Param{ID} ne $Row[0] ) {
-            $Flag = 1;
-        }
+        $Flag = 1 if !$Param{ID} || $Param{ID} ne $Row[0];
     }
 
     if ($Flag) {
@@ -994,6 +993,46 @@ sub NodeNameExistsCheck {
     }
 
     return 0;
+}
+
+=head2 ClusterInit()
+
+set cluster as initialized
+
+    my $Success = $ClusterObject->ClusterInit(
+        ClusterID => $ClusterID,
+    );
+
+=cut
+
+sub ClusterInit {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(ClusterID)) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Missing param: $Needed",
+        );
+        return;
+    }
+
+    return if $Self->NameExistsCheck(
+        Name => $Param{Name},
+    );
+
+    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
+
+    return if !$DBObject->Do(
+        SQL  => 'UPDATE search_clusters SET cluster_initialized = 1 WHERE id = ?',
+        Bind => [ \$Param{ClusterID} ]
+    );
+
+    return 1;
 }
 
 1;

@@ -134,6 +134,7 @@ sub Run {
     my $UpdateLinkedTables = 1;
 
     if ( $Param{Event} eq 'TicketMerge' ) {
+
         my $ArticleData = $SearchObject->Search(
             Objects     => ['Article'],
             QueryParams => {
@@ -239,7 +240,12 @@ sub _LinkedTablesArticleAction {
         );
 
         next INDEXREALNAME if !$IndexName;
+
+        # attachments are handled in different module
+        next INDEXREALNAME if $IndexRealName eq 'article_data_mime_attachment';
+
         $ValidIndexes{$IndexRealName} = $IndexName;
+
         $ValidIndexes{Modules}{$IndexRealName}
             = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
     }
