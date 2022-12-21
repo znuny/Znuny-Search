@@ -218,6 +218,8 @@ sub SQLObjectSearch {
         }
     }
 
+    my %AdditionalFields = %{ $Self->{Config}->{AdditionalZnunyFields} };
+
     # handle denormalized value field
     if ( IsArrayRefWithData($Fields) ) {
         FIELD:
@@ -225,8 +227,6 @@ sub SQLObjectSearch {
             next FIELD if $Fields->[$i] ne 'Value';
 
             delete $Fields->[$i];
-
-            my %AdditionalFields = %{ $Self->{Config}->{AdditionalZnunyFields} };
 
             for my $Field ( sort keys %AdditionalFields ) {
                 push @{$Fields}, $Field;
@@ -237,31 +237,44 @@ sub SQLObjectSearch {
         }
     }
 
+    my $ResultType = $Param{ResultType};
+
+    if ( $ResultType eq 'COUNT' ) {
+        $ResultType      = 'ARRAY';
+        @SQLSearchFields = keys %AdditionalFields;
+        push @SQLSearchFields, 'ID';
+        push @SQLSearchFields, 'FieldID';
+        push @SQLSearchFields, 'ObjectID';
+    }
+
     my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(
         %Param,
         Fields            => \@SQLSearchFields,
-        CustomIndexFields => \%CustomIndexFields
+        CustomIndexFields => \%CustomIndexFields,
+        ResultType        => $ResultType,
     );
 
-    if ( $Param{ResultType} && $Param{ResultType} ne 'COUNT' ) {
-        $SQLSearchResult = $QueryDynamicFieldValueObject->_PrepareDFSQLResponse(
-            SQLSearchResult => $SQLSearchResult,
-            Index           => 'DynamicFieldValue',
-        );
+    $SQLSearchResult = $QueryDynamicFieldValueObject->_PrepareDFSQLResponse(
+        SQLSearchResult => $SQLSearchResult,
+        Index           => 'DynamicFieldValue',
+    );
 
-        if ( IsHashRefWithData( $Param{Fields} ) ) {
-            for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {
-                delete $Param{Fields}->{$ValueColumn};
+    if ( IsHashRefWithData( $Param{Fields} ) ) {
+        for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {
+            delete $Param{Fields}->{$ValueColumn};
+        }
+    }
+    elsif ( IsArrayRefWithData( $Param{Fields} ) ) {
+        for ( my $i = 0; $i < scalar @{ $Param{Fields} }; $i++ ) {
+            if ( $Param{Fields}->[$i] =~ /^(ValueText|ValueDate|ValueInt)$/ ) {
+                delete $Param{Fields}->[$i];
             }
         }
-        elsif ( IsArrayRefWithData( $Param{Fields} ) ) {
-            for ( my $i = 0; $i < scalar @{ $Param{Fields} }; $i++ ) {
-                if ( $Param{Fields}->[$i] =~ /^(ValueText|ValueDate|ValueInt)$/ ) {
-                    delete $Param{Fields}->[$i];
-                }
-            }
-            @{ $Param{Fields} } = grep {$_} @{ $Param{Fields} };
-        }
+        @{ $Param{Fields} } = grep {$_} @{ $Param{Fields} };
+    }
+
+    if ( $Param{ResultType} eq 'COUNT' ) {
+        return scalar @{$SQLSearchResult};
     }
 
     return $SQLSearchResult;

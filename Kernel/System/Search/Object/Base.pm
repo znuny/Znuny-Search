@@ -19,6 +19,7 @@ our @ObjectDependencies = (
     'Kernel::Config',
     'Kernel::System::Search::Object::Operators',
     'Kernel::System::Search::Object',
+    'Kernel::System::Search',
 );
 
 =head1 NAME
@@ -441,6 +442,7 @@ sub SQLObjectSearch {
                 }
             }
         }
+
         $SQL = 'SELECT ' . join( ',', @SQLTableColumns ) . ' FROM ' . $IndexRealName;
     }
 
@@ -463,7 +465,7 @@ sub SQLObjectSearch {
                 my $OperatorValue = $OperatorData->{Value};
 
                 if ( !$Fields->{$FieldName}->{ColumnName} ) {
-                    $Kernel::OM->Get('Kernel::System::Log')->Log(
+                    $LogObject->Log(
                         Priority => 'error',
                         Message =>
                             "Fallback SQL search does not support searching by $FieldName column in $IndexRealName table!"
@@ -616,7 +618,7 @@ sub SearchFormat {
             if ( !$Param{Silent} ) {
                 $LogObject->Log(
                     Priority => 'error',
-                    Message  => "Missing '\$Self->{Config}->{Identifier} for index $IndexName.'",
+                    Message  => "Missing '\$Self->{Config}->{Identifier} for $IndexName index.'",
                 );
             }
             return;
@@ -631,7 +633,7 @@ sub SearchFormat {
                     $LogObject->Log(
                         Priority => 'error',
                         Message =>
-                            "Could not get object identifier $Identifier for index $IndexName in the response!",
+                            "Could not get object identifier $Identifier for $IndexName index in the response!",
                     );
                 }
                 next DATA;
@@ -823,7 +825,15 @@ sub DefaultConfigGet {
                 "IS DEFINED"     => 1,
                 "IS NOT DEFINED" => 1,
             }
-        }
+        },
+        Blob => {
+            Operator => {
+                "IS EMPTY"       => 1,
+                "IS NOT EMPTY"   => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
+            }
+        },
     };
 
     # define list of values for types which should be set as undefined while indexing.
@@ -929,6 +939,30 @@ sub SQLSortQueryGet {
     }
 
     return $SQLSortQuery;
+}
+
+=head2 SearchEmptyResponse()
+
+return empty formatted response
+
+    my $Response = $SearchTicketESObject->SearchEmptyResponse();
+
+=cut
+
+sub SearchEmptyResponse {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+
+    # format query
+    my $FormattedResult = $SearchObject->SearchFormat(
+        %Param,
+        Result     => undef,
+        IndexName  => $Self->{Config}->{IndexName},
+        ResultType => $Param{ResultType} || 'ARRAY',
+    );
+
+    return $FormattedResult;
 }
 
 =head2 _Load()

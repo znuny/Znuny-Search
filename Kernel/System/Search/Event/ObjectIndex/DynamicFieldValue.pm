@@ -112,11 +112,13 @@ sub Run {
         return 1;
     }
 
+    my $ObjectID = $Param{Data}->{ArticleID} || $Param{Data}->{TicketID};
+
     $SearchObject->$FunctionName(
         Index       => 'DynamicFieldValue',
         QueryParams => {
             FieldID  => $DynamicFieldConfig->{ID},
-            ObjectID => $Param{Data}->{TicketID},
+            ObjectID => $ObjectID,
         },
     );
 
