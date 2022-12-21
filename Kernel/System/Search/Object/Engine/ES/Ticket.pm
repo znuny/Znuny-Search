@@ -12,6 +12,7 @@ package Kernel::System::Search::Object::Engine::ES::Ticket;
 
 use strict;
 use warnings;
+use MIME::Base64;
 
 use parent qw( Kernel::System::Search::Object::Default::Ticket );
 use Kernel::System::VariableCheck qw(:all);
@@ -30,6 +31,8 @@ our @ObjectDependencies = (
     'Kernel::System::Search::Object::Default::Article',
     'Kernel::System::Search::Object::Default::ArticleDataMIME',
     'Kernel::System::Search::Object::Operators',
+    'Kernel::System::Encode',
+    'Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment',
 );
 
 =head1 NAME
@@ -45,9 +48,9 @@ for fallback or separate engine.
 
 =head2 new()
 
-Don't use the constructor directly, use the ObjectManager instead:
+Don' t use the constructor directly, use the ObjectManager instead :
 
-    my $SearchTicketESObject = $Kernel::OM->Get('Kernel::System::Search::Object::Engine::ES::Ticket');
+        my $SearchTicketESObject = $Kernel::OM->Get('Kernel::System::Search::Object::Engine::ES::Ticket');
 
 =cut
 
@@ -173,7 +176,8 @@ sub new {
     $Self->{ExternalFields} = {
         GroupID => {
             ColumnName => 'group_id',
-            Type       => 'Integer'
+            Type       => 'Integer',
+            Alias      => 0,
         }
     };
 
@@ -254,6 +258,28 @@ On executing ticket search by Kernel::System::Search:
             Article_DynamicField_Text => 'TextValue',
             Article_DynamicField_Multiselect => [1,2,3],
 
+            # attachments
+            Attachment_ID => 'value',
+            Attachment_ArticleID => 'value',
+            Attachment_Filename => 'value',
+            Attachment_ContentSize => 'value',
+            Attachment_ContentType => 'value',
+            Attachment_ContentID => 'value',
+            Attachment_ContentAlternative => 'value',
+            Attachment_Disposition => 'value',
+            Attachment_CreateTime => 'value',
+            Attachment_CreateBy => 'value',
+            Attachment_ChangeTime => 'value',
+            Attachment_ChangeBy => 'value',
+
+            # attachment ingest plugin field, use to search in attachment content as pdf, ppt, xls etc.
+            Attachment_AttachmentContent => {
+                Operator => 'FULLTEXT', Value => {
+                    OperatorQuery => 'AND',
+                    Text => 'value',
+                }
+            },
+
             # permission parameters
             # required either group id or UserID
             GroupID => [1,2,3],
@@ -293,9 +319,11 @@ On executing ticket search by Kernel::System::Search:
             # - article field (specified): [['Article_Body']]
             # - article dynamic fields (all): [['Article_DynamicField_*']]
             # - article dynamic field (specified): [['Article_DynamicField_Body']]
+            # - attachment (all standard fields + AttachmentContent): [['Attachment_*']]
+            # - attachment (specified): [['Attachment_ContentID']]
     );
 
-    Parameter "AdvancedSearchQuery" is not supported on this Object.
+    Parameter "AdvancedSearchQuery" is not supported on this object.
 
 =cut
 
@@ -387,7 +415,7 @@ sub ExecuteSearch {
             Priority => 'error',
             Message  => "Either UserID or GroupID is required for ticket search!"
         );
-        return $Self->_SearchEmptyResponse(%Param);
+        return $Self->SearchEmptyResponse(%Param);
     }
 
     if ( $Param{UseSQLSearch} || $SearchObject->{Fallback} ) {
@@ -418,6 +446,10 @@ sub ExecuteSearch {
             $SegregatedQueryParams->{Articles}->{$1} =
                 $SearchParams->{$SearchParam};
         }
+        elsif ( $SearchParam =~ /^Attachment_(.+)/ ) {
+            $SegregatedQueryParams->{Attachments}->{$1} =
+                $SearchParams->{$SearchParam};
+        }
         else {
             $SegregatedQueryParams->{Ticket}->{$SearchParam} = $SearchParams->{$SearchParam};
         }
@@ -428,9 +460,11 @@ sub ExecuteSearch {
     my $TicketDynamicFields  = $Fields->{Ticket_DynamicField}  || {};
     my $ArticleFields        = $Fields->{Article}              || {};
     my $ArticleDynamicFields = $Fields->{Article_DynamicField} || {};
+    my $AttachmentFields     = $Fields->{Attachment}           || {};
 
     my %TicketFields  = ( %{$TicketFields},  %{$TicketDynamicFields} );
     my %ArticleFields = ( %{$ArticleFields}, %{$ArticleDynamicFields} );
+    my %AttachmentFields = %{$AttachmentFields};
 
     # build standard ticket query
     my $Query = $Param{MappingObject}->Search(
@@ -443,13 +477,56 @@ sub ExecuteSearch {
 
     my $ArticleSearchParams              = $SegregatedQueryParams->{Articles};
     my $ArticleDynamicFieldsSearchParams = $SegregatedQueryParams->{ArticleDynamicFields};
+    my $AttachmentSearchParams           = $SegregatedQueryParams->{Attachments};
+
+    my $AttachmentNestedQuery = {
+        nested => {
+            path => 'Articles.Attachments',
+        }
+    };
+
+    # check if there was passed any attachments
+    # in "Fields" param
+    if ( keys %AttachmentFields ) {
+
+        # prepare query part for children fields to retrieve
+        for my $AttachmentField ( sort keys %AttachmentFields ) {
+            push @{ $Query->{Body}->{_source} },
+                'Articles.Attachments.' . $AttachmentField;
+        }
+    }
+
+    # build and append attachment query if needed
+    if ( IsHashRefWithData($AttachmentSearchParams) ) {
+        ATTACHMENT:
+        for my $AttachmentField ( sort keys %{$AttachmentSearchParams} ) {
+            for my $OperatorData ( @{ $AttachmentSearchParams->{$AttachmentField}->{Query} } ) {
+                my $OperatorValue           = $OperatorData->{Value};
+                my $AttachmentFieldForQuery = 'Articles.Attachments.' . $AttachmentField;
+
+                # build query
+                my $Result = $OperatorModule->OperatorQueryGet(
+                    Field      => $AttachmentFieldForQuery,
+                    ReturnType => $OperatorData->{ReturnType},
+                    Value      => $OperatorValue,
+                    Operator   => $OperatorData->{Operator},
+                    Object     => 'Ticket',
+                );
+
+                my $AttachmentQuery = $Result->{Query};
+
+                # append query
+                push @{ $AttachmentNestedQuery->{nested}{query}{bool}{ $Result->{Section} } }, $AttachmentQuery;
+            }
+        }
+    }
+
+    my $NestedAttachmentQueryBuilt     = IsHashRefWithData( $AttachmentNestedQuery->{nested}{query} ) ? 1 : 0;
+    my $NestedAttachmentFieldsToSelect = keys %AttachmentFields                                       ? 1 : 0;
 
     my $ArticleNestedQuery = {
         nested => {
-            path       => 'Articles',
-            inner_hits => {
-                _source => 'false',
-            }
+            path => 'Articles',
         }
     };
 
@@ -458,15 +535,13 @@ sub ExecuteSearch {
     if ( keys %ArticleFields ) {
 
         # prepare query part for children fields to retrieve
-        $ArticleNestedQuery->{nested}->{inner_hits}->{_source} = [];
         for my $ArticleField ( sort keys %ArticleFields ) {
-            push @{ $ArticleNestedQuery->{nested}->{inner_hits}->{_source} }, 'Articles.' . $ArticleField;
+            push @{ $Query->{Body}->{_source} }, 'Articles.' . $ArticleField;
         }
     }
 
     # build and append article query if needed
     if ( IsHashRefWithData($ArticleSearchParams) ) {
-
         my %AllArticleFields = $Self->_DenormalizedArticleFieldsGet();
 
         # check if field exists in the mapping
@@ -474,28 +549,25 @@ sub ExecuteSearch {
             delete $ArticleSearchParams->{$ArticleQueryParam} if ( !$AllArticleFields{$ArticleQueryParam} );
         }
 
-        # continue only if any field was validated
-        if ( IsHashRefWithData($ArticleSearchParams) ) {
-            for my $ArticleField ( sort keys %{$ArticleSearchParams} ) {
+        for my $ArticleField ( sort keys %{$ArticleSearchParams} ) {
 
-                for my $OperatorData ( @{ $ArticleSearchParams->{$ArticleField}->{Query} } ) {
-                    my $OperatorValue        = $OperatorData->{Value};
-                    my $ArticleFieldForQuery = 'Articles.' . $ArticleField;
+            for my $OperatorData ( @{ $ArticleSearchParams->{$ArticleField}->{Query} } ) {
+                my $OperatorValue        = $OperatorData->{Value};
+                my $ArticleFieldForQuery = 'Articles.' . $ArticleField;
 
-                    # build query
-                    my $Result = $OperatorModule->OperatorQueryGet(
-                        Field      => $ArticleFieldForQuery,
-                        ReturnType => $OperatorData->{ReturnType},
-                        Value      => $OperatorValue,
-                        Operator   => $OperatorData->{Operator},
-                        Object     => 'Ticket',
-                    );
+                # build query
+                my $Result = $OperatorModule->OperatorQueryGet(
+                    Field      => $ArticleFieldForQuery,
+                    ReturnType => $OperatorData->{ReturnType},
+                    Value      => $OperatorValue,
+                    Operator   => $OperatorData->{Operator},
+                    Object     => 'Ticket',
+                );
 
-                    my $ArticleQuery = $Result->{Query};
+                my $ArticleQuery = $Result->{Query};
 
-                    # append query
-                    push @{ $ArticleNestedQuery->{nested}{query}{bool}{ $Result->{Section} } }, $ArticleQuery;
-                }
+                # append query
+                push @{ $ArticleNestedQuery->{nested}{query}{bool}{ $Result->{Section} } }, $ArticleQuery;
             }
         }
     }
@@ -572,22 +644,24 @@ sub ExecuteSearch {
         }
     }
 
-    my $NestedFieldsGet      = 1;
     my $NestedQueryBuilt     = IsHashRefWithData( $ArticleNestedQuery->{nested}{query} ) ? 1 : 0;
-    my $NestedFieldsToSelect = IsArrayRefWithData( $ArticleNestedQuery->{nested}->{inner_hits}->{_source} ) ? 1 : 0;
+    my $NestedFieldsToSelect = keys %ArticleFields                                       ? 1 : 0;
 
-    # there is a requirement from ES that nested query needs
-    # to be specified when selecting nested fields
-    if ( $NestedFieldsToSelect && !$NestedQueryBuilt ) {
-        $ArticleNestedQuery->{nested}{query}->{match_all} = {};
-    }
+    # apply nested article query if there is any valid query param
+    # from either article or attachment
+    if (
+        $NestedQueryBuilt
+        ||
+        $NestedAttachmentQueryBuilt
+        )
+    {
+        # apply in article query an attachment query if there is any
+        # query param or field regarding attachment
+        if ($NestedAttachmentQueryBuilt) {
+            push @{ $ArticleNestedQuery->{nested}{query}{bool}{must} }, $AttachmentNestedQuery;
+        }
 
-    if ( $ArticleNestedQuery->{nested}{query} ) {
         push @{ $Query->{Body}{query}{bool}{must} }, $ArticleNestedQuery;
-    }
-
-    if ( !$NestedFieldsToSelect && !$NestedQueryBuilt ) {
-        $NestedFieldsGet = 0;
     }
 
     # execute query
@@ -602,16 +676,14 @@ sub ExecuteSearch {
     # format query
     my $FormattedResult = $SearchObject->SearchFormat(
         %Param,
-        Fields          => \%TicketFields,
-        NestedFieldsGet => $NestedFieldsGet,
-        Result          => $Response,
-        IndexName       => 'Ticket',
-        ResultType      => $Param{ResultType} || 'ARRAY',
-        QueryData       => {
+        Fields     => \%TicketFields,
+        Result     => $Response,
+        IndexName  => 'Ticket',
+        ResultType => $Param{ResultType} || 'ARRAY',
+        QueryData  => {
             Query => $Query
         },
     );
-
     return $FormattedResult;
 
 }
@@ -681,8 +753,33 @@ add object for specified index
 sub ObjectIndexAdd {
     my ( $Self, %Param ) = @_;
 
-    return $Self->SUPER::ObjectIndexAdd(
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchChildObject->QueryPrepare(
         %Param,
+        Operation     => 'ObjectIndexAdd',
+        Config        => $Param{Config},
+        MappingObject => $Param{MappingObject},
+        NoPermissions => 1,
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        %Param,
+        Operation            => 'ObjectIndexAdd',
+        Query                => $PreparedQuery,
+        ConnectObject        => $Param{ConnectObject},
+        Config               => $Param{Config},
+        AdditionalParameters => {
+            pipeline => 'attachment_nested'
+        }
+    );
+
+    return $Param{MappingObject}->ObjectIndexAddFormat(
+        %Param,
+        Response      => $Response,
+        Config        => $Param{Config},
         NoPermissions => 1,
     );
 }
@@ -717,8 +814,33 @@ set (update if exists or create if not exists) object for specified index
 sub ObjectIndexSet {
     my ( $Self, %Param ) = @_;
 
-    return $Self->SUPER::ObjectIndexSet(
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchChildObject->QueryPrepare(
         %Param,
+        Operation     => 'ObjectIndexSet',
+        Config        => $Param{Config},
+        MappingObject => $Param{MappingObject},
+        NoPermissions => 1,
+    );
+
+    return if !$PreparedQuery;
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        %Param,
+        Operation            => 'ObjectIndexSet',
+        Query                => $PreparedQuery,
+        ConnectObject        => $Param{ConnectObject},
+        Config               => $Param{Config},
+        AdditionalParameters => {
+            pipeline => 'attachment_nested'
+        }
+    );
+
+    return $Param{MappingObject}->ObjectIndexAddFormat(
+        %Param,
+        Response      => $Response,
+        Config        => $Param{Config},
         NoPermissions => 1,
     );
 }
@@ -755,7 +877,10 @@ sub ObjectIndexUpdate {
 
     return $Self->SUPER::ObjectIndexUpdate(
         %Param,
-        NoPermissions => 1,
+        NoPermissions         => 1,
+        IgnoreAttachmentsTemp => 1,
+        IgnoreArticles        => 1,
+        IgnoreDynamicFields   => 1,
     );
 }
 
@@ -822,13 +947,21 @@ sub IndexMappingSet {
 
     my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
     my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
-    my $ArticleFields               = $SearchArticleObject->{Fields};
-    my $ArticleDataMIMEFields       = $SearchArticleDataMIMEObject->{Fields};
+    my $SearchArticleDataMIMEAttachmentObject
+        = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
+    my $ArticleFields                   = $SearchArticleObject->{Fields};
+    my $ArticleDataMIMEFields           = $SearchArticleDataMIMEObject->{Fields};
+    my $ArticleDataMIMEAttachmentFields = $SearchArticleDataMIMEAttachmentObject->{Fields};
 
     # add nested type relation for articles && article data mime tables
     if ( IsHashRefWithData($ArticleFields) && IsHashRefWithData($ArticleDataMIMEFields) ) {
         $MappingQuery->{Body}->{properties}->{Articles} = {
-            type => 'nested',
+            type       => 'nested',
+            properties => {
+                Attachments => {
+                    type => 'nested'
+                }
+            }
         };
 
         for my $ArticleFieldName ( sort keys %{$ArticleFields} ) {
@@ -838,6 +971,11 @@ sub IndexMappingSet {
         for my $ArticleFieldName ( sort keys %{$ArticleDataMIMEFields} ) {
             $MappingQuery->{Body}->{properties}->{Articles}->{properties}->{$ArticleFieldName}
                 = $DataTypes->{ $ArticleDataMIMEFields->{$ArticleFieldName}->{Type} };
+        }
+        for my $ArticleFieldName ( sort keys %{$ArticleDataMIMEAttachmentFields} ) {
+
+            $MappingQuery->{Body}->{properties}->{Articles}->{properties}->{Attachments}->{properties}
+                ->{$ArticleFieldName} = $DataTypes->{ $ArticleDataMIMEAttachmentFields->{$ArticleFieldName}->{Type} };
         }
     }
 
@@ -878,13 +1016,17 @@ search in sql database for objects index related
 sub SQLObjectSearch {
     my ( $Self, %Param ) = @_;
 
+    my $EncodeObject                = $Kernel::OM->Get('Kernel::System::Encode');
     my $GroupObject                 = $Kernel::OM->Get('Kernel::System::Group');
     my $QueueObject                 = $Kernel::OM->Get('Kernel::System::Queue');
     my $DBObject                    = $Kernel::OM->Get('Kernel::System::DB');
     my $DynamicFieldObject          = $Kernel::OM->Get('Kernel::System::DynamicField');
     my $DynamicFieldBackendObject   = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+    my $ArticleObject               = $Kernel::OM->Get('Kernel::System::Ticket::Article');
     my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
     my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
+    my $SearchArticleDataMIMEAttachmentObject
+        = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
 
     my $QueryParams = $Param{QueryParams};
     my $Fields      = $Param{Fields};
@@ -953,6 +1095,11 @@ sub SQLObjectSearch {
     if ( !$Param{IgnoreDynamicFields} && !$Param{IgnoreArticles} ) {
         TICKET:
         for my $Ticket ( @{$SQLSearchResult} ) {
+
+            if ( !$Param{IgnoreAttachmentsTemp} ) {
+                $Ticket->{AttachmentStorageTemp} = [];
+            }
+
             if ( !$Param{IgnoreDynamicFields} ) {
                 DYNAMICFIELDCONFIG:
                 for my $DynamicFieldConfig ( @{$TicketDynamicFieldList} ) {
@@ -966,7 +1113,6 @@ sub SQLObjectSearch {
                     # set the dynamic field name and value into the ticket hash
                     # only if value is defined
                     next DYNAMICFIELDCONFIG if !defined $Value;
-
                     $Ticket->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
                 }
             }
@@ -988,7 +1134,6 @@ sub SQLObjectSearch {
                     ) || [];
 
                     my $ArticleDataMIMERow = $ArticlesDataMIME->[0];
-
                     %{$Article} = ( %{$Article}, %{$ArticleDataMIMERow} );
 
                     # add article dynamic fields
@@ -1007,6 +1152,53 @@ sub SQLObjectSearch {
 
                         $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
                     }
+
+                    my %Index = $ArticleObject->ArticleAttachmentIndex(
+                        TicketID         => $Ticket->{TicketID},
+                        ArticleID        => $Article->{ArticleID},
+                        ExcludePlainText => 1,
+                        ExcludeHTMLBody  => 1,
+                        ExcludeInline    => 1,
+                    );
+
+                    my @Attachments = ();
+
+                    for my $AttachmentID ( sort keys %Index ) {
+                        my %Attachment = $ArticleObject->ArticleAttachment(
+                            TicketID  => $Ticket->{TicketID},
+                            ArticleID => $Article->{ArticleID},
+                            FileID    => $AttachmentID,
+                        );
+
+                        push @Attachments, {
+                            ContentAlternative => $Attachment{ContentAlternative},
+                            ContentID          => $Attachment{ContentID},
+                            Disposition        => $Attachment{Disposition},
+                            ContentType        => $Attachment{ContentType},
+                            Filename           => $Attachment{Filename},
+                            ID                 => $AttachmentID,
+                            Content            => $Attachment{Content}
+                        };
+                    }
+
+                    # there is need to store content as base64
+                    ATTACHMENT:
+                    for my $Result (@Attachments) {
+                        if ( $Result->{Content} ) {
+                            $EncodeObject->EncodeOutput( \$Result->{Content} );
+                            $Result->{Content} = encode_base64( $Result->{Content}, '' );
+                        }
+                    }
+
+                    $Article->{Attachments} = \@Attachments;
+
+                    if ( !$Param{IgnoreAttachmentsTemp} ) {
+                        push @{ $Ticket->{AttachmentStorageTemp} }, @Attachments;
+                    }
+                }
+
+                if ( !$Param{IgnoreAttachmentsTemp} ) {
+                    $Ticket->{AttachmentStorageClearTemp} = {};
                 }
 
                 $Ticket->{Articles} = $Articles;
@@ -1118,10 +1310,17 @@ sub ValidFieldsPrepare {
         );
     }
 
-    # get dynamic field objects
     my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
     my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
-    my %AllArticleFields          = $Self->_DenormalizedArticleFieldsGet();
+    my $ArticleDataMIMEAttachmentObject
+        = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
+
+    my %AllArticleFields = $Self->_DenormalizedArticleFieldsGet();
+
+    my $AttachmentBasicFields    = $ArticleDataMIMEAttachmentObject->{Fields};
+    my $AttachmentExternalFields = $ArticleDataMIMEAttachmentObject->{ExternalFields};
+
+    my %AllAttachmentFields = ( %{$AttachmentBasicFields}, %{$AttachmentExternalFields} );
 
     for my $ParamField ( @{ $Param{Fields} } ) {
 
@@ -1250,6 +1449,20 @@ sub ValidFieldsPrepare {
                 }
             }
         }
+
+        # apply "Attachment" fields
+        elsif ( $ParamField =~ /^Attachment_(.+)$/ ) {
+            my $AttachmentField = $1;
+
+            if ( $AttachmentField && $AttachmentField eq '*' ) {
+                for my $AttachmentFieldName ( sort keys %AllAttachmentFields ) {
+                    $ValidFields{Attachment}{$AttachmentFieldName} = $AllAttachmentFields{$AttachmentFieldName};
+                }
+            }
+            else {
+                $ValidFields{Attachment}{$AttachmentField} = $AllAttachmentFields{$AttachmentField};
+            }
+        }
     }
 
     return $Self->_PostValidFieldsPrepare(
@@ -1294,30 +1507,6 @@ sub ObjectListIDs {
     return \@Result;
 }
 
-=head2 _SearchEmptyResponse()
-
-return empty formatted response
-
-    my $Response = $SearchTicketESObject->_SearchEmptyResponse();
-
-=cut
-
-sub _SearchEmptyResponse {
-    my ( $Self, %Param ) = @_;
-
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
-
-    # format query
-    my $FormattedResult = $SearchObject->SearchFormat(
-        %Param,
-        Result     => undef,
-        IndexName  => 'Ticket',
-        ResultType => $Param{ResultType} || 'ARRAY',
-    );
-
-    return $FormattedResult;
-}
-
 =head2 _DenormalizedArticleFieldsGet()
 
 get all article fields including article data mime
@@ -1360,7 +1549,8 @@ sub _PostValidFieldsPrepare {
     for my $Type (qw(Ticket Article)) {
         for my $Field ( sort keys %ValidFields ) {
             if ( $ValidFields{$Type}->{$Field} ) {
-                $ValidFields{$Type}->{$Field}->{ReturnType} = 'SCALAR' if !$ValidFields{$Type}->{$Field}->{ReturnType};
+                $ValidFields{$Type}->{$Field}->{ReturnType} = 'SCALAR'
+                    if !$ValidFields{$Type}->{$Field}->{ReturnType};
             }
         }
     }

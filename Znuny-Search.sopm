@@ -26,6 +26,7 @@
         <File Permission="660" Location="Kernel/System/Search/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping/ES.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Mapping/ES/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Base.pm"/>
@@ -38,7 +39,9 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicFieldObjIdName.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicFieldValue.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/ArticleDataMIME.pm"/>
@@ -46,6 +49,7 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicFieldObjIdName.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicFieldValue.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Query/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/Reindex.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Article.pm"/>
@@ -55,6 +59,8 @@
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/Queue.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicField/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/DynamicFieldValue.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Article/ArticleDataMIMEAttachment.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="scripts/test/Search/ResponseEquality.t"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Engine/ES.pm"/>
@@ -85,6 +91,8 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/FullText/Fallback/Default.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Admin/Reindexation.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Plugins/Base.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Plugins/ES/Ingest.pm"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
@@ -96,6 +104,7 @@
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
         <File Permission="770" Location="var/scripts/znuny-package.sh"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/TestPerformance.pm"/>
+        <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/ES/AttachmentContent.pm"/>
     </Filelist>
 
     <CodeInstall Type="post"><![CDATA[
@@ -113,6 +122,7 @@
             <Column Name="name" Required="true" Size="100" Type="VARCHAR" />
             <Column Name="description" Required="false" Size="255" Type="VARCHAR" />
             <Column Name="engine" Required="true" Size="100" Type="VARCHAR" />
+            <Column Name="cluster_initialized" Required="false" Type="INTEGER" Default='0'/>
             <Column Name="valid_id" Required="false" Type="INTEGER" />
             <Column Name="create_time" Required="false" Type="DATE" />
             <Column Name="change_time" Required="false" Type="DATE" />
@@ -148,11 +158,16 @@
             <Column Name="percentage" Required="true" Size="5,2" Type="DECIMAL" />
             <Column Name="create_time" Required="true" Type="DATE" />
         </TableCreate>
+        <TableCreate Name="es_attachment_content">
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
+            <Column Name="ticket_id" Required="true" Type="INTEGER" />
+        </TableCreate>
     </DatabaseInstall>
     <DatabaseUninstall>
         <TableDrop Name="search_clusters"/>
         <TableDrop Name="search_cluster_states"/>
         <TableDrop Name="search_cluster_nodes"/>
         <TableDrop Name="search_cluster_data_equality"/>
+        <TableDrop Name="es_attachment_content"/>
     </DatabaseUninstall>
 </otrs_package>
