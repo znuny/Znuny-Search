@@ -7,7 +7,7 @@
 
 ## Setup environment
 
-- download ES 8, Kibana
+- download ES 8.5+, Kibana 8.5+
 - go into directory
 
 ### Create folders for storing data and logs(this step is optional, but recommended)
@@ -39,6 +39,8 @@ echo -Xmx2g>>$FILE
 #### *Set master node.*
 **cluster.initial_master_nodes**: [] -> ["ticket"]
 
+#### *Add at least one node with "ingest" role so that attachment search by content will work.*
+**node.roles**: [] -> ["master", "data", "ingest"]
 
 ## How to run elasticsearch nodes
 

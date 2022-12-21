@@ -56,6 +56,7 @@ sub new {
     $Self->{IndexDefaultSearchLimit}   = $IndexObject->{DefaultSearchLimit};
     $Self->{IndexSupportedResultTypes} = $IndexObject->{SupportedResultTypes};
     $Self->{IndexConfig}               = $IndexObject->{Config};
+    $Self->{IndexExternalFields}       = $IndexObject->{ExternalFields};
 
     bless( $Self, $Type );
 
@@ -310,7 +311,7 @@ sub _QueryFieldCheck {
     my ( $Self, %Param ) = @_;
 
     return 1 if $Param{Name} eq "GroupID";
-    return 1 if $Param{Name} =~ m{\A(DynamicField_.+)|(Article_DynamicField_.+)};
+    return 1 if $Param{Name} =~ m{\A(DynamicField_.+)|(Article_DynamicField_.+)|(Attachment_.+)};
 
     if ( $Param{Name} =~ m{\AArticle_(.+)} ) {
         my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
@@ -364,7 +365,11 @@ sub _QueryFieldReturnTypeSet {
     }
 
     # return type is either specified or scalar
-    return $Self->{IndexFields}->{ $Param{Name} }->{ReturnType} || 'SCALAR';
+    if ( $Self->{IndexFields}->{ $Param{Name} } && $Self->{IndexFields}->{ $Param{Name} }->{ReturnType} ) {
+        return $Self->{IndexFields}->{ $Param{Name} }->{ReturnType};
+    }
+
+    return 'SCALAR';
 }
 
 1;
