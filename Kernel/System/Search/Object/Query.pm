@@ -524,8 +524,9 @@ sub IndexMappingSet {
     # returns the query
     return $Param{MappingObject}->IndexMappingSet(
         %Param,
-        Fields      => $Self->{IndexFields},
-        IndexConfig => $Self->{IndexConfig},
+        Fields         => $Self->{IndexFields},
+        IndexConfig    => $Self->{IndexConfig},
+        ExternalFields => $Self->{IndexExternalFields},
     );
 }
 
@@ -707,7 +708,11 @@ sub _QueryFieldReturnTypeSet {
     return 'SCALAR' if $Param{Name} eq '_id';
 
     # return type is either specified or scalar
-    return $Self->{IndexFields}->{ $Param{Name} }->{ReturnType} || 'SCALAR';
+    if ( $Self->{IndexFields}->{ $Param{Name} } && $Self->{IndexFields}->{ $Param{Name} }->{ReturnType} ) {
+        return $Self->{IndexFields}->{ $Param{Name} }->{ReturnType};
+    }
+
+    return 'SCALAR';
 }
 
 =head2 _QueryAdvancedParamsBuild()

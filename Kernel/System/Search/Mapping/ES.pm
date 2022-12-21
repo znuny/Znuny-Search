@@ -885,13 +885,36 @@ sub IndexMappingSet {
     my ( $Self, %Param ) = @_;
 
     my %Body;
-    my $Fields      = $Param{Fields};
-    my $IndexConfig = $Param{IndexConfig};
+    my $Fields         = $Param{Fields};
+    my $ExternalFields = $Param{ExternalFields};
+    my $IndexConfig    = $Param{IndexConfig};
 
     my $DataTypes = $Self->MappingDataTypesGet();
 
+    FIELD:
     for my $FieldName ( sort keys %{$Fields} ) {
+        next FIELD if $ExternalFields->{$FieldName};
         $Body{$FieldName} = $DataTypes->{ $Fields->{$FieldName}->{Type} };
+    }
+
+    # set custom aliases & mapping for external fields
+    EXTERNAL_FIELD:
+    for my $FieldName ( sort keys %{$ExternalFields} ) {
+        next EXTERNAL_FIELD if $Fields->{$FieldName};
+
+        if ( $ExternalFields->{$FieldName}->{Alias} ) {
+            $Body{$FieldName} = {
+                type => 'alias',
+                path => $ExternalFields->{$FieldName}->{ColumnName},
+            };
+
+            $Body{ $ExternalFields->{$FieldName}->{ColumnName} }
+                = $DataTypes->{ $ExternalFields->{$FieldName}->{Type} };
+
+        }
+        else {
+            $Body{$FieldName} = $DataTypes->{ $ExternalFields->{$FieldName}->{Type} };
+        }
     }
 
     my $Query = {
@@ -956,6 +979,9 @@ sub MappingDataTypesGet {
         Textarea => {
             type => "text",
         },
+        Blob => {
+            type => "binary",
+        }
     };
 }
 
@@ -1233,7 +1259,37 @@ sub _ResponseDataFormat {
                     if ( $Hit->{inner_hits} ) {
                         for my $ChildKey ( sort keys %{ $Hit->{inner_hits} } ) {
                             for my $ChildHit ( @{ $Hit->{inner_hits}->{$ChildKey}->{hits}->{hits} } ) {
-                                if ( IsHashRefWithData( $ChildHit->{_source} ) ) {
+                                if (
+                                    IsHashRefWithData( $ChildHit->{_source} )
+                                    || IsHashRefWithData( $ChildHit->{inner_hits} )
+                                    )
+                                {
+                                    for my $DualNestedChildKey ( sort keys %{ $ChildHit->{inner_hits} } ) {
+                                        $DualNestedChildKey =~ /$ChildKey\.(.*)/;
+                                        my $DualNestedChildRealName = $1;
+                                        for my $DualNestedChildHit (
+                                            @{ $ChildHit->{inner_hits}->{$DualNestedChildKey}->{hits}->{hits} }
+                                            )
+                                        {
+                                            push @{ $ChildHit->{_source}{$DualNestedChildRealName} },
+                                                $DualNestedChildHit->{_source};
+                                        }
+                                    }
+
+                                    push @{ $Data->{$ChildKey} }, $ChildHit->{_source};
+                                }
+                                elsif ( IsHashRefWithData( $ChildHit->{inner_hits} ) ) {
+                                    for my $DualNestedChildKey ( sort keys %{ $ChildHit->{inner_hits} } ) {
+                                        $DualNestedChildKey =~ /$ChildKey\.(.*)/;
+                                        my $DualNestedChildRealName = $1;
+                                        for my $DualNestedChildHit (
+                                            @{ $ChildHit->{inner_hits}->{$DualNestedChildKey}->{hits}->{hits} }
+                                            )
+                                        {
+                                            push @{ $ChildHit->{_source}{$DualNestedChildRealName} },
+                                                $DualNestedChildHit->{_source};
+                                        }
+                                    }
                                     push @{ $Data->{$ChildKey} }, $ChildHit->{_source};
                                 }
                             }
