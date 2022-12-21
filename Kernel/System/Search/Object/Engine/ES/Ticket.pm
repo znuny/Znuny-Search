@@ -259,18 +259,12 @@ On executing ticket search by Kernel::System::Search:
             Article_DynamicField_Multiselect => [1,2,3],
 
             # attachments
-            Attachment_ID => 'value',
-            Attachment_ArticleID => 'value',
-            Attachment_Filename => 'value',
-            Attachment_ContentSize => 'value',
-            Attachment_ContentType => 'value',
-            Attachment_ContentID => 'value',
             Attachment_ContentAlternative => 'value',
-            Attachment_Disposition => 'value',
-            Attachment_CreateTime => 'value',
-            Attachment_CreateBy => 'value',
-            Attachment_ChangeTime => 'value',
-            Attachment_ChangeBy => 'value',
+            Attachment_ContentID          => 'value',
+            Attachment_Disposition        => 'value',
+            Attachment_ContentType        => 'value',
+            Attachment_Filename           => 'value',
+            Attachment_ID                 => 'value',
 
             # attachment ingest plugin field, use to search in attachment content as pdf, ppt, xls etc.
             Attachment_AttachmentContent => {
