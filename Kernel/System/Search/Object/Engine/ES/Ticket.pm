@@ -486,8 +486,8 @@ sub ExecuteSearch {
     };
 
     # check if there was passed any attachments
-    # in "Fields" param
-    if ( keys %AttachmentFields ) {
+    # in "Fields" param, also check if result type ne COUNT to do not break query
+    if ( keys %AttachmentFields && $Param{ResultType} ne "COUNT" ) {
 
         # prepare query part for children fields to retrieve
         for my $AttachmentField ( sort keys %AttachmentFields ) {
@@ -531,8 +531,8 @@ sub ExecuteSearch {
     };
 
     # check if there was passed any article/article dynamic fields
-    # in "Fields" param
-    if ( keys %ArticleFields ) {
+    # in "Fields" param, also check if result type ne COUNT to do not break query
+    if ( keys %ArticleFields && $Param{ResultType} ne "COUNT" ) {
 
         # prepare query part for children fields to retrieve
         for my $ArticleField ( sort keys %ArticleFields ) {
