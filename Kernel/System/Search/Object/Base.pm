@@ -836,14 +836,6 @@ sub DefaultConfigGet {
         },
     };
 
-    # define list of values for types which should be set as undefined while indexing.
-    $Self->{DataTypeValuesBlackList} = {
-        Date => [
-            '0000-00-00 00:00:00',
-            '1000-00-00 00:00:00',
-        ]
-    };
-
     return 1;
 }
 

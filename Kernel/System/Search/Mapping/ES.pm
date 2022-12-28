@@ -274,30 +274,6 @@ sub ObjectIndexAdd {
     }
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
-
-    # workaround for elastic search date validation
-    # this issue won't be fully supported for now
-    # TODO analyze start
-    my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} // {} };
-    for my $DataTypeWithBlackList (@DataTypesWithBlackList) {
-        my $BlackListedValues = $IndexObject->{DataTypeValuesBlackList}->{$DataTypeWithBlackList};
-        my @ColumnsWithBlackListedType
-            = grep { $IndexObject->{Fields}->{$_}->{Type} eq $DataTypeWithBlackList } keys %{ $IndexObject->{Fields} };
-
-        for my $Object ( @{ $Param{Body} } ) {
-            for my $Column (@ColumnsWithBlackListedType) {
-                if (
-                    $Object->{$Column} &&
-                    grep { $Object->{$Column} eq $_ } @{$BlackListedValues}
-                    )
-                {
-                    $Object->{$Column} = undef;
-                }
-            }
-        }
-    }
-
-    # TODO analyze start end
     my $IndexConfig = $IndexObject->{Config};
 
     my $BodyForBulkRequest;
@@ -373,27 +349,6 @@ sub ObjectIndexSet {
     }
 
     my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
-
-    # workaround for elastic search date validation
-    # this issue won't be fully supported for now
-    # TODO analyze start
-    my @DataTypesWithBlackList = keys %{ $IndexObject->{DataTypeValuesBlackList} };
-
-    for my $DataTypeWithBlackList (@DataTypesWithBlackList) {
-        my $BlackListedValues = $IndexObject->{DataTypeValuesBlackList}->{$DataTypeWithBlackList};
-        my @ColumnsWithBlackListedType
-            = grep { $IndexObject->{Fields}->{$_}->{Type} eq $DataTypeWithBlackList } keys %{ $IndexObject->{Fields} };
-        for my $Object ( @{ $Param{Body} } ) {
-            COLUMN:
-            for my $Column (@ColumnsWithBlackListedType) {
-                if ( $Object->{$Column} && grep { $Object->{$Column} eq $_ } @{$BlackListedValues} ) {
-                    $Object->{$Column} = undef;
-                }
-            }
-        }
-    }
-
-    # TODO analyze end
     my $IndexConfig = $IndexObject->{Config};
 
     my $BodyForBulkRequest;
