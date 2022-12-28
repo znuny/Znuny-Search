@@ -146,7 +146,6 @@ sub Run {
             OrderBy    => 'Up',
         );
 
-        # TODO: temporary workaround until support for "OR" connection in search
         if ( IsArrayRefWithData( $ArticleData->{Article} ) ) {
             @{ $ArticleData->{Article} } = grep { $_->{ArticleID} } @{ $ArticleData->{Article} };
         }
