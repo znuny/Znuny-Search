@@ -717,8 +717,7 @@ sub IndexRemove {
         $MappingObject = $Self->{MappingIndexObject}->{ $Param{IndexName} };
     }
     elsif ( $Param{IndexRealName} ) {
-        my %RegisteredIndexesRealNameMapping = reverse %{ $Self->{Config}->{RegisteredIndexes} };
-        $MappingObject = $Self->{MappingIndexObject}->{ $RegisteredIndexesRealNameMapping{ $Param{IndexRealName} } };
+        $MappingObject = $Self->{MappingObject};
     }
     else {
         return;
