@@ -25,6 +25,7 @@ our @ObjectDependencies = (
     'Kernel::System::Cache',
     'Kernel::System::JSON',
     'Kernel::System::Search::Object',
+    'Kernel::System::Console::Command::Maint::Search::Reindex',
 );
 
 =head1 NAME
@@ -445,6 +446,36 @@ sub StopReindexation {
     return 1 if $CacheDeleteSuccess && $DataEqualitySetSuccess;
 
     return;
+}
+
+=head2 StartReindexation()
+
+start re-indexing process
+
+    my $Status = $ReindexationObject->StartReindexation(
+        Params => [
+        '--index', 'Ticket',
+        '--recreate', 'default',  # optional
+        '--cluster-reinitialize', # optional
+        '--check-data-equality',  # optional
+        ]
+    );
+
+=cut
+
+sub StartReindexation {
+    my ( $Self, %Param ) = @_;
+
+    my $CommandObject = $Kernel::OM->Get('Kernel::System::Console::Command::Maint::Search::Reindex');
+
+    my ( $Result, $ExitCode );
+    {
+        local *STDOUT;
+        open STDOUT, '>:utf8', \$Result;    ## no critic
+        $ExitCode = $CommandObject->Execute( @{ $Param{Params} } );
+    }
+
+    return $ExitCode;
 }
 
 1;
