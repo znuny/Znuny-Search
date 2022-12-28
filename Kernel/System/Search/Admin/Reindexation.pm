@@ -348,7 +348,7 @@ sub IndexReindexationStatus {
 
         $Status = 'Queued' if $OngoingFound;
 
-        if ( $Index eq $ReindexedIndex ) {
+        if ( $ReindexedIndex && $Index eq $ReindexedIndex ) {
             $Status       = 'Ongoing';
             $OngoingFound = 1;
         }
