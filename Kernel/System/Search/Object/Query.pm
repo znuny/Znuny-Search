@@ -745,7 +745,9 @@ sub _QueryAdvancedParamsBuild {
                     AdvancedSQLQuery   => $AdvancedQuery,
                     AdvancedParamToSet => $SearchParam,
                     PrependOperator    => $PrependOperator,
+                    SelectAliases      => $Param{SelectAliases},
                 );
+
                 $PrependOperator = ' AND (';
             }
 
@@ -797,7 +799,7 @@ sub _QueryAdvancedParamBuildSQL {
             for my $OperatorData (@PreparedQueryParam) {
                 my $FieldRealName = $Self->{IndexFields}->{$FieldName}->{ColumnName};
                 my $Result        = $OperatorModule->OperatorQueryGet(
-                    Field    => $FieldRealName,
+                    Field    => $Param{SelectAliases} ? $FieldName : $FieldRealName,
                     Value    => $OperatorData->{Value},
                     Operator => $OperatorData->{Operator},
                     Object   => $Self->{IndexConfig}->{IndexName},
@@ -813,7 +815,14 @@ sub _QueryAdvancedParamBuildSQL {
                 $AdditionalSQLQuery .= $OperatorToPrepend . $Result->{Query};
                 if ( $Result->{Bindable} ) {
                     $OperatorData->{Value} = $Result->{BindableValue} if $Result->{BindableValue};
-                    push @{ $AdvancedSQLQuery->{Binds} }, \$OperatorData->{Value};
+                    if ( ref $OperatorData->{Value} eq "ARRAY" ) {
+                        for my $Value ( @{ $OperatorData->{Value} } ) {
+                            push @{ $AdvancedSQLQuery->{Binds} }, \$Value;
+                        }
+                    }
+                    else {
+                        push @{ $AdvancedSQLQuery->{Binds} }, \$OperatorData->{Value};
+                    }
                 }
                 $FirstOperatorSet = 1;
 
@@ -831,6 +840,7 @@ sub _QueryAdvancedParamBuildSQL {
                 PrependOperator    => ' OR (',
                 AdvancedParamToSet => $Queries,
                 AdvancedSQLQuery   => $AdvancedSQLQuery,
+                SelectAliases      => $Param{SelectAliases},
             );
         }
     }

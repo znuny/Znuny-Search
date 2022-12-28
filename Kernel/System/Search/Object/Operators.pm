@@ -53,7 +53,7 @@ main function to get query for specific operator
         Field              => $Field,
         Value              => $Value,
         Fallback           => 1, # possible: 1, 0
-        Operator           => $Operator(">","IS EMPTY",...)
+        Operator           => '>',
     );
 
 =cut

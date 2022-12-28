@@ -461,6 +461,7 @@ sub SQLObjectSearch {
         # apply search params for columns that are supported
         PARAM:
         for my $FieldName ( sort keys %{$SearchParams} ) {
+
             for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Query} } ) {
                 my $OperatorValue = $OperatorData->{Value};
 
@@ -472,9 +473,9 @@ sub SQLObjectSearch {
                     );
                     return [];
                 }
-
-                my $Result = $OperatorModule->OperatorQueryGet(
-                    Field    => $Fields->{$FieldName}->{ColumnName},
+                my $FieldRealName = $Fields->{$FieldName}->{ColumnName};
+                my $Result        = $OperatorModule->OperatorQueryGet(
+                    Field    => $Param{SelectAliases} ? $FieldName : $FieldRealName,
                     Value    => $OperatorValue,
                     Operator => $OperatorData->{Operator},
                     Object   => $Self->{Config}->{IndexName},
@@ -483,7 +484,14 @@ sub SQLObjectSearch {
 
                 if ( $Result->{Bindable} && IsArrayRefWithData( $Result->{BindableValue} ) ) {
                     for my $BindableValue ( @{ $Result->{BindableValue} } ) {
-                        push @QueryParamValues, \$BindableValue;
+                        if ( ref $BindableValue eq "ARRAY" ) {
+                            for my $Value ( @{$BindableValue} ) {
+                                push @QueryParamValues, \$Value;
+                            }
+                        }
+                        else {
+                            push @QueryParamValues, \$BindableValue;
+                        }
                     }
                 }
 
@@ -506,6 +514,7 @@ sub SQLObjectSearch {
     my $AdvancedSQLQuery = $QueryObject->_QueryAdvancedParamsBuild(
         AdvancedQueryParams => $Param{AdvancedQueryParams},
         PrependOperator     => $PrependOperator,
+        SelectAliases       => $Param{SelectAliases}
     ) // {};
 
     if ( $AdvancedSQLQuery->{Content} ) {
@@ -518,8 +527,9 @@ sub SQLObjectSearch {
     my $SQLSortQuery = $Self->SQLSortQueryGet(
         OrderBy => $Param{OrderBy} // '',
         SortBy  => $Param{SortBy}  // '',
-        ResultType => $Param{ResultType},
-        Silent     => 1
+        ResultType    => $Param{ResultType},
+        Silent        => 1,
+        SelectAliases => $Param{SelectAliases}
     );
 
     # append query to sort data and apply order by
@@ -920,7 +930,11 @@ sub SQLSortQueryGet {
     my $SortBy = $Self->SortParamApply(%Param);
     return '' if !$SortBy;
 
-    my $SQLSortQuery = " ORDER BY $Self->{Fields}->{$SortBy->{Name}}->{ColumnName}";
+    my $ColumnName = $Param{SelectAliases}
+        ? $SortBy->{Name}
+        : $Self->{Fields}->{ $SortBy->{Name} }->{ColumnName};
+
+    my $SQLSortQuery = " ORDER BY $ColumnName";
     if ( $Param{OrderBy} ) {
         if ( $Param{OrderBy} eq 'Up' ) {
             $SQLSortQuery .= " ASC";

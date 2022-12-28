@@ -300,7 +300,6 @@ On executing ticket search by Kernel::System::Search:
             Priority    => ['3 normal'],
             State       => ['open'],
             Customer    => ['customer123', 'customer12345'],
-
         },
         Fields => [['Ticket_TicketID', 'Ticket_TicketNumber']] # specify field from field mapping
             # to get:
