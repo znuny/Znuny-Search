@@ -1462,6 +1462,7 @@ sub ObjectListIDs {
         OrderBy             => $Param{OrderBy},
         SortBy              => $Identifier,
         ResultType          => $Param{ResultType},
+        Limit               => $Param{Limit},
         IgnoreArticles      => 1,
         IgnoreDynamicFields => 1,
     );

@@ -71,6 +71,15 @@ sub Configure {
         HasValue => 0,
         Multiple => 0,
     );
+    $Self->AddOption(
+        Name => 'limit',
+        Description =>
+            "Limit reindexed data. Used mostly for testing.",
+        Required   => 0,
+        HasValue   => 1,
+        Multiple   => 0,
+        ValueRegex => qr/\A\d+\z/,
+    );
 
     return;
 }
@@ -109,6 +118,7 @@ sub Run {
     my $ClusterReinitializate = $Self->GetOption('cluster-reinitialize');
     my $CheckDataEquality     = $Self->GetOption('check-data-equality');
     my $Recreate              = $Self->GetOption('recreate');
+    my $Limit                 = $Self->GetOption('limit');
 
     $Self->{Index} = $Self->GetOption('index');
 
@@ -269,7 +279,8 @@ sub Run {
 
         my $ObjectIDs = $Object->ObjectListIDs(
             OrderBy    => 'Down',
-            ResultType => 'ARRAY'
+            ResultType => 'ARRAY',
+            Limit      => defined $Limit ? $Limit : undef,
         );
 
         $CacheObject->Set(
