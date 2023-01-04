@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -123,13 +123,14 @@ sub Run {
         ResultType => 'ARRAY',
         SortBy     => "TicketHistoryID",
         OrderBy    => "DESC",
+        Limit      => 1,
     );
 
-    return if !IsArrayRefWithData($Result);
+    return if !$Result->{Success} || !IsArrayRefWithData( $Result->{Data} );
 
     my %QueryParam = (
         Index    => $Param{Config}->{IndexName},
-        ObjectID => @{$Result}[0]->{TicketHistoryID},
+        ObjectID => @{ $Result->{Data} }[0]->{TicketHistoryID},
     );
 
     $SearchObject->$FunctionName(
