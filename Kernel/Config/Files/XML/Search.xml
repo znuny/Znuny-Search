@@ -43,7 +43,7 @@
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
-                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime</Item>
+                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime|TicketOwnerSet</Item>
                 <Item Key="FunctionName">ObjectIndexUpdate</Item>
                 <Item Key="IndexName">Ticket</Item>
             </Hash>

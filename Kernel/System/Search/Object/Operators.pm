@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -62,21 +62,10 @@ sub OperatorQueryGet {
     my ( $Self, %Param ) = @_;
 
     my $IndexModule = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Object}");
-    my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
 
     my $IndexOperatorModule = $Kernel::OM->Get(
         "Kernel::System::Search::Object::Operators::Base"
     );
-
-    # check if operator is supported for specified field
-    if ( !$IndexModule->{IndexOperatorMapping}->{ $Param{Operator} } ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message =>
-                "Operator '$Param{Operator}' is not supported for '$IndexModule->{IndexFields}->{$Param{Field}}->{Type}' type.",
-        );
-        return;
-    }
 
     my $Result = $IndexOperatorModule->OperatorQueryBuild(
         Field              => $Param{Field},

@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -63,9 +63,7 @@ sub _QueryFieldCheck {
 
     return 1 if $Param{Name} eq "AttachmentContent";
 
-    # by default check if field is in index fields and mapping check is enabled
-    return if !$Self->{IndexFields}->{ $Param{Name} } && !$Param{NoMappingCheck};
-    return 1;
+    return $Self->SUPER::_QueryFieldCheck(%Param);
 }
 
 sub Search {

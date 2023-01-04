@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -254,8 +254,10 @@ sub SQLObjectSearch {
         ResultType        => $ResultType,
     );
 
-    $SQLSearchResult = $QueryDynamicFieldValueObject->_PrepareDFSQLResponse(
-        SQLSearchResult => $SQLSearchResult,
+    return $SQLSearchResult if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+
+    $SQLSearchResult->{Data} = $QueryDynamicFieldValueObject->_PrepareDFSQLResponse(
+        SQLSearchResult => $SQLSearchResult->{Data},
         Index           => 'DynamicFieldValue',
     );
 
@@ -274,7 +276,10 @@ sub SQLObjectSearch {
     }
 
     if ( $Param{ResultType} eq 'COUNT' ) {
-        return scalar @{$SQLSearchResult};
+        return {
+            Data    => scalar @{ $SQLSearchResult->{Data} },
+            Success => $SQLSearchResult->{Success},
+        };
     }
 
     return $SQLSearchResult;

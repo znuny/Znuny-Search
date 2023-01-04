@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -97,11 +97,13 @@ sub Fallback {
             Silent                      => $Param{Silent},
             ReturnDefaultSQLColumnNames => 0,
         );
+
+        return if !$SQLSearchResult->{Success};
     }
 
     my $Result = {
         EngineData => {},
-        ObjectData => $SQLSearchResult,
+        ObjectData => $SQLSearchResult->{Data},
     };
 
     return $Result;
@@ -389,10 +391,9 @@ sub SQLObjectSearch {
 
     my $QueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
 
-    my $IndexRealName      = $Self->{Config}->{IndexRealName};
-    my $Fields             = $Param{CustomIndexFields} // $Self->{Fields};
-    my $SupportedOperators = $Self->{SupportedOperators};
-    my $ResultType         = $Param{ResultType} || 'ARRAY';
+    my $IndexRealName = $Self->{Config}->{IndexRealName};
+    my $Fields        = $Param{CustomIndexFields} // $Self->{Fields};
+    my $ResultType    = $Param{ResultType} || 'ARRAY';
 
     # prepare sql statement
     my $SQL;
@@ -458,6 +459,13 @@ sub SQLObjectSearch {
             NoPermissions => $Param{NoPermissions},
         );
 
+        if ( ref $SearchParams eq 'HASH' && $SearchParams->{Error} ) {
+            return {
+                Success => 0,
+                Data    => [],
+            };
+        }
+
         # apply search params for columns that are supported
         PARAM:
         for my $FieldName ( sort keys %{$SearchParams} ) {
@@ -471,7 +479,10 @@ sub SQLObjectSearch {
                         Message =>
                             "Fallback SQL search does not support searching by $FieldName column in $IndexRealName table!"
                     );
-                    return [];
+                    return {
+                        Success => 0,
+                        Data    => [],
+                    };
                 }
                 my $FieldRealName = $Fields->{$FieldName}->{ColumnName};
                 my $Result        = $OperatorModule->OperatorQueryGet(
@@ -495,7 +506,7 @@ sub SQLObjectSearch {
                     }
                 }
 
-                push @QueryConditions, $Result->{Query};
+                push @QueryConditions, $Result->{Query} if $Result->{Query};
             }
         }
     }
@@ -542,8 +553,9 @@ sub SQLObjectSearch {
 
     if ( $Param{OnlyReturnQuery} ) {
         return {
-            SQL  => $SQL,
-            Bind => \@QueryParamValues
+            SQL     => $SQL,
+            Bind    => \@QueryParamValues,
+            Success => 1,
         };
     }
 
@@ -556,7 +568,10 @@ sub SQLObjectSearch {
 
     if ( $ResultType eq 'COUNT' ) {
         my @Count = $DBObject->FetchrowArray();
-        return $Count[0];
+        return {
+            Success => 1,
+            Data    => $Count[0],
+        };
     }
 
     my @Result;
@@ -570,7 +585,10 @@ sub SQLObjectSearch {
         push @Result, \%Data;
     }
 
-    return \@Result;
+    return {
+        Success => 1,
+        Data    => \@Result,
+    };
 }
 
 =head2 SearchFormat()
@@ -660,7 +678,7 @@ sub SearchFormat {
 
 return all sql data of object ids
 
-    my $ResultIDs = $SearchTicketObject->ObjectListIDs();
+    my $ResultIDs = $SearchBaseObject->ObjectListIDs();
 
 =cut
 
@@ -677,12 +695,13 @@ sub ObjectListIDs {
         OrderBy     => $Param{OrderBy},
         SortBy      => $Identifier,
         ResultType  => $Param{ResultType},
+        Limit       => $Param{Limit},
     );
 
     # push hash data into array
     my @Result;
-    if ( IsArrayRefWithData($SQLSearchResult) ) {
-        for my $SQLData ( @{$SQLSearchResult} ) {
+    if ( $SQLSearchResult->{Success} && IsArrayRefWithData( $SQLSearchResult->{Data} ) ) {
+        for my $SQLData ( @{ $SQLSearchResult->{Data} } ) {
             push @Result, $SQLData->{$Identifier};
         }
     }
@@ -951,7 +970,7 @@ sub SQLSortQueryGet {
 
 return empty formatted response
 
-    my $Response = $SearchTicketESObject->SearchEmptyResponse();
+    my $Response = $SearchBaseObject->SearchEmptyResponse();
 
 =cut
 

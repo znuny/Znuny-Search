@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -142,12 +142,12 @@ sub ObjectIndexAdd {
         CustomIndexFields => \%CustomIndexFields,
     );
 
-    return if !IsArrayRefWithData($SQLSearchResult);
+    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexAdd(
         %Param,
-        Body => $SQLSearchResult,
+        Body => $SQLSearchResult->{Data},
     );
 }
 
@@ -213,12 +213,12 @@ sub ObjectIndexSet {
         CustomIndexFields => \%CustomIndexFields,
     );
 
-    return if !IsArrayRefWithData($SQLSearchResult);
+    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexSet(
         %Param,
-        Body => $SQLSearchResult,
+        Body => $SQLSearchResult->{Data},
     );
 }
 
@@ -271,6 +271,8 @@ sub ObjectIndexRemove {
         QueryParams    => $QueryParams,
         NoMappingCheck => $NoMappingCheck,
     );
+
+    return if ref $QueryParams eq 'HASH' && $QueryParams->{Error};
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexRemove(
