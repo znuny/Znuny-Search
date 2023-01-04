@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -178,7 +178,7 @@ sub new {
             ColumnName => 'group_id',
             Type       => 'Integer',
             Alias      => 0,
-        }
+        },
     };
 
     # get default config
@@ -285,21 +285,24 @@ On executing ticket search by Kernel::System::Search:
                                 # permissions for user, therefore should be combined with UserID param
 
             # additionally there is a possibility to pass names for fields below
-            # always pass them in an array
+            # always pass them in an array or scalar
             # can be combined with it's ID's alternative (will match
             # by "AND" operator as any other fields)
             # operators syntax is not supported on those fields
-            Queue => ['Misc', 'Junk'],
-            SLA         => ['SLA5min'],
-            SLAID       => [1],
-            Lock        => ['Locked'],
-            Type        => ['Unclassified', 'Classifiedd'],
-            Service     => ['PremiumService'],
-            Owner       => ['root@localhost'],
-            Responsible => ['root@localhost'],
-            Priority    => ['3 normal'],
-            State       => ['open'],
-            Customer    => ['customer123', 'customer12345'],
+            Queue        => ['Misc', 'Junk'], # search by queue name
+            SLA          => ['SLA5min'],
+            SLAID        => [1],
+            Lock         => ['Locked'],
+            Type         => ['Unclassified', 'Classified'],
+            Service      => ['PremiumService'],
+            Owner        => ['root@localhost'],
+            Responsible  => ['root@localhost'],
+            Priority     => ['3 normal'],
+            State        => ['open'],
+            Customer     => ['customer123', 'customer12345'], # search by customer name
+            CustomerUser => ['customeruser123', 'customeruser12345'], # same as CustomerUserID,
+                                                                      # possible to use because of compatibility with
+                                                                      # Ticket API
         },
         Fields => [['Ticket_TicketID', 'Ticket_TicketNumber']] # specify field from field mapping
             # to get:
@@ -427,6 +430,9 @@ sub ExecuteSearch {
         NoPermissions => $Param{NoPermissions},
     );
 
+    return $Self->SearchEmptyResponse(%Param)
+        if ref $SearchParams eq 'HASH' && $SearchParams->{Error};
+
     my $SegregatedQueryParams;
 
     # segregate search params
@@ -535,11 +541,11 @@ sub ExecuteSearch {
 
     # build and append article query if needed
     if ( IsHashRefWithData($ArticleSearchParams) ) {
-        my %AllArticleFields = $Self->_DenormalizedArticleFieldsGet();
+        my %AllArticleFields = $IndexQueryObject->_DenormalizedArticleFieldsGet();
 
         # check if field exists in the mapping
         for my $ArticleQueryParam ( sort keys %{$ArticleSearchParams} ) {
-            delete $ArticleSearchParams->{$ArticleQueryParam} if ( !$AllArticleFields{$ArticleQueryParam} );
+            delete $ArticleSearchParams->{$ArticleQueryParam} if ( !$AllArticleFields{Fields}->{$ArticleQueryParam} );
         }
 
         for my $ArticleField ( sort keys %{$ArticleSearchParams} ) {
@@ -1073,7 +1079,8 @@ sub SQLObjectSearch {
         Fields      => $Fields,
     );
 
-    return $SQLSearchResult if !IsArrayRefWithData($SQLSearchResult);
+    return $SQLSearchResult if !$SQLSearchResult->{Success};
+    return $SQLSearchResult if !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
     # get all dynamic fields for the object type Ticket
     my $TicketDynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
@@ -1087,7 +1094,7 @@ sub SQLObjectSearch {
 
     if ( !$Param{IgnoreDynamicFields} && !$Param{IgnoreArticles} ) {
         TICKET:
-        for my $Ticket ( @{$SQLSearchResult} ) {
+        for my $Ticket ( @{ $SQLSearchResult->{Data} } ) {
 
             if ( !$Param{IgnoreAttachmentsTemp} ) {
                 $Ticket->{AttachmentStorageTemp} = [];
@@ -1117,76 +1124,80 @@ sub SQLObjectSearch {
                     QueryParams => {
                         TicketID => $Ticket->{TicketID},
                     }
-                ) || [];
+                );
 
-                for my $Article ( @{$Articles} ) {
-                    my $ArticlesDataMIME = $SearchArticleDataMIMEObject->SQLObjectSearch(
-                        QueryParams => {
-                            ArticleID => $Article->{ArticleID},
-                        }
-                    ) || [];
-
-                    my $ArticleDataMIMERow = $ArticlesDataMIME->[0];
-                    %{$Article} = ( %{$Article}, %{$ArticleDataMIMERow} );
-
-                    # add article dynamic fields
-                    DYNAMICFIELDCONFIG:
-                    for my $DynamicFieldConfig ( @{$ArticleDynamicFields} ) {
-
-                        # get the current value for each dynamic field
-                        my $Value = $DynamicFieldBackendObject->ValueGet(
-                            DynamicFieldConfig => $DynamicFieldConfig,
-                            ObjectID           => $Article->{ArticleID},
+                if ( $Articles->{Success} && IsArrayRefWithData( $Articles->{Data} ) ) {
+                    for my $Article ( @{ $Articles->{Data} } ) {
+                        my $ArticlesDataMIME = $SearchArticleDataMIMEObject->SQLObjectSearch(
+                            QueryParams => {
+                                ArticleID => $Article->{ArticleID},
+                            }
                         );
 
-                        # set the dynamic field name and value into the ticket hash
-                        # only if value is defined
-                        next DYNAMICFIELDCONFIG if !defined $Value;
+                        if ( $ArticlesDataMIME->{Success} && IsHashRefWithData( $ArticlesDataMIME->{Data}[0] ) ) {
+                            my $ArticleDataMIMERow = $ArticlesDataMIME->{Data}[0];
+                            %{$Article} = ( %{$Article}, %{$ArticleDataMIMERow} );
+                        }
 
-                        $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
-                    }
+                        # add article dynamic fields
+                        DYNAMICFIELDCONFIG:
+                        for my $DynamicFieldConfig ( @{$ArticleDynamicFields} ) {
 
-                    my %Index = $ArticleObject->ArticleAttachmentIndex(
-                        TicketID         => $Ticket->{TicketID},
-                        ArticleID        => $Article->{ArticleID},
-                        ExcludePlainText => 1,
-                        ExcludeHTMLBody  => 1,
-                        ExcludeInline    => 1,
-                    );
+                            # get the current value for each dynamic field
+                            my $Value = $DynamicFieldBackendObject->ValueGet(
+                                DynamicFieldConfig => $DynamicFieldConfig,
+                                ObjectID           => $Article->{ArticleID},
+                            );
 
-                    my @Attachments = ();
+                            # set the dynamic field name and value into the ticket hash
+                            # only if value is defined
+                            next DYNAMICFIELDCONFIG if !defined $Value;
 
-                    for my $AttachmentID ( sort keys %Index ) {
-                        my %Attachment = $ArticleObject->ArticleAttachment(
-                            TicketID  => $Ticket->{TicketID},
-                            ArticleID => $Article->{ArticleID},
-                            FileID    => $AttachmentID,
+                            $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
+                        }
+
+                        my %Index = $ArticleObject->ArticleAttachmentIndex(
+                            TicketID         => $Ticket->{TicketID},
+                            ArticleID        => $Article->{ArticleID},
+                            ExcludePlainText => 1,
+                            ExcludeHTMLBody  => 1,
+                            ExcludeInline    => 1,
                         );
 
-                        push @Attachments, {
-                            ContentAlternative => $Attachment{ContentAlternative},
-                            ContentID          => $Attachment{ContentID},
-                            Disposition        => $Attachment{Disposition},
-                            ContentType        => $Attachment{ContentType},
-                            Filename           => $Attachment{Filename},
-                            ID                 => $AttachmentID,
-                            Content            => $Attachment{Content}
-                        };
-                    }
+                        my @Attachments = ();
 
-                    # there is need to store content as base64
-                    ATTACHMENT:
-                    for my $Result (@Attachments) {
-                        if ( $Result->{Content} ) {
-                            $EncodeObject->EncodeOutput( \$Result->{Content} );
-                            $Result->{Content} = encode_base64( $Result->{Content}, '' );
+                        for my $AttachmentID ( sort keys %Index ) {
+                            my %Attachment = $ArticleObject->ArticleAttachment(
+                                TicketID  => $Ticket->{TicketID},
+                                ArticleID => $Article->{ArticleID},
+                                FileID    => $AttachmentID,
+                            );
+
+                            push @Attachments, {
+                                ContentAlternative => $Attachment{ContentAlternative},
+                                ContentID          => $Attachment{ContentID},
+                                Disposition        => $Attachment{Disposition},
+                                ContentType        => $Attachment{ContentType},
+                                Filename           => $Attachment{Filename},
+                                ID                 => $AttachmentID,
+                                Content            => $Attachment{Content}
+                            };
                         }
-                    }
 
-                    $Article->{Attachments} = \@Attachments;
+                        # there is need to store content as base64
+                        ATTACHMENT:
+                        for my $Result (@Attachments) {
+                            if ( $Result->{Content} ) {
+                                $EncodeObject->EncodeOutput( \$Result->{Content} );
+                                $Result->{Content} = encode_base64( $Result->{Content}, '' );
+                            }
+                        }
 
-                    if ( !$Param{IgnoreAttachmentsTemp} ) {
-                        push @{ $Ticket->{AttachmentStorageTemp} }, @Attachments;
+                        $Article->{Attachments} = \@Attachments;
+
+                        if ( !$Param{IgnoreAttachmentsTemp} ) {
+                            push @{ $Ticket->{AttachmentStorageTemp} }, @Attachments;
+                        }
                     }
                 }
 
@@ -1194,7 +1205,7 @@ sub SQLObjectSearch {
                     $Ticket->{AttachmentStorageClearTemp} = {};
                 }
 
-                $Ticket->{Articles} = $Articles;
+                $Ticket->{Articles} = $Articles->{Data};
             }
         }
     }
@@ -1216,7 +1227,7 @@ sub SQLObjectSearch {
             push @GroupQueryParam, keys %GroupList;
         }
 
-        for my $Row ( @{$SQLSearchResult} ) {
+        for my $Row ( @{ $SQLSearchResult->{Data} } ) {
             if ( $Row->{QueueID} ) {
 
                 # do not use standard queue get function as it
@@ -1251,7 +1262,10 @@ sub SQLObjectSearch {
 
             }
         }
-        return \@GroupFilteredResult;
+        return {
+            Success => $SQLSearchResult->{Success},
+            Data    => \@GroupFilteredResult,
+        };
     }
     return $SQLSearchResult;
 }
@@ -1285,6 +1299,7 @@ sub ValidFieldsPrepare {
     }
 
     my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
+    my $SearchQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Object}");
 
     my $Fields         = $IndexSearchObject->{Fields};
     my $ExternalFields = $IndexSearchObject->{ExternalFields};
@@ -1308,13 +1323,15 @@ sub ValidFieldsPrepare {
     my $ArticleDataMIMEAttachmentObject
         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
 
-    my %AllArticleFields = $Self->_DenormalizedArticleFieldsGet();
+    my %DenormalizedArticleFields = $SearchQueryObject->_DenormalizedArticleFieldsGet();
+    my %AllArticleFields          = %{ $DenormalizedArticleFields{Fields} };
 
     my $AttachmentBasicFields    = $ArticleDataMIMEAttachmentObject->{Fields};
     my $AttachmentExternalFields = $ArticleDataMIMEAttachmentObject->{ExternalFields};
 
     my %AllAttachmentFields = ( %{$AttachmentBasicFields}, %{$AttachmentExternalFields} );
 
+    FIELDS:
     for my $ParamField ( @{ $Param{Fields} } ) {
 
         # get information about field types if field
@@ -1335,33 +1352,12 @@ sub ValidFieldsPrepare {
 
                 DYNAMICFIELD:
                 for my $DynamicFieldConfig ( @{$DynamicFieldList} ) {
-
-                    my $DynamicFieldColumnName = $DFColumnNamePre . 'DynamicField_' . $DynamicFieldConfig->{Name};
-
-                    # get return type for dynamic field
-                    my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
+                    my $Info = $SearchQueryObject->_QueryDynamicFieldInfoGet(
                         DynamicFieldConfig => $DynamicFieldConfig,
-                        FieldType          => 'Edit',
                     );
 
-                    # set type of field
-                    my $Type = 'String';
-
-                    if (
-                        $DynamicFieldConfig->{FieldType}
-                        && $DynamicFieldConfig->{FieldType} eq 'Date'
-                        || $DynamicFieldConfig->{FieldType} eq 'DateTime'
-                        )
-                    {
-                        $Type = 'Date';
-                    }
-
-                    # apply properties that are set in object fields mapping
-                    $ValidFields{ $ObjectType . '_DynamicField' }->{$DynamicFieldColumnName} = {
-                        ColumnName => $DynamicFieldColumnName,
-                        ReturnType => $FieldValueType->{$DynamicFieldColumnName} || 'SCALAR',
-                        Type       => $Type,
-                    };
+                    next FIELDS if !$Info->{ColumnName};
+                    $ValidFields{ $ObjectType . '_DynamicField' }->{ $Info->{ColumnName} } = $Info;
                 }
             }
             else {
@@ -1374,32 +1370,13 @@ sub ValidFieldsPrepare {
                 my $ObjectType = $DynamicFieldConfig->{ObjectType};
 
                 if ( IsHashRefWithData($DynamicFieldConfig) && $DynamicFieldConfig->{Name} ) {
-                    my $DynamicFieldColumnName = 'DynamicField_' . $DynamicFieldConfig->{Name};
-
-                    # get return type for dynamic field
-                    my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
+                    my $Info = $SearchQueryObject->_QueryDynamicFieldInfoGet(
+                        ObjectType         => $ObjectType,
                         DynamicFieldConfig => $DynamicFieldConfig,
-                        FieldType          => 'Edit',
                     );
 
-                    # set type of field
-                    my $Type = 'String';
-
-                    if (
-                        $DynamicFieldConfig->{FieldType}
-                        && $DynamicFieldConfig->{FieldType} eq 'Date'
-                        || $DynamicFieldConfig->{FieldType} eq 'DateTime'
-                        )
-                    {
-                        $Type = 'Date';
-                    }
-
-                    # apply properties that are set in object fields mapping
-                    $ValidFields{ $ObjectType . '_DynamicField' }->{$DynamicFieldColumnName} = {
-                        ColumnName => $DynamicFieldColumnName,
-                        ReturnType => $FieldValueType->{$DynamicFieldColumnName} || 'SCALAR',
-                        Type       => $Type,
-                    };
+                    next FIELDS if !$Info->{ColumnName};
+                    $ValidFields{ $ObjectType . '_DynamicField' }->{ $Info->{ColumnName} } = $Info;
                 }
             }
         }
@@ -1491,35 +1468,13 @@ sub ObjectListIDs {
 
     # push hash data into array
     my @Result;
-    if ( IsArrayRefWithData($SQLSearchResult) ) {
-        for my $SQLData ( @{$SQLSearchResult} ) {
+    if ( $SQLSearchResult->{Success} && IsArrayRefWithData( $SQLSearchResult->{Data} ) ) {
+        for my $SQLData ( @{ $SQLSearchResult->{Data} } ) {
             push @Result, $SQLData->{$Identifier};
         }
     }
 
     return \@Result;
-}
-
-=head2 _DenormalizedArticleFieldsGet()
-
-get all article fields including article data mime
-
-    my %Fields = $SearchTicketESObject->_DenormalizedArticleFieldsGet();
-
-=cut
-
-sub _DenormalizedArticleFieldsGet {
-    my ( $Self, %Param ) = @_;
-
-    my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
-
-    my $ArticleFields         = $SearchArticleObject->{Fields};
-    my $ArticleDataMIMEFields = $SearchArticleDataMIMEObject->{Fields};
-
-    my %AllArticleFields = ( %{$ArticleFields}, %{$ArticleDataMIMEFields} );
-
-    return %AllArticleFields;
 }
 
 =head2 _PostValidFieldsPrepare()

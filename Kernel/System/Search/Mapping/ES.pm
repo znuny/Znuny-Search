@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -157,6 +157,8 @@ sub AdvancedSearch {
         OnlyReturnQuery     => 1,
         %Param,
     );
+
+    return if !$SQLQuery->{Success};
 
     if ( IsArrayRefWithData( $SQLQuery->{Bind} ) ) {
 

@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -38,7 +38,7 @@ Common search engine query backend functions.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $QueryTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Query::Ticket');
+    my $SearchQueryTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Query::Ticket');
 
 =cut
 
@@ -68,7 +68,7 @@ sub new {
 search & delete lookup fields in standard query params, then perform lookup
 of deleted fields and return it
 
-    my $LookupQueryParams = $SearchQueryObject->LookupTicketFields(
+    my $LookupQueryParams = $SearchQueryTicketObject->LookupTicketFields(
         QueryParams     => $QueryParams,
     );
 
@@ -125,7 +125,7 @@ sub LookupTicketFields {
         }
     };
 
-    # TO-DO support for customer users, create by,change by
+    # TO-DO support for create by, change by
     my $CustomerLookupField = {
         Customer => {
             Module       => "Kernel::System::CustomerCompany",
@@ -145,8 +145,15 @@ sub LookupTicketFields {
         my $FunctionName = $LookupField->{FunctionName};
 
         my @IDs;
+
+        my $Param = $Param{QueryParams}->{Customer};
+
+        my @Param = IsString( delete $Param{QueryParams}->{Customer} )
+            ?
+            ($Param)
+            : @{$Param};
         VALUE:
-        for my $Value ( @{ $Param{QueryParams}->{$Key} } ) {
+        for my $Value (@Param) {
             my $ParamName = $LookupField->{ParamName};
 
             my %CustomerCompanyList = $Module->$FunctionName(
@@ -186,6 +193,21 @@ sub LookupTicketFields {
         $LookupQueryParams->{ $Key . 'ID' } = $LookupQueryParam;
     }
 
+    if ( $Param{QueryParams}->{CustomerUser} ) {
+        my $Param = $Param{QueryParams}->{CustomerUser};
+
+        my @Param = IsString( delete $Param{QueryParams}->{CustomerUser} )
+            ?
+            ($Param)
+            : @{$Param};
+        my $LookupQueryParam = {
+            Operator   => "=",
+            Value      => \@Param,
+            ReturnType => 'SCALAR',
+        };
+        $LookupQueryParams->{CustomerUserID} = $LookupQueryParam;
+    }
+
     # get lookup fields that exists in "QueryParams" parameter
     my %UsedLookupFields = map { $_ => $LookupFields->{$_} }
         grep { $LookupFields->{$_} }
@@ -197,10 +219,15 @@ sub LookupTicketFields {
         # lookup every field for ID
         my $LookupField = $LookupFields->{$Key};
         my $Module      = $Kernel::OM->Get( $LookupField->{Module} );
+        my $Param       = $Param{QueryParams}->{$Key};
 
         my @IDs;
+        my @Param = IsString($Param)
+            ?
+            ($Param)
+            : @{$Param};
         VALUE:
-        for my $Value ( @{ $Param{QueryParams}->{$Key} } ) {
+        for my $Value (@Param) {
             my $ParamName = $LookupField->{ParamName};
 
             my $FunctionName = $LookupField->{FunctionName};
@@ -235,7 +262,7 @@ sub LookupTicketFields {
 
 prepare valid structure output for query params
 
-    my $QueryParams = $SearchQueryObject->_QueryParamsPrepare(
+    my $QueryParams = $SearchQueryTicketObject->_QueryParamsPrepare(
         QueryParams => $Param{QueryParams},
         NoMappingCheck => $Param{NoMappingCheck},
     );
@@ -247,9 +274,11 @@ sub _QueryParamsPrepare {
 
     my $GroupObject = $Kernel::OM->Get('Kernel::System::Group');
 
+    my $QueryParams = $Param{QueryParams};
+
     # support lookup fields
     my $LookupQueryParams = $Self->LookupTicketFields(
-        QueryParams => $Param{QueryParams},
+        QueryParams => $QueryParams,
     ) // {};
 
     # on lookup error there should be no response
@@ -260,32 +289,39 @@ sub _QueryParamsPrepare {
     # query parameter
     # so response would always be empty
     if ( delete $LookupQueryParams->{Error} ) {
-        $Param{QueryParams} = {
+        $QueryParams = {
             TicketID => -1
         };
     }
 
     # support permissions
-    if ( $Param{QueryParams}{UserID} ) {
+    if ( $QueryParams->{UserID} ) {
 
         # get users groups
         my %GroupList = $GroupObject->PermissionUserGet(
-            UserID => $Param{QueryParams}{UserID},
-            Type   => $Param{QueryParams}{Permissions} || 'ro',
+            UserID => delete $QueryParams->{UserID},
+            Type   => delete $QueryParams->{Permissions} || 'ro',
         );
 
-        push @{ $Param{QueryParams}{GroupID} }, keys %GroupList;
+        push @{ $QueryParams->{GroupID} }, keys %GroupList;
     }
 
     # additional check if valid groups was specified
     # based on UserID and GroupID params
     # if no, treat it as there is no permissions
     # empty response will be retrieved
-    if ( !$Param{NoPermissions} && !IsArrayRefWithData( $Param{QueryParams}{GroupID} ) ) {
-        $Param{QueryParams}{GroupID} = [-1];
+    if ( !$Param{NoPermissions} && !IsArrayRefWithData( $QueryParams->{GroupID} ) ) {
+        $QueryParams->{GroupID} = [-1];
     }
 
-    my $SearchParams = $Self->SUPER::_QueryParamsPrepare(%Param) // {};
+    my $SearchParams = $Self->SUPER::_QueryParamsPrepare(
+        QueryParams => $QueryParams,
+        %Param
+    ) // {};
+
+    if ( ref $SearchParams eq 'HASH' && $SearchParams->{Error} ) {
+        return $SearchParams;
+    }
 
     # merge lookupped fields with standard fields
     for my $LookupParam ( sort keys %{$LookupQueryParams} ) {
@@ -299,7 +335,7 @@ sub _QueryParamsPrepare {
 
 check specified field for index
 
-    my $Result = $SearchQueryObject->_QueryFieldCheck(
+    my $Result = $SearchQueryTicketObject->_QueryFieldCheck(
         Name => 'SLAID',
         Value => '1', # by default value is passed but is not used
                       # in standard query module
@@ -323,53 +359,212 @@ sub _QueryFieldCheck {
         }
     }
 
-    # by default check if field is in index fields and mapping check is enabled
-    return if !$Self->{IndexFields}->{ $Param{Name} } && !$Param{NoMappingCheck};
-
-    return 1;
+    return $Self->SUPER::_QueryFieldCheck(%Param);
 }
 
-=head2 _QueryFieldReturnTypeSet()
+=head2 _QueryFieldDataSet()
 
-check specified return type field for index
+set data for field
 
-    my $Result = $SearchQueryObject->_QueryFieldReturnTypeSet(
+    my $Result = $SearchQueryTicketObject->_QueryFieldDataSet(
         Name => 'SLAID',
     );
 
 =cut
 
-sub _QueryFieldReturnTypeSet {
+sub _QueryFieldDataSet {
     my ( $Self, %Param ) = @_;
 
-    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
-    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+    my $DefaultValue = {
+        ReturnType => 'SCALAR',
+    };
+    my $Data = $DefaultValue;
 
-    if ( $Param{Name} =~ m{DynamicField_(.+)} ) {
-        my $DynamicFieldName = $1;
+    if ( $Param{Name} eq '_id' ) {
+        $Data->{Type} = 'String';
+        return $DefaultValue;
+    }
 
+    if ( $Self->{IndexFields}->{ $Param{Name} } ) {
+        for my $Property (qw(Type ReturnType)) {
+            if ( $Self->{IndexFields}->{ $Param{Name} }->{$Property} ) {
+                $Data->{$Property} = $Self->{IndexFields}->{ $Param{Name} }->{$Property};
+            }
+        }
+    }
+    elsif ( $Self->{IndexExternalFields}->{ $Param{Name} } ) {
+        for my $Property (qw(Type ReturnType)) {
+            if ( $Self->{IndexExternalFields}->{ $Param{Name} }->{$Property} ) {
+                $Data->{$Property} = $Self->{IndexExternalFields}->{ $Param{Name} }->{$Property};
+            }
+        }
+    }
+
+    # get information about query param if field
+    # matches specified regexp
+    elsif ( $Param{Name} =~ m{\A(?:DynamicField_(.+))|(?:Article_DynamicField_(.+))} ) {
+        my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+        my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+
+        my $DynamicFieldName = $1 || $2;
+
+        # get single dynamic field config
         my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
             Name => $DynamicFieldName,
         );
 
-        # possible that dynamic field config won't be available
-        # on dynamic field delete events
-        return if !IsHashRefWithData($DynamicFieldConfig);
+        # get object - "Ticket" or "Article"
+        my $ObjectType = $DynamicFieldConfig->{ObjectType};
 
-        my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
-            DynamicFieldConfig => $DynamicFieldConfig,
-            FieldType          => 'Edit',
+        if ( IsHashRefWithData($DynamicFieldConfig) && $DynamicFieldConfig->{Name} ) {
+            my $Info = $Self->_QueryDynamicFieldInfoGet(
+                ObjectType         => $ObjectType,
+                DynamicFieldConfig => $DynamicFieldConfig,
+            );
+
+            $Data = $Info;
+        }
+    }
+    elsif ( $Param{Name} =~ m{\AArticle_(.+)\z} ) {
+        my %DenormalizedArticleFields = $Self->_DenormalizedArticleFieldsGet(
+            ExternalFieldsGet => 1
         );
+        my $ArticleParam = $1;
+        if ($ArticleParam) {
+            for my $FieldStructure (qw(Fields ExternalFields)) {
+                if ( $DenormalizedArticleFields{$FieldStructure}->{$ArticleParam} ) {
+                    for my $Property (qw(Type ReturnType)) {
+                        if ( $DenormalizedArticleFields{$FieldStructure}->{$ArticleParam}->{$Property} ) {
+                            $Data->{$Property}
+                                = $DenormalizedArticleFields{$FieldStructure}->{$ArticleParam}->{$Property};
+                        }
+                    }
+                    return $Data;
+                }
+            }
+        }
+    }
+    elsif ( $Param{Name} =~ m{\AAttachment_(.+)\z} ) {
+        my $SearchArticleDataMIMEAttachmentObject
+            = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
 
-        return $FieldValueType->{"DynamicField_$DynamicFieldName"} || 'SCALAR';
+        my $AttachmentParam = $1;
+        if ($AttachmentParam) {
+            for my $FieldStructure (qw(Fields ExternalFields)) {
+                if ( $SearchArticleDataMIMEAttachmentObject->{$FieldStructure}->{$AttachmentParam} ) {
+                    for my $Property (qw(Type ReturnType)) {
+                        if (
+                            $SearchArticleDataMIMEAttachmentObject->{$FieldStructure}->{$AttachmentParam}->{$Property}
+                            )
+                        {
+                            $Data->{$Property}
+                                = $SearchArticleDataMIMEAttachmentObject->{$FieldStructure}->{$AttachmentParam}
+                                ->{$Property};
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    # return type is either specified or scalar
-    if ( $Self->{IndexFields}->{ $Param{Name} } && $Self->{IndexFields}->{ $Param{Name} }->{ReturnType} ) {
-        return $Self->{IndexFields}->{ $Param{Name} }->{ReturnType};
+    return $Data;
+}
+
+=head2 _QueryDynamicFieldInfoGet()
+
+get info for dynamic field in query params
+
+    my $Result = $SearchQueryTicketObject->_QueryDynamicFieldInfoGet(
+        DynamicFieldConfig => $DynamicFieldConfig,
+    );
+
+=cut
+
+sub _QueryDynamicFieldInfoGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(DynamicFieldConfig)) {
+
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
     }
 
-    return 'SCALAR';
+    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+
+    my $DynamicFieldConfig     = $Param{DynamicFieldConfig};
+    my $DynamicFieldColumnName = 'DynamicField_' . $DynamicFieldConfig->{Name};
+
+    # get return type for dynamic field
+    my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
+        DynamicFieldConfig => $DynamicFieldConfig,
+        FieldType          => 'Edit',
+    );
+
+    # set type of field
+    my $Type = 'String';
+
+    if (
+        $DynamicFieldConfig->{FieldType}
+        && (
+            $DynamicFieldConfig->{FieldType} eq 'Date'
+            || $DynamicFieldConfig->{FieldType} eq 'DateTime'
+        )
+        )
+    {
+        $Type = 'Date';
+    }
+
+    # apply properties that are set in object fields mapping
+    return {
+        ColumnName => $DynamicFieldColumnName,
+        Name       => $DynamicFieldConfig->{Name},
+        ReturnType => $FieldValueType->{$DynamicFieldColumnName} || 'SCALAR',
+        Type       => $Type,
+    };
+}
+
+=head2 _DenormalizedArticleFieldsGet()
+
+get all article fields including article data mime
+
+    my %Fields = $SearchTicketESObject->_DenormalizedArticleFieldsGet(
+        ExternalFieldsGet => 1 # optional
+    );
+
+=cut
+
+sub _DenormalizedArticleFieldsGet {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
+    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
+
+    my $ArticleFields         = $SearchArticleObject->{Fields};
+    my $ArticleDataMIMEFields = $SearchArticleDataMIMEObject->{Fields};
+
+    my %AllArticleFields = (
+        Fields => {
+            %{$ArticleFields}, %{$ArticleDataMIMEFields}
+        }
+    );
+
+    if ( $Param{ExternalFieldsGet} ) {
+        my $ArticleExternalFields         = $SearchArticleObject->{ExternalFields}         // {};
+        my $ArticleDataMIMEExternalFields = $SearchArticleDataMIMEObject->{ExternalFields} // {};
+
+        %{ $AllArticleFields{ExternalFields} } = ( %{$ArticleExternalFields}, %{$ArticleDataMIMEExternalFields} );
+    }
+
+    return %AllArticleFields;
 }
 
 1;
