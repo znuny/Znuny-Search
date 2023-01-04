@@ -105,6 +105,9 @@
         <File Permission="770" Location="var/scripts/znuny-package.sh"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/TestPerformance.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/ES/AttachmentContent.pm"/>
+        <File Permission="660" Location="scripts/test/Search/Ticket.t"/>
+        <File Permission="660" Location="scripts/test/Search/Reindex.t"/>
+
     </Filelist>
 
     <CodeInstall Type="post"><![CDATA[
