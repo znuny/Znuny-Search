@@ -133,6 +133,20 @@ my $Object = {
     }
 };
 
+my $AdminUserLogin = $UserObject->UserLookup(
+    UserID => $Object->{Basic}->{User}->{ID},
+    Silent => 1,
+);
+
+# apply create by, change by properties
+for my $Property (qw(CreateByLogin ChangeByLogin)) {
+    $Object->{Basic}->{$Property}->{Name} = $AdminUserLogin;
+    $LookupQueryParams{$Property} = $AdminUserLogin;
+
+    my $PropertyWithoutLogin = substr $Property, 0, -5;
+    $QueryParams{$PropertyWithoutLogin} = $Object->{Basic}->{User}->{ID};
+}
+
 my $QueueID = $QueueObject->QueueAdd(
     Name            => $Object->{Basic}->{Queue}->{Name},
     ValidID         => 1,
@@ -141,7 +155,7 @@ my $QueueID = $QueueObject->QueueAdd(
     SalutationID    => 1,
     SignatureID     => 1,
     Comment         => 'Some comment',
-    UserID          => 1,
+    UserID          => $Object->{Basic}->{User}->{ID},
 );
 $LookupQueryParams{Queue} = $Object->{Basic}->{Queue}->{Name};
 $QueryParams{QueueID}     = $QueueID;
@@ -154,7 +168,7 @@ $Self->True(
 my $SLAID = $SLAObject->SLAAdd(
     Name    => $Object->{Basic}->{SLA}->{Name},
     ValidID => 1,
-    UserID  => 1,
+    UserID  => $Object->{Basic}->{User}->{ID},
 );
 $LookupQueryParams{SLA} = $Object->{Basic}->{SLA}->{Name};
 $QueryParams{SLAID}     = $SLAID;
@@ -177,7 +191,7 @@ $Self->True(
 my $TypeID = $TypeObject->TypeAdd(
     Name    => $Object->{Basic}->{Type}->{Name},
     ValidID => 1,
-    UserID  => 1,
+    UserID  => $Object->{Basic}->{User}->{ID},
 );
 $LookupQueryParams{Type} = $Object->{Basic}->{Type}->{Name};
 $QueryParams{TypeID}     = $TypeID;
@@ -190,7 +204,7 @@ $Self->True(
 my $ServiceID = $ServiceObject->ServiceAdd(
     Name    => $Object->{Basic}->{Service}->{Name},
     ValidID => 1,
-    UserID  => 1,
+    UserID  => $Object->{Basic}->{User}->{ID},
 );
 $LookupQueryParams{Service} = $Object->{Basic}->{Service}->{Name};
 $QueryParams{ServiceID}     = $ServiceID;
@@ -237,7 +251,7 @@ $Self->True(
 my $PrioID = $PriorityObject->PriorityAdd(
     Name    => $Object->{Basic}->{Priority}->{Name},
     ValidID => 1,
-    UserID  => 1,
+    UserID  => $Object->{Basic}->{User}->{ID},
 );
 $LookupQueryParams{Priority} = $Object->{Basic}->{Priority}->{Name};
 $QueryParams{PriorityID}     = $PrioID;
@@ -252,7 +266,7 @@ my $StateID = $StateObject->StateAdd(
     Comment => 'some comment',
     ValidID => 1,
     TypeID  => 1,
-    UserID  => 1,
+    UserID  => $Object->{Basic}->{User}->{ID},
 );
 $LookupQueryParams{State} = $Object->{Basic}->{State}->{Name};
 $QueryParams{StateID}     = $StateID;
@@ -272,7 +286,7 @@ my $CustomerCompanyID = $CustomerCompanyObject->CustomerCompanyAdd(
     CustomerCompanyURL     => 'http://www.example.org',
     CustomerCompanyComment => 'some comment',
     ValidID                => 1,
-    UserID                 => 1,
+    UserID                 => $Object->{Basic}->{User}->{ID},
 );
 $LookupQueryParams{Customer} = $Object->{Basic}->{Customer}->{Name};
 $QueryParams{CustomerID}     = $CustomerCompanyID;
@@ -291,7 +305,7 @@ my $UserLogin = $CustomerUserObject->CustomerUserAdd(
     UserPassword   => 'some-pass',                              # not required
     UserEmail      => 'email@mail.com',
     ValidID        => 1,
-    UserID         => 1,
+    UserID         => $Object->{Basic}->{User}->{ID},
 );
 
 # Customer equals but is stil lookuped for TicketCreate function to match
@@ -579,7 +593,7 @@ my $Success = $QueueObject->QueueUpdate(
     SystemAddressID => 1,
     SalutationID    => 1,
     SignatureID     => 1,
-    UserID          => 1,
+    UserID          => $Object->{Basic}->{User}->{ID},
     FollowUpID      => 1,
     Comment         => 'Some Comment2',
     DefaultSignKey  => '',
