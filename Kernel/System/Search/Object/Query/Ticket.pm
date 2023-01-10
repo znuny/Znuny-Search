@@ -122,10 +122,21 @@ sub LookupTicketFields {
             Module       => "Kernel::System::State",
             FunctionName => "StateLookup",
             ParamName    => "State"
+        },
+        ChangeByLogin => {
+            Module        => "Kernel::System::User",
+            FunctionName  => "UserLookup",
+            ParamName     => "UserLogin",
+            AttributeName => "ChangeBy"
+        },
+        CreateByLogin => {
+            Module        => "Kernel::System::User",
+            FunctionName  => "UserLookup",
+            ParamName     => "UserLogin",
+            AttributeName => "CreateBy"
         }
     };
 
-    # TO-DO support for create by, change by
     my $CustomerLookupField = {
         Customer => {
             Module       => "Kernel::System::CustomerCompany",
@@ -139,29 +150,24 @@ sub LookupTicketFields {
     if ( $Param{QueryParams}->{Customer} ) {
         my $Key = 'Customer';
 
-        my $LookupField = $CustomerLookupField->{$Key};
-        my $Module      = $Kernel::OM->Get( $LookupField->{Module} );
-
+        my $LookupField  = $CustomerLookupField->{$Key};
+        my $Module       = $Kernel::OM->Get( $LookupField->{Module} );
+        my $ParamName    = $LookupField->{ParamName};
         my $FunctionName = $LookupField->{FunctionName};
+        my $Param        = $Param{QueryParams}->{Customer};
 
         my @IDs;
-
-        my $Param = $Param{QueryParams}->{Customer};
-
         my @Param = IsString( delete $Param{QueryParams}->{Customer} )
             ?
             ($Param)
             : @{$Param};
         VALUE:
         for my $Value (@Param) {
-            my $ParamName = $LookupField->{ParamName};
-
             my %CustomerCompanyList = $Module->$FunctionName(
                 "$ParamName" => $Value
             );
 
             my $CustomerID;
-
             CUSTOMER_COMPANY:
             for my $CustomerCompanyID ( sort keys %CustomerCompanyList ) {
                 my %CustomerCompany = $Module->CustomerCompanyGet(
@@ -195,7 +201,6 @@ sub LookupTicketFields {
 
     if ( $Param{QueryParams}->{CustomerUser} ) {
         my $Param = $Param{QueryParams}->{CustomerUser};
-
         my @Param = IsString( delete $Param{QueryParams}->{CustomerUser} )
             ?
             ($Param)
@@ -205,6 +210,7 @@ sub LookupTicketFields {
             Value      => \@Param,
             ReturnType => 'SCALAR',
         };
+
         $LookupQueryParams->{CustomerUserID} = $LookupQueryParam;
     }
 
@@ -217,9 +223,12 @@ sub LookupTicketFields {
     for my $Key ( sort keys %UsedLookupFields ) {
 
         # lookup every field for ID
-        my $LookupField = $LookupFields->{$Key};
-        my $Module      = $Kernel::OM->Get( $LookupField->{Module} );
-        my $Param       = $Param{QueryParams}->{$Key};
+        my $LookupField   = $LookupFields->{$Key};
+        my $Module        = $Kernel::OM->Get( $LookupField->{Module} );
+        my $Param         = $Param{QueryParams}->{$Key};
+        my $FunctionName  = $LookupField->{FunctionName};
+        my $ParamName     = $LookupField->{ParamName};
+        my $AttributeName = $LookupField->{AttributeName} || $Key . 'ID';
 
         my @IDs;
         my @Param = IsString($Param)
@@ -228,10 +237,8 @@ sub LookupTicketFields {
             : @{$Param};
         VALUE:
         for my $Value (@Param) {
-            my $ParamName = $LookupField->{ParamName};
 
-            my $FunctionName = $LookupField->{FunctionName};
-            my $FieldID      = $Module->$FunctionName(
+            my $FieldID = $Module->$FunctionName(
                 "$ParamName" => $Value
             );
 
@@ -252,7 +259,7 @@ sub LookupTicketFields {
             ReturnType => 'SCALAR',
         };
 
-        $LookupQueryParams->{ $Key . 'ID' } = $LookupQueryParam;
+        $LookupQueryParams->{$AttributeName} = $LookupQueryParam;
     }
 
     return $LookupQueryParams;
@@ -290,7 +297,7 @@ sub _QueryParamsPrepare {
     # so response would always be empty
     if ( delete $LookupQueryParams->{Error} ) {
         $QueryParams = {
-            TicketID => -1
+            TicketID => -1,
         };
     }
 
@@ -315,8 +322,8 @@ sub _QueryParamsPrepare {
     }
 
     my $SearchParams = $Self->SUPER::_QueryParamsPrepare(
+        %Param,
         QueryParams => $QueryParams,
-        %Param
     ) // {};
 
     if ( ref $SearchParams eq 'HASH' && $SearchParams->{Error} ) {
