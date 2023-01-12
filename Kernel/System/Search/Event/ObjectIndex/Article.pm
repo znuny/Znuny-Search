@@ -252,7 +252,7 @@ sub _LinkedTablesArticleAction {
 
         $ValidIndexes{$IndexRealName} = $IndexName;
 
-        $ValidIndexes{Modules}{$IndexRealName}
+        $ValidIndexes{Modules}->{$IndexRealName}
             = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
     }
 
@@ -290,12 +290,12 @@ sub _LinkedTablesArticleAction {
                 Fields       => [
                     [
                         "$ValidIndexes{$ArticleDataTable}_"
-                            . $ValidIndexes{Modules}{$ArticleDataTable}->{Config}->{Identifier}
+                            . $ValidIndexes{Modules}->{$ArticleDataTable}->{Config}->{Identifier}
                     ]
                 ]
             );
 
-            my @ArticleIDs = map { $_->{ $ValidIndexes{Modules}{$ArticleDataTable}->{Config}->{Identifier} } }
+            my @ArticleIDs = map { $_->{ $ValidIndexes{Modules}->{$ArticleDataTable}->{Config}->{Identifier} } }
                 @{ $ArticlesToDelete->{ $ValidIndexes{$ArticleDataTable} } };
 
             next ARTICLEDATATABLE if !scalar @ArticleIDs;

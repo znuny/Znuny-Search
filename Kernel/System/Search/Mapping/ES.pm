@@ -1222,13 +1222,13 @@ sub _ResponseDataFormat {
                                     )
                                 {
                                     for my $DualNestedChildKey ( sort keys %{ $ChildHit->{inner_hits} } ) {
-                                        $DualNestedChildKey =~ /$ChildKey\.(.*)/;
+                                        $DualNestedChildKey =~ m{$ChildKey\.(.*)};
                                         my $DualNestedChildRealName = $1;
                                         for my $DualNestedChildHit (
                                             @{ $ChildHit->{inner_hits}->{$DualNestedChildKey}->{hits}->{hits} }
                                             )
                                         {
-                                            push @{ $ChildHit->{_source}{$DualNestedChildRealName} },
+                                            push @{ $ChildHit->{_source}->{$DualNestedChildRealName} },
                                                 $DualNestedChildHit->{_source};
                                         }
                                     }
@@ -1237,13 +1237,13 @@ sub _ResponseDataFormat {
                                 }
                                 elsif ( IsHashRefWithData( $ChildHit->{inner_hits} ) ) {
                                     for my $DualNestedChildKey ( sort keys %{ $ChildHit->{inner_hits} } ) {
-                                        $DualNestedChildKey =~ /$ChildKey\.(.*)/;
+                                        $DualNestedChildKey =~ m{$ChildKey\.(.*)};
                                         my $DualNestedChildRealName = $1;
                                         for my $DualNestedChildHit (
                                             @{ $ChildHit->{inner_hits}->{$DualNestedChildKey}->{hits}->{hits} }
                                             )
                                         {
-                                            push @{ $ChildHit->{_source}{$DualNestedChildRealName} },
+                                            push @{ $ChildHit->{_source}->{$DualNestedChildRealName} },
                                                 $DualNestedChildHit->{_source};
                                         }
                                     }
@@ -1310,7 +1310,7 @@ sub _BuildQueryBodyFromParams {
 
             my $Query = $Result->{Query};
 
-            push @{ $Query{query}{bool}{ $Result->{Section} } }, $Query;
+            push @{ $Query{query}->{bool}->{ $Result->{Section} } }, $Query;
         }
     }
 

@@ -439,15 +439,15 @@ sub ExecuteSearch {
 
     # segregate search params
     for my $SearchParam ( sort keys %{$SearchParams} ) {
-        if ( $SearchParam =~ /^Article_DynamicField_(.+)/ ) {
+        if ( $SearchParam =~ m{^Article_DynamicField_(.+)} ) {
             $SegregatedQueryParams->{ArticleDynamicFields}->{$1} =
                 $SearchParams->{$SearchParam};
         }
-        elsif ( $SearchParam =~ /^Article_(.+)/ ) {
+        elsif ( $SearchParam =~ m{^Article_(.+)} ) {
             $SegregatedQueryParams->{Articles}->{$1} =
                 $SearchParams->{$SearchParam};
         }
-        elsif ( $SearchParam =~ /^Attachment_(.+)/ ) {
+        elsif ( $SearchParam =~ m{^Attachment_(.+)} ) {
             $SegregatedQueryParams->{Attachments}->{$1} =
                 $SearchParams->{$SearchParam};
         }
@@ -486,7 +486,7 @@ sub ExecuteSearch {
         }
     };
 
-    # check if there was passed any attachments
+    # check if there were any attachments passed
     # in "Fields" param, also check if result type ne COUNT to do not break query
     if ( keys %AttachmentFields && $Param{ResultType} ne "COUNT" ) {
 
@@ -517,13 +517,13 @@ sub ExecuteSearch {
                 my $AttachmentQuery = $Result->{Query};
 
                 # append query
-                push @{ $AttachmentNestedQuery->{nested}{query}{bool}{ $Result->{Section} } }, $AttachmentQuery;
+                push @{ $AttachmentNestedQuery->{nested}->{query}->{bool}->{ $Result->{Section} } }, $AttachmentQuery;
             }
         }
     }
 
-    my $NestedAttachmentQueryBuilt     = IsHashRefWithData( $AttachmentNestedQuery->{nested}{query} ) ? 1 : 0;
-    my $NestedAttachmentFieldsToSelect = keys %AttachmentFields                                       ? 1 : 0;
+    my $NestedAttachmentQueryBuilt     = IsHashRefWithData( $AttachmentNestedQuery->{nested}->{query} ) ? 1 : 0;
+    my $NestedAttachmentFieldsToSelect = keys %AttachmentFields                                         ? 1 : 0;
 
     my $ArticleNestedQuery = {
         nested => {
@@ -531,7 +531,7 @@ sub ExecuteSearch {
         }
     };
 
-    # check if there was passed any article/article dynamic fields
+    # check if there were any article/article dynamic fields passed
     # in "Fields" param, also check if result type ne COUNT to do not break query
     if ( keys %ArticleFields && $Param{ResultType} ne "COUNT" ) {
 
@@ -568,7 +568,7 @@ sub ExecuteSearch {
                 my $ArticleQuery = $Result->{Query};
 
                 # append query
-                push @{ $ArticleNestedQuery->{nested}{query}{bool}{ $Result->{Section} } }, $ArticleQuery;
+                push @{ $ArticleNestedQuery->{nested}->{query}->{bool}->{ $Result->{Section} } }, $ArticleQuery;
             }
         }
     }
@@ -581,14 +581,14 @@ sub ExecuteSearch {
         my %IgnoreDynamicFieldProcessing;
 
         # search for event (live indexation) data
-        if ( $Param{Event} && $Param{Event}{Type} ) {
-            my $NewName = $Param{Event}{Data}{DynamicField}{Article}{New}{Name};
+        if ( $Param{Event} && $Param{Event}->{Type} ) {
+            my $NewName = $Param{Event}->{Data}->{DynamicField}->{Article}->{New}->{Name};
 
             # ignore dynamic field further processing as it changed it's name
             # on the OTRS side when updating, but there is a need to search for
             # old name in ES engine
-            if ( $Param{Event}{Type} eq 'DynamicFieldUpdate' ) {
-                my $OldName = $Param{Event}{Data}{DynamicField}{Article}{Old}{Name};
+            if ( $Param{Event}->{Type} eq 'DynamicFieldUpdate' ) {
+                my $OldName = $Param{Event}->{Data}->{DynamicField}->{Article}->{Old}->{Name};
 
                 if ( $NewName && $OldName && $ArticleDynamicFieldsSearchParams->{$OldName} ) {
                     $IgnoreDynamicFieldProcessing{$OldName} = 1;
@@ -597,7 +597,7 @@ sub ExecuteSearch {
 
             # ignore dynamic field further processing as it does not exists
             # on the OTRS side when removing
-            elsif ( $Param{Event}{Type} eq 'DynamicFieldDelete' ) {
+            elsif ( $Param{Event}->{Type} eq 'DynamicFieldDelete' ) {
 
                 if ( $NewName && $ArticleDynamicFieldsSearchParams->{$NewName} ) {
                     $IgnoreDynamicFieldProcessing{$NewName} = 1;
@@ -640,13 +640,13 @@ sub ExecuteSearch {
 
                 my $ArticleQuery = $Result->{Query};
 
-                push @{ $ArticleNestedQuery->{nested}{query}{bool}{ $Result->{Section} } }, $ArticleQuery;
+                push @{ $ArticleNestedQuery->{nested}->{query}->{bool}->{ $Result->{Section} } }, $ArticleQuery;
             }
         }
     }
 
-    my $NestedQueryBuilt     = IsHashRefWithData( $ArticleNestedQuery->{nested}{query} ) ? 1 : 0;
-    my $NestedFieldsToSelect = keys %ArticleFields                                       ? 1 : 0;
+    my $NestedQueryBuilt     = IsHashRefWithData( $ArticleNestedQuery->{nested}->{query} ) ? 1 : 0;
+    my $NestedFieldsToSelect = keys %ArticleFields                                         ? 1 : 0;
 
     # apply nested article query if there is any valid query param
     # from either article or attachment
@@ -659,10 +659,10 @@ sub ExecuteSearch {
         # apply in article query an attachment query if there is any
         # query param or field regarding attachment
         if ($NestedAttachmentQueryBuilt) {
-            push @{ $ArticleNestedQuery->{nested}{query}{bool}{must} }, $AttachmentNestedQuery;
+            push @{ $ArticleNestedQuery->{nested}->{query}->{bool}->{must} }, $AttachmentNestedQuery;
         }
 
-        push @{ $Query->{Body}{query}{bool}{must} }, $ArticleNestedQuery;
+        push @{ $Query->{Body}->{query}->{bool}->{must} }, $ArticleNestedQuery;
     }
 
     # execute query
@@ -1411,28 +1411,28 @@ sub ValidFieldsPrepare {
 
             # get single "Article" field
             if ( $AllArticleFields{$ArticleField} ) {
-                $ValidFields{Article}{$ArticleField} = $AllArticleFields{$ArticleField};
+                $ValidFields{Article}->{$ArticleField} = $AllArticleFields{$ArticleField};
             }
 
             # get all "Article" fields
             elsif ( $ArticleField && $ArticleField eq '*' ) {
                 for my $ArticleField ( sort keys %AllArticleFields ) {
-                    $ValidFields{Article}{$ArticleField} = $AllArticleFields{$ArticleField};
+                    $ValidFields{Article}->{$ArticleField} = $AllArticleFields{$ArticleField};
                 }
             }
         }
 
         # apply "Attachment" fields
-        elsif ( $ParamField =~ /^Attachment_(.+)$/ ) {
+        elsif ( $ParamField =~ m{^Attachment_(.+)$} ) {
             my $AttachmentField = $1;
 
             if ( $AttachmentField && $AttachmentField eq '*' ) {
                 for my $AttachmentFieldName ( sort keys %AllAttachmentFields ) {
-                    $ValidFields{Attachment}{$AttachmentFieldName} = $AllAttachmentFields{$AttachmentFieldName};
+                    $ValidFields{Attachment}->{$AttachmentFieldName} = $AllAttachmentFields{$AttachmentFieldName};
                 }
             }
             else {
-                $ValidFields{Attachment}{$AttachmentField} = $AllAttachmentFields{$AttachmentField};
+                $ValidFields{Attachment}->{$AttachmentField} = $AllAttachmentFields{$AttachmentField};
             }
         }
     }

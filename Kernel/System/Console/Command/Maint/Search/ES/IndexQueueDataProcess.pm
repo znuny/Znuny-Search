@@ -167,12 +167,11 @@ sub Run {
     }
 
     $Self->Print(
-        "<green>$RebuildedObjectSets->{Success} object(s) sets was rebuilded for Elasticsearch.</green>\n"
+        "<green>Content of $RebuildedObjectSets->{Success} object sets was rebuilded for Elasticsearch.</green>\n"
     );
     if ( $RebuildedObjectSets->{Failed} ) {
         $Self->Print(
-            "<red>$RebuildedObjectSets->{Failed} object(s) sets rebuilding failed for Elasticsearch.\n
-            Those object ids wasn't deleted from the queue.</red>\n"
+            "<red>Rebuild of content failed for $RebuildedObjectSets->{Failed} object sets for Elasticsearch.\n</red>\n"
         );
     }
 

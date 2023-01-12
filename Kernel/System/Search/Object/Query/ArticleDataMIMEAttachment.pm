@@ -73,7 +73,7 @@ sub Search {
 
     if ( $Param{ResultType} ne 'COUNT' ) {
 
-        # retrive human readable attachment content
+        # retrieve human readable attachment content
         push @{ $Query->{Query}->{Body}->{fields} }, 'AttachmentContent';
     }
 
