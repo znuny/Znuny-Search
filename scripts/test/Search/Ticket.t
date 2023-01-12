@@ -486,13 +486,13 @@ my %Matched;
 # that is: Kernel/System/Search/Object/Default/Ticket.pm
 for my $Property ( sort keys %BasicTicketSearch ) {
     if ( $TicketFieldsToCheck{$Property} ) {
-        $Matched{Fields}{$Property} = 1;
+        $Matched{Fields}->{$Property} = 1;
     }
     elsif ( $TicketExternalFieldsToCheck{$Property} ) {
-        $Matched{ExternalFields}{$Property} = 1;
+        $Matched{ExternalFields}->{$Property} = 1;
     }
     else {
-        $Matched{FieldNotFromConfig}{$Property} = 1;
+        $Matched{FieldNotFromConfig}->{$Property} = 1;
     }
 }
 

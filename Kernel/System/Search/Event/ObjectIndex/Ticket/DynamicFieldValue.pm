@@ -66,7 +66,7 @@ sub Run {
     $SearchObject->ObjectIndexRemove(
         Index => 'DynamicFieldValue',
 
-        # use customized id which contains of "f*field_id*o*object_id*"
+        # use customized ID of form "f*field_id*o*object_id*"
         QueryParams => {
             _id => \@QueryParamsID,
         },

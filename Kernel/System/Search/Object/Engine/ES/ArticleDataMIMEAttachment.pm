@@ -211,7 +211,7 @@ sub SearchFormat {
         $LogObject->Log(
             Priority => 'error',
             Message =>
-                "Specified result type: $Param{ResultType} isn't supported! Default value: \"ARRAY\" will be used instead.",
+                "Specified result type: $Param{ResultType} isn't supported! Default value: 'ARRAY' will be used instead.",
         );
 
         # revert to default result type
@@ -318,7 +318,7 @@ sub ValidFieldsPrepare {
     }
     else {
         for my $ParamField ( @{ $Param{Fields} } ) {
-            if ( $ParamField =~ /^Attachment_(.+)/ ) {
+            if ( $ParamField =~ m{^Attachment_(.+)} ) {
                 my $AttachmentField = $1;
                 if ( $AttachmentField && $AttachmentField eq '*' ) {
                     for my $AttachmentFieldName ( sort keys %AllAttachmentFields ) {

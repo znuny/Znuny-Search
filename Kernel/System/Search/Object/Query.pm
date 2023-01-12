@@ -381,7 +381,7 @@ sub ObjectIndexRemove {
         NoPermissions => $Param{NoPermissions},
     );
 
-    return if ( ref $QueryParams eq 'HASH' && $QueryParams->{Error} );
+    return if ref $QueryParams eq 'HASH' && $QueryParams->{Error};
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexRemove(

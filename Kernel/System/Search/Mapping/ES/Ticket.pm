@@ -113,7 +113,7 @@ sub _ResponseDataFormat {
                                     )
                                 {
                                     for my $DualNestedChildKey ( sort keys %{ $ChildHit->{inner_hits} } ) {
-                                        $DualNestedChildKey =~ /$ChildKey\.(.*)/;
+                                        $DualNestedChildKey =~ m{$ChildKey\.(.*)};
                                         my $DualNestedChildRealName = $1;
                                         for my $DualNestedChildHit (
                                             @{ $ChildHit->{inner_hits}->{$DualNestedChildKey}->{hits}->{hits} }
@@ -124,7 +124,7 @@ sub _ResponseDataFormat {
                                                     = decode_base64( $DualNestedChildHit->{_source}->{Content} );
                                             }
 
-                                            push @{ $ChildHit->{_source}{$DualNestedChildRealName} },
+                                            push @{ $ChildHit->{_source}->{$DualNestedChildRealName} },
                                                 $DualNestedChildHit->{_source};
                                         }
                                     }

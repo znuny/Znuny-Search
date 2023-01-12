@@ -548,7 +548,7 @@ sub Run {
             && $Count < 100
             )
         {
-            $NodeName =~ s/\d+$/$Count/;
+            $NodeName =~ s{\d+$}{$Count};
             $Count++;
         }
 

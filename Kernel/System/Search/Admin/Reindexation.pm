@@ -94,8 +94,8 @@ sub BuildReindexationSection {
         my $Date       = $DataEquality->{$IndexName}->{Date};
 
         my $DisplayData = $Percentage ? "$Percentage% ($Date)" : "Not found";
-        my $Icon        = $ReindexationStatus->{$IndexName}{Status}
-            ? $IconMapping{ $ReindexationStatus->{$IndexName}{Status} }
+        my $Icon        = $ReindexationStatus->{$IndexName}->{Status}
+            ? $IconMapping{ $ReindexationStatus->{$IndexName}->{Status} }
             : '';
         $LayoutObject->Block(
             Name => 'Index',
@@ -396,7 +396,7 @@ sub StopReindexation {
     my $AccessOk         = grep { $_ eq $PID{PID} } @{$UserProcs};
     my $AllUsersAccessOk = grep { $_ eq $PID{PID} } @{$AllProcs};
 
-    return if ( !$AccessOk && $AllUsersAccessOk );
+    return if !$AccessOk && $AllUsersAccessOk;
 
     my $Exists = $AccessOk || $AllUsersAccessOk ? 1 : 0;
 
