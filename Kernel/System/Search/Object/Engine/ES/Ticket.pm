@@ -303,6 +303,8 @@ On executing ticket search by Kernel::System::Search:
             CustomerUser => ['customeruser123', 'customeruser12345'], # same as CustomerUserID,
                                                                       # possible to use because of compatibility with
                                                                       # Ticket API
+            ChangeByLogin => ['root@localhost'],
+            CreateByLogin => ['root@localhost'],
         },
         Fields => [['Ticket_TicketID', 'Ticket_TicketNumber']] # specify field from field mapping
             # to get:

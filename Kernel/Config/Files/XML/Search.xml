@@ -372,14 +372,14 @@
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Daemon::SchedulerCronTaskManager::Task###ES-AttachmentContent" Required="0" Valid="0">
-        <Description Translatable="1">Cron task for re-indexing active search index cluster with mapping check.</Description>
+    <Setting Name="Daemon::SchedulerCronTaskManager::Task###ES-IndexQueueDataProcess" Required="0" Valid="1">
+        <Description Translatable="1">Cron task for executing queued operations for active search indexes.</Description>
         <Navigation>Daemon::SchedulerCronTaskManager::Task</Navigation>
         <Value>
             <Hash>
-                <Item Key="TaskName">AttachmentContent</Item>
+                <Item Key="TaskName">IndexQueueDataProcess</Item>
                 <Item Key="Schedule">*/15 * * * *</Item> <!-- Every 15 min -->
-                <Item Key="Module">Kernel::System::Console::Command::Maint::Search::ES::AttachmentContent</Item>
+                <Item Key="Module">Kernel::System::Console::Command::Maint::Search::ES::IndexQueueDataProcess</Item>
                 <Item Key="Function">Execute</Item>
             </Hash>
         </Value>

@@ -201,6 +201,13 @@ sub Run {
         ObjectID => $Param{Data}->{TicketID},
     );
 
+    # add ticket id to rebuild attachments later
+    $SearchChildObject->ObjectToProcessAdd(
+        ObjectID  => $Param{Data}->{TicketID},
+        Index     => 'Ticket',
+        Operation => 'ObjectIndexSet',
+    );
+
     return 1;
 }
 

@@ -104,7 +104,7 @@
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
         <File Permission="770" Location="var/scripts/znuny-package.sh"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/TestPerformance.pm"/>
-        <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/ES/AttachmentContent.pm"/>
+        <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/ES/IndexQueueDataProcess.pm"/>
         <File Permission="660" Location="scripts/test/Search/Ticket.t"/>
         <File Permission="660" Location="scripts/test/Search/Reindex.t"/>
 
@@ -161,9 +161,11 @@
             <Column Name="percentage" Required="true" Size="5,2" Type="DECIMAL" />
             <Column Name="create_time" Required="true" Type="DATE" />
         </TableCreate>
-        <TableCreate Name="es_attachment_content">
+        <TableCreate Name="search_object_operation_queue">
             <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
-            <Column Name="ticket_id" Required="true" Type="INTEGER" />
+            <Column Name="object_id" Required="true" Size="100" Type="VARCHAR" />
+            <Column Name="operation" Required="true" Size="100" Type="VARCHAR" />
+            <Column Name="index_name" Required="true" Size="100" Type="VARCHAR" />
         </TableCreate>
     </DatabaseInstall>
     <DatabaseUninstall>
@@ -171,6 +173,6 @@
         <TableDrop Name="search_cluster_states"/>
         <TableDrop Name="search_cluster_nodes"/>
         <TableDrop Name="search_cluster_data_equality"/>
-        <TableDrop Name="es_attachment_content"/>
+        <TableDrop Name="search_object_operation_queue"/>
     </DatabaseUninstall>
 </otrs_package>
