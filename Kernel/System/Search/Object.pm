@@ -315,6 +315,219 @@ sub ValidFieldsPrepare {
     );
 }
 
+=head2 ObjectToProcessSearch()
+
+get queued object
+
+    my $Success = $SearchChildObject->ObjectToProcessSearch(
+        Index           => 'Ticket',
+        ObjectID        => 1,                # optional
+        Operation       => 'ObjectIndexAdd', # optional
+    );
+
+=cut
+
+sub ObjectToProcessSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw( Index )) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $SQL = 'SELECT id, object_id, operation, index_name FROM search_object_operation_queue
+              WHERE index_name = ?';
+
+    my $BindValues = [ \$Param{Index} ];
+
+    if ( $Param{ObjectID} ) {
+        $SQL .= ' AND object_id = ?';
+        push @{$BindValues}, \$Param{ObjectID};
+    }
+    if ( $Param{Operation} ) {
+        $SQL .= ' AND operation = ?';
+        push @{$BindValues}, \$Param{Operation};
+    }
+
+    return if !$DBObject->Prepare(
+        SQL  => $SQL,
+        Bind => $BindValues,
+    );
+
+    my @Data;
+    while ( my @Row = $DBObject->FetchrowArray() ) {
+        push @Data, {
+            ID        => $Row[0],
+            ObjectID  => $Row[1],
+            Operation => $Row[2],
+            Index     => $Row[3],
+        };
+    }
+
+    return \@Data;
+}
+
+=head2 ObjectToProcessAdd()
+
+add object id for specified operation to the queue
+
+    my $Success = $SearchChildObject->ObjectToProcessAdd(
+        Index           => 'Ticket',
+        ObjectID        => 1,
+        Operation       => 'ObjectIndexAdd', # can be anything, but needs separate
+                                             # support if not supported now
+    );
+
+=cut
+
+sub ObjectToProcessAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(ObjectID Operation Index)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    return if $Self->ObjectToProcessExists(
+        ObjectID  => $Param{ObjectID},
+        Index     => $Param{Index},
+        Operation => $Param{Operation},
+    );
+
+    return if !$DBObject->Do(
+        SQL => 'INSERT INTO search_object_operation_queue
+                 (object_id, operation, index_name) VALUES (?, ?, ?)',
+        Bind => [ \$Param{ObjectID}, \$Param{Operation}, \$Param{Index} ],
+    );
+
+    return 1;
+}
+
+=head2 ObjectToProcessExists()
+
+check if object data was added into the operation queue
+
+    my $ObjectID = $SearchChildObject->ObjectToProcessExists(
+        ObjectID  => 1,
+        Index     => 'Ticket',
+        Operation => 'ObjectIndexAdd',
+    );
+
+=cut
+
+sub ObjectToProcessExists {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(ObjectID Operation Index)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    return if !$DBObject->Prepare(
+        SQL => 'SELECT id FROM search_object_operation_queue
+                 WHERE object_id = ? AND operation = ? AND index_name = ?',
+        Bind => [ \$Param{ObjectID}, \$Param{Operation}, \$Param{Index} ],
+    );
+
+    my @Data = $DBObject->FetchrowArray();
+
+    return $Data[0];
+}
+
+=head2 ObjectToProcessDelete()
+
+delete id of queued object data
+
+    my $Success = $SearchChildObject->ObjectToProcessDelete(
+        ID  => 1,
+
+        # OR
+
+        ObjectID => 1,
+        Operation => 'ObjectIndexAdd',
+        Index => 'Ticket',
+    );
+
+=cut
+
+sub ObjectToProcessDelete {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !$Param{ID} && ( !$Param{ObjectID} || !$Param{Operation} || !( $Param{Index} ) ) ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Either ID or ObjectID and Operation and Index is needed!",
+        );
+        return;
+    }
+
+    if ( $Param{ID} ) {
+        return if !$DBObject->Do(
+            SQL => 'DELETE FROM search_object_operation_queue
+                     WHERE id = ?',
+            Bind => [ \$Param{ID} ],
+        );
+
+        return 1;
+    }
+    else {
+        my @BindValues;
+        my @ParamObjectID  = IsArrayRefWithData( $Param{ObjectID} ) ? @{ $Param{ObjectID} } : ( $Param{ObjectID} );
+        my @ParamBindQuery = map {'?,'} @ParamObjectID;
+        chop $ParamBindQuery[-1];
+
+        my $SQL = "DELETE FROM search_object_operation_queue
+                   WHERE object_id IN (@ParamBindQuery)
+                   AND operation = ? AND index_name = ?";
+
+        for my $BindableObjectID (@ParamObjectID) {
+            push @BindValues, \$BindableObjectID;
+        }
+        push @BindValues, \$Param{Operation},;
+        push @BindValues, \$Param{Index};
+
+        return if !$DBObject->Do(
+            SQL  => $SQL,
+            Bind => \@BindValues,
+        );
+
+        return 1;
+    }
+}
+
 =head2 _PostValidFieldsGet()
 
 set fields return type if not specified
