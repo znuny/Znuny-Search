@@ -268,7 +268,7 @@ sub SQLObjectSearch {
     }
     elsif ( IsArrayRefWithData( $Param{Fields} ) ) {
         for ( my $i = 0; $i < scalar @{ $Param{Fields} }; $i++ ) {
-            if ( $Param{Fields}->[$i] =~ /^(ValueText|ValueDate|ValueInt)$/ ) {
+            if ( $Param{Fields}->[$i] =~ m{^(ValueText|ValueDate|ValueInt)$} ) {
                 delete $Param{Fields}->[$i];
             }
         }

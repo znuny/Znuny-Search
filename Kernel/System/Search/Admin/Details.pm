@@ -91,19 +91,19 @@ sub BuildDetailsSection {
     return if !$EngineDiagnosis;
 
     my $StoredClusterState = $Self->ClusterStateGet(
-        ClusterID    => $Param{ClusterConfig}{ClusterID},
+        ClusterID    => $Param{ClusterConfig}->{ClusterID},
         ClusterState => $EngineDiagnosis
     ) || {};
 
     if ( !IsHashRefWithData($StoredClusterState) ) {
         $Self->ClusterStateSet(
-            ClusterID    => $Param{ClusterConfig}{ClusterID},
+            ClusterID    => $Param{ClusterConfig}->{ClusterID},
             ClusterState => $EngineDiagnosis,
             UserID       => $Param{UserID}
         );
 
         $StoredClusterState = $Self->ClusterStateGet(
-            ClusterID    => $Param{ClusterConfig}{ClusterID},
+            ClusterID    => $Param{ClusterConfig}->{ClusterID},
             ClusterState => $EngineDiagnosis
         ) || {};
         return if !IsHashRefWithData($StoredClusterState);
@@ -444,13 +444,13 @@ sub StateCheck {
     }
 
     my $EngineState = $Param{Engine};
-    my $StoreState  = $Param{Store}{ClusterState};
+    my $StoreState  = $Param{Store}->{ClusterState};
 
     my %State;
     for my $StoreClusterColumn ( sort keys %{ $StoreState->{Cluster} } ) {
-        $State{Cluster}{$StoreClusterColumn} = $EngineState->{Cluster}->{$StoreClusterColumn} || '';
+        $State{Cluster}->{$StoreClusterColumn} = $EngineState->{Cluster}->{$StoreClusterColumn} || '';
         if ( $StoreState->{Cluster}->{$StoreClusterColumn} ne $EngineState->{Cluster}->{$StoreClusterColumn} ) {
-            $State{Changes}{Cluster}{$StoreClusterColumn} = 'Change';
+            $State{Changes}->{Cluster}->{$StoreClusterColumn} = 'Change';
         }
     }
 
@@ -459,8 +459,8 @@ sub StateCheck {
         INDEX:
         for my $Index ( sort keys %{ $StoreState->{$Type} } ) {
             if ( !$EngineState->{$Type}->{$Index} ) {
-                $State{$Type}{$Index} = $StoreState->{$Type}->{$Index} || {};
-                $State{Changes}{$Type}{$Index}{Index} = 'Removed';
+                $State{$Type}->{$Index} = $StoreState->{$Type}->{$Index} || {};
+                $State{Changes}->{$Type}->{$Index}->{Index} = 'Removed';
                 next INDEX;
             }
 
@@ -469,14 +469,14 @@ sub StateCheck {
                 $StoreState->{$Type}->{$Index}->{$IndexAttributes}  //= '';
                 $EngineState->{$Type}->{$Index}->{$IndexAttributes} //= '';
 
-                $State{$Type}{$Index}{$IndexAttributes} = $EngineState->{$Type}->{$Index}->{$IndexAttributes};
+                $State{$Type}->{$Index}->{$IndexAttributes} = $EngineState->{$Type}->{$Index}->{$IndexAttributes};
 
                 if (
                     $StoreState->{$Type}->{$Index}->{$IndexAttributes} ne
                     $EngineState->{$Type}->{$Index}->{$IndexAttributes}
                     )
                 {
-                    $State{Changes}{$Type}{$Index}{$IndexAttributes} = 'Change';
+                    $State{Changes}->{$Type}->{$Index}->{$IndexAttributes} = 'Change';
                     next INDEXATTRIBUTES;
                 }
             }
@@ -484,8 +484,8 @@ sub StateCheck {
 
         for my $EngineClusterColumn ( sort keys %{ $EngineState->{$Type} } ) {
             if ( !grep { $_ eq $EngineClusterColumn } keys %{ $State{$Type} } ) {
-                $State{$Type}{$EngineClusterColumn} = $EngineState->{$Type}->{$EngineClusterColumn};
-                $State{Changes}{$Type}{$EngineClusterColumn}{Index} = 'Added';
+                $State{$Type}->{$EngineClusterColumn} = $EngineState->{$Type}->{$EngineClusterColumn};
+                $State{Changes}->{$Type}->{$EngineClusterColumn}->{Index} = 'Added';
             }
         }
     }

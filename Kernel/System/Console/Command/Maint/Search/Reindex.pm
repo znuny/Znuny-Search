@@ -115,10 +115,10 @@ sub Run {
     my $ClusterObject      = $Kernel::OM->Get('Kernel::System::Search::Cluster');
     my $ConfigObject       = $Kernel::OM->Get('Kernel::Config');
 
-    my $ClusterReinitializate = $Self->GetOption('cluster-reinitialize');
-    my $CheckDataEquality     = $Self->GetOption('check-data-equality');
-    my $Recreate              = $Self->GetOption('recreate');
-    my $Limit                 = $Self->GetOption('limit');
+    my $ClusterReinitialize = $Self->GetOption('cluster-reinitialize');
+    my $CheckDataEquality   = $Self->GetOption('check-data-equality');
+    my $Recreate            = $Self->GetOption('recreate');
+    my $Limit               = $Self->GetOption('limit');
 
     $Self->{Index} = $Self->GetOption('index');
 
@@ -223,7 +223,7 @@ sub Run {
 
             # add index to reindex query
             $IndexObjectStatus{$Index} = {
-                Successfull => 0
+                Successful => 0,
             };
 
             push @Objects, $IndexObject;
@@ -249,7 +249,7 @@ sub Run {
     );
 
     $Self->{SearchObject}->ClusterInit(
-        Force => $ClusterReinitializate,
+        Force => $ClusterReinitialize,
     );
 
     # list all indexes on remote (engine) side
@@ -360,7 +360,7 @@ sub Run {
 
         if ( !$InitSuccess ) {
             $Self->PrintError("Can't initialize index $Object->{Index}!\n");
-            $IndexObjectStatus{ $Object->{Index} }{Successfull} = 0;
+            $IndexObjectStatus{ $Object->{Index} }->{Successful} = 0;
             next OBJECT;
         }
 
@@ -371,7 +371,7 @@ sub Run {
                 "<yellow>No data to re-index.</yellow>\n\n"
             );
             $Self->Print("<green>Done.</green>\n");
-            $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
+            $IndexObjectStatus{ $Object->{Index} }->{Successful} = 1;
             next OBJECT;
         }
 
@@ -438,12 +438,12 @@ sub Run {
                 TTL   => 24 * 60 * 60,
             );
 
-            push @{ $IndexObjectStatus{ $Object->{Index} }{ObjectFails} }, @ArrayPiece if !$Result;
+            push @{ $IndexObjectStatus{ $Object->{Index} }->{ObjectFails} }, @ArrayPiece if !$Result;
         }
 
         $Self->Print(
             "<yellow>$ObjectCount</yellow> of <yellow>$ObjectCount</yellow> processed (<yellow>100%</yellow> done).\n"
-        ) if !IsArrayRefWithData( $IndexObjectStatus{ $Object->{Index} }{ObjectFails} );
+        ) if !IsArrayRefWithData( $IndexObjectStatus{ $Object->{Index} }->{ObjectFails} );
 
         $CacheObject->Set(
             Type  => 'ReindexingProcess',
@@ -453,7 +453,7 @@ sub Run {
         );
 
         $Self->Print("<green>Done.</green>\n\n");
-        $IndexObjectStatus{ $Object->{Index} }{Successfull} = 1;
+        $IndexObjectStatus{ $Object->{Index} }->{Successful} = 1;
     }
 
     $Self->Print("\n<yellow>Summary:</yellow>\n");
@@ -462,14 +462,14 @@ sub Run {
             $Self->Print("\nIndex: $Index\n");
 
             $Self->Print("Status: ");
-            if ( $IndexObjectStatus{$Index}{Successfull} ) {
-                if ( IsArrayRefWithData( $IndexObjectStatus{$Index}{ObjectFails} ) ) {
+            if ( $IndexObjectStatus{$Index}->{Successful} ) {
+                if ( IsArrayRefWithData( $IndexObjectStatus{$Index}->{ObjectFails} ) ) {
                     $Self->Print("<yellow>Success with object fails.\n</yellow>");
                     $Self->Print(
-                        "Failed objects count: " . scalar( @{ $IndexObjectStatus{$Index}{ObjectFails} } ) . "\n"
+                        "Failed objects count: " . scalar( @{ $IndexObjectStatus{$Index}->{ObjectFails} } ) . "\n"
                     );
                     $Self->Print(
-                        "ObjectIDs failed: " . join( ",", @{ $IndexObjectStatus{$Index}{ObjectFails} } ) . "\n"
+                        "ObjectIDs failed: " . join( ",", @{ $IndexObjectStatus{$Index}->{ObjectFails} } ) . "\n"
                     );
                 }
                 else {

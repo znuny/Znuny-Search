@@ -1163,7 +1163,7 @@ sub Fallback {
         my $Response = $SearchChildObject->Fallback(
             %Param,
             IndexName => $Object,
-            %{ $Param{Objects}{$Object} },
+            %{ $Param{Objects}->{$Object} },
         );
 
         # on any error ignore response
@@ -1181,7 +1181,7 @@ sub Fallback {
             ResultType => $ResultType,
             Fallback   => 1,
             Silent     => $Param{Silent},
-            %{ $Param{Objects}{$Object} },
+            %{ $Param{Objects}->{$Object} },
         );
 
         # merge response into return data
@@ -1373,12 +1373,12 @@ sub ClusterInit {
     return if $ActiveCluster->{ClusterInitialized} && !$Param{Force};
 
     my %Operations;
-    PLUGINS:
+    PLUGIN:
     for my $Plugin ( sort keys %{ $Self->{Config}->{RegisteredPlugins} } ) {
         my $ContainerInitPluginOperation
             = $Kernel::OM->Get( $Self->{Config}->{RegisteredPlugins}->{$Plugin} )->ClusterInit();
 
-        next PLUGINS if !IsHashRefWithData($ContainerInitPluginOperation);
+        next PLUGIN if !IsHashRefWithData($ContainerInitPluginOperation);
         $Operations{ $ContainerInitPluginOperation->{PluginName} } = $ContainerInitPluginOperation->{Status};
     }
 
@@ -1466,7 +1466,7 @@ sub _SearchParamsStandardize {
         my %ValidFields = $SearchChildObject->ValidFieldsPrepare(
             Fields      => $Param{Param}->{Fields}->[$i],
             Object      => $ObjectName,
-            QueryParams => $Param{Param}{QueryParams},
+            QueryParams => $Param{Param}->{QueryParams},
             %Param,
         );
 
