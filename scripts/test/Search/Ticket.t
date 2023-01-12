@@ -25,8 +25,9 @@ $Kernel::OM->ObjectParamAdd(
 my $TicketObject          = $Kernel::OM->Get('Kernel::System::Ticket');
 my $StateObject           = $Kernel::OM->Get('Kernel::System::State');
 my $PriorityObject        = $Kernel::OM->Get('Kernel::System::Priority');
-my $Helper                = $Kernel::OM->Get('Kernel::System::UnitTest::Helper');
+my $HelperObject          = $Kernel::OM->Get('Kernel::System::UnitTest::Helper');
 my $SearchObject          = $Kernel::OM->Get('Kernel::System::Search');
+my $SearchChildObject     = $Kernel::OM->Get('Kernel::System::Search::Object');
 my $ZnunyHelperObject     = $Kernel::OM->Get('Kernel::System::ZnunyHelper');
 my $ConfigObject          = $Kernel::OM->Get('Kernel::Config');
 my $SearchTicketObject    = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
@@ -40,6 +41,7 @@ my $TypeObject            = $Kernel::OM->Get('Kernel::System::Type');
 my $QueueObject           = $Kernel::OM->Get('Kernel::System::Queue');
 my $SLAObject             = $Kernel::OM->Get('Kernel::System::SLA');
 my $JSONObject            = $Kernel::OM->Get('Kernel::System::JSON');
+my $ArticleObject         = $Kernel::OM->Get('Kernel::System::Ticket::Article');
 
 # just for gitlab pipeline to pass this test
 if ( !$SearchObject->{ConnectObject} ) {
@@ -66,6 +68,15 @@ $ConfigObject->Set(
 $ConfigObject->Set(
     Key   => 'Ticket::Responsible',
     Value => 1,
+);
+
+my $ReindexationStep = 4;
+
+$ConfigObject->Set(
+    Key   => 'SearchEngine::Reindexation###Settings',
+    Value => {
+        ReindexationStep => $ReindexationStep,
+    },
 );
 
 my $TicketNumber = $TicketObject->TicketCreateNumber();
@@ -648,6 +659,217 @@ my $TicketIDWasFound =
 $Self->True(
     $TicketIDWasFound && $TicketIDWasFound eq $TicketID,
     "Live reindexing check: search ticket by new Queue name ($QueueNameToUpdateTo) ",
+);
+
+# test queue operation mechanism
+my @TicketIDsToTest;
+my @Tests = (
+    {
+        Name      => 'Attachments exists - ticket queue operation',
+        Operation => 'ObjectIndexSet',
+        Data      => {
+            Attachment => [
+                {
+                    Filename    => 'csvfile.csv',
+                    Content     => '123',
+                    ContentType => 'text/csv',
+                },
+                {
+                    Filename    => 'pngfile.png',
+                    Content     => 'empty',
+                    ContentType => 'image/png; name=pngfile.png',
+                },
+            ]
+        },
+        ExpectedResult => {
+            AfterAttachmentUpload => {
+                Ticket => [],
+            },
+            AfterTicketRebuild => {
+                Ticket => [
+                    {
+                        Articles => [
+                            {
+                                Attachments => [
+                                    {
+                                        ID                 => 1,
+                                        AttachmentContent  => 123,
+                                        Filename           => 'csvfile.csv',
+                                        ContentType        => 'text/csv',
+                                        ContentID          => '',
+                                        ContentAlternative => '',
+                                        Disposition        => 'attachment',
+                                        Content            => 123
+                                    },
+                                    {
+                                        ID                 => 2,
+                                        AttachmentContent  => 'empty',
+                                        Filename           => 'pngfile.png',
+                                        ContentType        => 'image/png; name=pngfile.png',
+                                        ContentID          => '',
+                                        ContentAlternative => '',
+                                        Disposition        => 'attachment',
+                                        Content            => 'empty'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+);
+for ( 1 .. 10 ) {
+    my $TN = $TicketObject->TicketCreateNumber();
+
+    # create basic ticket
+    my $TicketID = $TicketObject->TicketCreate(
+        %{ $QueryParams->{BasicTicket} },
+        UserID => $Object->{Basic}->{User}->{ID},
+        TN     => $TN,
+
+        # api of TicketCreate uses CustomerUser instead of CustomerUserID
+        # but esentially those are the same with api of Elasticsearch
+        CustomerUser => $QueryParams->{BasicTicket}->{CustomerUserID}
+    );
+    my $ArticleID = $HelperObject->ArticleCreate(
+        TicketID             => $TicketID,
+        SenderType           => 'agent',
+        IsVisibleForCustomer => 1,
+    );
+    push @TicketIDsToTest, $TicketID;
+}
+
+my @TicketIDsContainsAttachments;
+
+# add attachments to 5 first tickets
+for my $Index ( 0 .. 4 ) {
+    my $TicketIDToTest = $TicketIDsToTest[$Index];
+    my $Success;
+    my $Counter  = 0;
+    my @Articles = $ArticleObject->ArticleList(
+        TicketID  => $TicketIDToTest,
+        OnlyFirst => 1,
+    );
+    for my $AttachmentData ( @{ $Tests[0]->{Data}->{Attachment} } ) {
+        if ( !( $Counter && !$Success ) ) {
+            $Success = $ArticleObject->ArticleWriteAttachment(
+                TicketID => $TicketIDToTest,
+                %{$AttachmentData},
+                Disposition => 'attachment',
+                ArticleID   => $Articles[0]->{ArticleID},
+                UserID      => 1,
+            );
+        }
+        $Counter++;
+    }
+    push @TicketIDsContainsAttachments, $TicketIDToTest if $Success;
+}
+
+my $TicketWithoutAttachmentIndexed = $SearchObject->Search(
+    Objects     => ["Ticket"],
+    QueryParams => {
+        %{ $QueryParams->{BasicTicket} },
+        UserID              => $Object->{Basic}->{User}->{ID},
+        Attachment_Filename => {
+            Operator => '=',
+            Value    => $Tests[0]->{Data}->{Attachment}->[0]->{Filename},
+        },
+        TicketID => \@TicketIDsContainsAttachments,
+        TN       => undef,
+        Fields   => [ ['Attachment_*'] ],
+    },
+    Limit        => 1,
+    UseSQLSearch => 0,
+);
+
+# unfortunately, after attachment upload there is no event published
+# so searching ticket containing attachments by attachment filename should
+# return empty response
+$Self->IsDeeply(
+    $TicketWithoutAttachmentIndexed,
+    $Tests[0]->{ExpectedResult}->{AfterAttachmentUpload},
+    "(Engine search) Response check, search by attachment filename after attachment upload.",
+);
+
+# with that being the case add the ticket data
+# for re-building so that attachment will be indexed
+for my $TicketID (@TicketIDsContainsAttachments) {
+    my $Success = $SearchChildObject->ObjectToProcessAdd(
+        ObjectID  => $TicketID,
+        Index     => 'Ticket',
+        Operation => 'ObjectIndexSet',
+    );
+
+    my $QueuedOperationsSearch = $SearchChildObject->ObjectToProcessSearch(
+        ObjectID  => $TicketID,
+        Index     => 'Ticket',
+        Operation => 'ObjectIndexSet',
+    );
+
+    # check if queue was added correctly to the sql db
+    $Self->True(
+        IsArrayRefWithData($QueuedOperationsSearch) &&
+            $QueuedOperationsSearch->[0]->{ObjectID} && $QueuedOperationsSearch->[0]->{ObjectID} eq $TicketID &&
+            $QueuedOperationsSearch->[0]->{Index} && $QueuedOperationsSearch->[0]->{Index} eq 'Ticket' &&
+            $QueuedOperationsSearch->[0]->{Operation} && $QueuedOperationsSearch->[0]->{Operation} eq 'ObjectIndexSet'
+            && $QueuedOperationsSearch->[0]->{ID},
+        "(Queued operation) Added queued operation (index: Ticket, operation: ObjectIndexSet, ticket id: $TicketID).",
+    );
+}
+
+# 0 is exit code that identify success of rebuilding
+my $CommandObject = $Kernel::OM->Get('Kernel::System::Console::Command::Maint::Search::ES::IndexQueueDataProcess');
+my ( $Result, $ExitCode );
+{
+    local *STDOUT;
+    open STDOUT, '>:utf8', \$Result;    ## no critic
+    $ExitCode = $CommandObject->Execute( ('--refresh') );
+}
+
+$Self->False(
+    $ExitCode,
+    "(Queued operation) Index queue operations execute for Ticket index."
+);
+
+# after queued operation execution, it should be deleted
+# from the queue - search and check it
+my $QueuedOperationsSearch = $SearchChildObject->ObjectToProcessSearch(
+    ObjectID  => $TicketIDsContainsAttachments[0],
+    Index     => 'Ticket',
+    Operation => 'ObjectIndexSet',
+);
+
+$Self->True(
+    ref $QueuedOperationsSearch eq 'ARRAY' && !$QueuedOperationsSearch->[0],
+    "(Queued operation) Check if after object queue operation execution object id is still in the queue."
+);
+
+my $TicketWithAttachmentIndexed = $SearchObject->Search(
+
+    # now check if queue did what it was supposed to do, that is rebuilt attachments
+    Objects     => ["Ticket"],
+    QueryParams => {
+        %{ $QueryParams->{BasicTicket} },
+        UserID              => $Object->{Basic}->{User}->{ID},
+        Attachment_Filename => {
+            Operator => '=',
+            Value    => $Tests[0]->{Data}->{Attachment}->[0]->{Filename},
+        },
+        TicketID => \@TicketIDsContainsAttachments,
+        TN       => undef
+    },
+    Fields       => [ ['Attachment_*'] ],
+    Limit        => 1,
+    UseSQLSearch => 0,
+);
+
+# attachments should be visible now
+$Self->IsDeeply(
+    $TicketWithAttachmentIndexed,
+    $Tests[0]->{ExpectedResult}->{AfterTicketRebuild},
+    "(Engine search, queued operation) Response check, search by attachment filename after attachment upload and ticket rebuild.",
 );
 
 1;
