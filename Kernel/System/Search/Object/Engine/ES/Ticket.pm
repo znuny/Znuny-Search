@@ -77,7 +77,7 @@ sub new {
         },
         TicketNumber => {
             ColumnName => 'tn',
-            Type       => 'Long'
+            Type       => 'String'
         },
         Title => {
             ColumnName => 'title',
@@ -305,6 +305,32 @@ On executing ticket search by Kernel::System::Search:
                                                                       # Ticket API
             ChangeByLogin => ['root@localhost'],
             CreateByLogin => ['root@localhost'],
+
+            # fulltext parameter can be used to search by properties specified
+            # in sysconfig "SearchEngine::ES::TicketSearchFields###Fulltext"
+            Fulltext      => 'elasticsearch',
+            #    OR
+            Fulltext      => ['elasticsearch', 'kibana'],
+            #    OR
+            Fulltext      => {
+                Text => ['elasticsearch', 'kibana'],
+                QueryOperator => 'AND', # determine if all words from specified
+                                        # value needs to match
+                                        # optional, default: "AND"
+                                        # possible: "OR" - only single word needs to match
+                                        #           "AND" - all words needs to match
+                                        # example: 'elasticsearch is super fast'
+                                        # each of those are separate words, decide here if
+                                        # all of them needs to be matched or only one
+                StatementOperator => 'OR', # determine if all values from specified ones
+                                           # in an array needs to match
+                                           # optional, default: "OR"
+                                           # possible: "OR" - single value from an array needs to match
+                                           #           "AND" - all values from an array needs to match
+                                           # use only when specifying multiple values to search by
+                                           # example: ['elasticsearch is super fast', 'sql search is slower for fulltext search']
+                                           # decide here if both of these values needs to matched or only one
+            }
         },
         Fields => [['Ticket_TicketID', 'Ticket_TicketNumber']] # specify field from field mapping
             # to get:
@@ -422,6 +448,7 @@ sub ExecuteSearch {
 
     my $OperatorModule   = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
+    my $ConfigObject     = $Kernel::OM->Get('Kernel::Config');
 
     my @QueryParamsKey = keys %{ $Param{QueryParams} };
     my $QueryParams    = $Param{QueryParams};
@@ -475,6 +502,101 @@ sub ExecuteSearch {
         Object      => $Self->{Config}->{IndexName},
         _Source     => 1,
     );
+
+    my $FulltextTicketQuery;
+    my $FulltextArticleQuery;
+    my $FulltextAttachmentQuery;
+
+    # fulltext search
+    if ( defined $QueryParams->{Fulltext} ) {
+        my $FulltextValue;
+        my $FulltextQueryOperator = 'AND';
+        my $StatementOperator     = 'OR';
+        if ( ref $QueryParams->{Fulltext} eq 'HASH' && $QueryParams->{Fulltext}->{Text} ) {
+            $FulltextValue         = $QueryParams->{Fulltext}->{Text};
+            $FulltextQueryOperator = $QueryParams->{Fulltext}->{QueryOperator}
+                if $QueryParams->{Fulltext}->{QueryOperator};
+            $StatementOperator = $QueryParams->{Fulltext}->{StatementOperator}
+                if $QueryParams->{Fulltext}->{StatementOperator};
+        }
+        else {
+            $FulltextValue = $QueryParams->{Fulltext};
+        }
+        if ( IsArrayRefWithData($FulltextValue) ) {
+            $FulltextValue = join " $StatementOperator ", @{$FulltextValue};
+        }
+        if ( defined $FulltextValue )
+        {
+            my @FulltextQuery;
+
+            # get fields to search
+            my $ESTicketSearchFieldsConfig = $ConfigObject->Get('SearchEngine::ES::TicketSearchFields');
+            my $FulltextSearchFields       = $ESTicketSearchFieldsConfig->{Fulltext};
+            my @FulltextTicketFields       = @{ $FulltextSearchFields->{Ticket} };
+            my @FulltextArticleFields      = map {"Articles.$_"} @{ $FulltextSearchFields->{Article} };
+            my @FulltextAttachmentFields   = map {"Articles.Attachments.$_"} @{ $FulltextSearchFields->{Attachment} };
+
+            # clean special characters
+            $FulltextValue = $Param{EngineObject}->QueryStringReservedCharactersClean(
+                String => $FulltextValue,
+            );
+
+            if ( scalar @FulltextTicketFields ) {
+                $FulltextTicketQuery = {
+                    query_string => {
+                        fields           => \@FulltextTicketFields,
+                        query            => "*$FulltextValue*",
+                        default_operator => $FulltextQueryOperator,
+                    },
+                };
+                push @FulltextQuery, $FulltextTicketQuery;
+            }
+
+            if ( scalar @FulltextArticleFields ) {
+                $FulltextArticleQuery = {
+                    query_string => {
+                        fields           => \@FulltextArticleFields,
+                        query            => "*$FulltextValue*",
+                        default_operator => $FulltextQueryOperator,
+                    },
+                };
+                push @FulltextQuery, {
+                    nested => {
+                        path => [
+                            "Articles"
+                        ],
+                        query => $FulltextArticleQuery,
+                    }
+                };
+            }
+
+            if ( scalar @FulltextAttachmentFields ) {
+                $FulltextAttachmentQuery = {
+                    query_string => {
+                        fields           => \@FulltextAttachmentFields,
+                        query            => "*$FulltextValue*",
+                        default_operator => $FulltextQueryOperator,
+                    },
+                };
+                push @FulltextQuery, {
+                    nested => {
+                        path => [
+                            "Articles.Attachments"
+                        ],
+                        query => $FulltextAttachmentQuery,
+                    }
+                };
+            }
+
+            if ( scalar @FulltextQuery ) {
+                push @{ $Query->{Body}->{query}->{bool}->{must} }, {
+                    bool => {
+                        should => \@FulltextQuery,
+                    }
+                };
+            }
+        }
+    }
 
     my $ArticleSearchParams              = $SegregatedQueryParams->{Articles};
     my $ArticleDynamicFieldsSearchParams = $SegregatedQueryParams->{ArticleDynamicFields};

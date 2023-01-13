@@ -402,4 +402,36 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="SearchEngine::ES::TicketSearchFields###Fulltext" Required="0" Valid="1">
+        <Description Translatable="1">Searchable fields of Ticket index for fulltext search. Use name of ticket, article or attachment field. Dynamic fields can be specified for articles and tickets by setting a value in either Ticket or Article key with a pattern: "DynamicField_NameOfDynamicField".</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Ticket">
+                    <Array>
+                        <Item>TicketNumber</Item>
+                        <Item>Title</Item>
+                    </Array>
+                </Item>
+                <Item Key="Article">
+                    <Array>
+                        <Item>Body</Item>
+                        <Item>Subject</Item>
+                        <Item>From</Item>
+                        <Item>To</Item>
+                        <Item>CC</Item>
+                        <Item>BCC</Item>
+                        <Item>DynamicField_textforarticle</Item>
+                    </Array>
+                </Item>
+                <Item Key="Attachment">
+                    <Array>
+                        <Item>AttachmentContent</Item>
+                        <Item>Filename</Item>
+                        <Item>ContentSize</Item>
+                    </Array>
+                </Item>
+            </Hash>
+        </Value>
+    </Setting>
 </otrs_config>
