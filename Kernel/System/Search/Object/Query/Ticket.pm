@@ -63,6 +63,97 @@ sub new {
     return $Self;
 }
 
+=head2 LookupTicketFieldsGet()
+
+return lookup fields for Ticket
+
+    my $LookupTicketFields = $SearchQueryTicketObject->LookupTicketFieldsGet();
+
+=cut
+
+sub LookupTicketFieldsGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LookupFields = {
+        Queue => {
+            Module           => "Kernel::System::Queue",
+            FunctionName     => 'QueueLookup',
+            FunctionNameList => 'GetAllQueues',
+            ParamName        => 'Queue'
+        },
+        SLA => {
+            Module           => "Kernel::System::SLA",
+            FunctionName     => "SLALookup",
+            FunctionNameList => 'SLAList',
+            ParamName        => "Name"
+        },
+        Lock => {
+            Module           => "Kernel::System::Lock",
+            FunctionName     => "LockLookup",
+            FunctionNameList => 'LockList',
+            ParamName        => "Lock"
+        },
+        Type => {
+            Module           => "Kernel::System::Type",
+            FunctionName     => "TypeLookup",
+            FunctionNameList => 'TypeList',
+            ParamName        => "Type"
+        },
+        Service => {
+            Module           => "Kernel::System::Service",
+            FunctionName     => "ServiceLookup",
+            FunctionNameList => 'ServiceList',
+            ParamName        => "Name"
+        },
+        Owner => {
+            Module           => "Kernel::System::User",
+            FunctionName     => "UserLookup",
+            FunctionNameList => 'UserList',
+            ParamName        => "UserLogin"
+        },
+        Responsible => {
+            Module           => "Kernel::System::User",
+            FunctionName     => "UserLookup",
+            FunctionNameList => 'UserList',
+            ParamName        => "UserLogin"
+        },
+        Priority => {
+            Module           => "Kernel::System::Priority",
+            FunctionName     => "PriorityLookup",
+            FunctionNameList => 'PriorityList',
+            ParamName        => "Priority"
+        },
+        State => {
+            Module           => "Kernel::System::State",
+            FunctionName     => "StateLookup",
+            FunctionNameList => 'StateList',
+            ParamName        => "State"
+        },
+        Customer => {
+            Module           => "Kernel::System::CustomerCompany",
+            FunctionName     => "CustomerCompanyList",
+            FunctionNameList => 'CustomerCompanyList',
+            ParamName        => "Search"
+        },
+        ChangeByLogin => {
+            Module           => "Kernel::System::User",
+            FunctionName     => "UserLookup",
+            FunctionNameList => 'UserList',
+            ParamName        => "UserLogin",
+            AttributeName    => "ChangeBy"
+        },
+        CreateByLogin => {
+            Module           => "Kernel::System::User",
+            FunctionName     => "UserLookup",
+            FunctionNameList => 'UserList',
+            ParamName        => "UserLogin",
+            AttributeName    => "CreateBy"
+        }
+    };
+
+    return $LookupFields;
+}
+
 =head2 LookupTicketFields()
 
 search & delete lookup fields in standard query params, then perform lookup
@@ -77,82 +168,17 @@ of deleted fields and return it
 sub LookupTicketFields {
     my ( $Self, %Param ) = @_;
 
-    my $LookupFields = {
-        Queue => {
-            Module       => "Kernel::System::Queue",
-            FunctionName => 'QueueLookup',
-            ParamName    => 'Queue'
-        },
-        SLA => {
-            Module       => "Kernel::System::SLA",
-            FunctionName => "SLALookup",
-            ParamName    => "Name"
-        },
-        Lock => {
-            Module       => "Kernel::System::Lock",
-            FunctionName => "LockLookup",
-            ParamName    => "Lock"
-        },
-        Type => {
-            Module       => "Kernel::System::Type",
-            FunctionName => "TypeLookup",
-            ParamName    => "Type"
-        },
-        Service => {
-            Module       => "Kernel::System::Service",
-            FunctionName => "ServiceLookup",
-            ParamName    => "Name"
-        },
-        Owner => {
-            Module       => "Kernel::System::User",
-            FunctionName => "UserLookup",
-            ParamName    => "UserLogin"
-        },
-        Responsible => {
-            Module       => "Kernel::System::User",
-            FunctionName => "UserLookup",
-            ParamName    => "UserLogin"
-        },
-        Priority => {
-            Module       => "Kernel::System::Priority",
-            FunctionName => "PriorityLookup",
-            ParamName    => "Priority"
-        },
-        State => {
-            Module       => "Kernel::System::State",
-            FunctionName => "StateLookup",
-            ParamName    => "State"
-        },
-        ChangeByLogin => {
-            Module        => "Kernel::System::User",
-            FunctionName  => "UserLookup",
-            ParamName     => "UserLogin",
-            AttributeName => "ChangeBy"
-        },
-        CreateByLogin => {
-            Module        => "Kernel::System::User",
-            FunctionName  => "UserLookup",
-            ParamName     => "UserLogin",
-            AttributeName => "CreateBy"
-        }
-    };
-
-    my $CustomerLookupField = {
-        Customer => {
-            Module       => "Kernel::System::CustomerCompany",
-            FunctionName => "CustomerCompanyList",
-            ParamName    => "Search"
-        }
-    };
+    my $LookupFields = $Self->LookupTicketFieldsGet();
 
     my $LookupQueryParams;
 
     if ( $Param{QueryParams}->{Customer} ) {
         my $Key = 'Customer';
 
-        my $LookupField  = $CustomerLookupField->{$Key};
-        my $Module       = $Kernel::OM->Get( $LookupField->{Module} );
-        my $ParamName    = $LookupField->{ParamName};
+        my $LookupField = $LookupFields->{$Key};
+        my $Module      = $Kernel::OM->Get( $LookupField->{Module} );
+        my $ParamName   = $LookupField->{ParamName};
+
         my $FunctionName = $LookupField->{FunctionName};
         my $Param        = $Param{QueryParams}->{Customer};
 
