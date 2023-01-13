@@ -297,6 +297,70 @@ sub UserInfoStrgBuild {
     return "$Login:$Password";
 }
 
+=head2 QueryStringReservedCharactersClean()
+
+clean reserved characters from query string
+
+    my $Result = $SearchMappingESObject->QueryStringReservedCharactersClean(
+        String => "<username>",
+    );
+
+=cut
+
+sub QueryStringReservedCharactersClean {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !defined $Param{String} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter 'String' is needed!",
+        );
+        return;
+    }
+
+    return '' if !$Param{String};
+
+    my @StandardReservedCharacters = (
+        '\+',
+        '\-',
+        '\=',
+        '\&&',
+        '\|\|',
+        '\!',
+        '\(',
+        '\)',
+        '\{',
+        '\}',
+        '\[',
+        '\]',
+        '\^',
+        '\"',
+        '\~',
+        '\*',
+        '\\\\',
+        '\?',
+        '\:',
+        '\/',
+        '\<',
+        '\>'
+    );
+
+    my $Result = $Param{String};
+
+    for my $Character (@StandardReservedCharacters) {
+
+        # remove special characters from the start/end of string
+        $Result =~ s{(^$Character*)(.*?)($Character*$)}{$2}mgs;
+
+        # any special character in the middle can be changed to space
+        $Result =~ s{$Character}{ }mgs;
+    }
+
+    return $Result;
+}
+
 =head2 QueryExecuteGeneric()
 
 executes generic query for active engine
