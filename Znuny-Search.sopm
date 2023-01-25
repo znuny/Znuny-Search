@@ -59,7 +59,6 @@
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/DynamicFieldValue.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Article/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/ArticleDataMIMEAttachment.pm"/>
-        <File Permission="660" Location="scripts/test/Search/ResponseEquality.t"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Fallback/Default.pm"/>
