@@ -162,11 +162,18 @@ sub ValidFieldsPrepare {
 
     %{$Fields} = ( %{$Fields}, %{$AdditionalZnunyFields} );
 
-    PARAMFIELD:
+    FIELD:
     for my $ParamField ( @{ $Param{Fields} } ) {
-        next PARAMFIELD if !$Fields->{$ParamField};
+        if ( $ParamField =~ m{^$Param{Object}_(.+)$} ) {
+            my $Field = $1;
 
-        $ValidFields{$ParamField} = $Fields->{$ParamField};
+            if ( $Fields->{$Field} ) {
+                $ValidFields{$Field} = $Fields->{$Field};
+            }
+            elsif ( $Field eq '*' ) {
+                %ValidFields = %{$Fields};
+            }
+        }
     }
 
     return $SearchChildObject->_PostValidFieldsPrepare(
