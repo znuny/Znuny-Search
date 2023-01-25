@@ -83,7 +83,10 @@ sub Fallback {
     my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    my $SQLSearchResult = [];
+    my $SQLSearchResult = {
+        Success => 0,
+        Data    => [],
+    };
 
     if ( IsHashRefWithData( $Param{Fields} ) ) {
         $SQLSearchResult = $Self->SQLObjectSearch(

@@ -828,6 +828,10 @@ sub FallbackExecuteSearch {
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
+    # TODO support for fallback
+    # disable fallback functionality
+    return $Self->SearchEmptyResponse(%Param) if 1 == 1;
+
     my $Result = {
         Ticket => $Self->Fallback( %Param, Fields => $Param{Fields}->{Ticket} ) // []
     };
