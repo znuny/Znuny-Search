@@ -1464,14 +1464,14 @@ sub ValidFieldsPrepare {
 
         # get information about field types if field
         # matches specified regexp
-        if ( $ParamField =~ m{\A(?:Ticket_DynamicField_(.+))|(?:Article_DynamicField_(.+))} ) {
+        if ( $ParamField =~ m{\A(?:(Ticket)_DynamicField_(.+))|(?:(Article)_DynamicField_(.+))} ) {
 
-            my $DynamicFieldName = $1 || $2;
+            my $DynamicFieldName = $2 || $4;
+            my $ObjectType       = $1 || $3;
 
             if ( $DynamicFieldName eq '*' ) {
 
                 my $DFColumnNamePre = '';
-                my $ObjectType      = $2 ? 'Article' : 'Ticket';
 
                 # get all dynamic fields for object type "Ticket" or "Article"
                 my $DynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
@@ -1494,8 +1494,7 @@ sub ValidFieldsPrepare {
                     Name => $DynamicFieldName,
                 );
 
-                # get object - "Ticket" or "Article"
-                my $ObjectType = $DynamicFieldConfig->{ObjectType};
+                next FIELDS if $ObjectType ne $DynamicFieldConfig->{ObjectType};
 
                 if ( IsHashRefWithData($DynamicFieldConfig) && $DynamicFieldConfig->{Name} ) {
                     my $Info = $SearchQueryObject->_QueryDynamicFieldInfoGet(
