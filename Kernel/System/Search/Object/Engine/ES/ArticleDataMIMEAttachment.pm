@@ -201,6 +201,7 @@ sub SearchFormat {
 
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $DBObject     = $Kernel::OM->Get('Kernel::System::DB');
 
     my $ResultType = $Param{ResultType};
 
@@ -228,18 +229,24 @@ sub SearchFormat {
         };
     }
 
-    if ( !$SearchObject->{Fallback} && IsHashRefWithData( $Param{Fields}->{Content} ) ) {
-        OBJECT:
-        for my $ObjectData ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
-            next OBJECT if !$ObjectData->{Content};
-            $ObjectData->{Content} = decode_base64( delete $ObjectData->{Content} );
+    my $ObjectData = $GloballyFormattedResult->{$IndexName}->{ObjectData};
+    my $Fallback   = $SearchObject->{Fallback} || $Param{Fallback};
+
+    if ( IsHashRefWithData( $Param{Fields}->{Content} ) ) {
+        if ( !$Fallback || ( $Fallback && !$DBObject->GetDatabaseFunction('DirectBlob') ) ) {
+
+            OBJECT:
+            for ( my $i = 0; $i < scalar @{$ObjectData}; $i++ ) {
+                next OBJECT if !$ObjectData->[$i]->{Content};
+                $ObjectData->[$i]->{Content} = decode_base64( $ObjectData->[$i]->{Content} );
+            }
         }
     }
 
     my $IndexResponse;
 
     if ( $Param{ResultType} eq "ARRAY" ) {
-        $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData};
+        $IndexResponse->{$IndexName} = $ObjectData;
     }
     elsif ( $Param{ResultType} eq "HASH" ) {
 
@@ -257,7 +264,7 @@ sub SearchFormat {
         $IndexResponse = { $IndexName => {} };
 
         DATA:
-        for my $Data ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
+        for my $Data ( @{$ObjectData} ) {
             if ( !$Data->{$Identifier} ) {
                 if ( !$Param{Silent} ) {
                     $LogObject->Log(
