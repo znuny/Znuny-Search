@@ -99,7 +99,6 @@
         <File Permission="660" Location="var/httpd/htdocs/js/Core.Agent.Admin.Search.js"/>
         <File Permission="660" Location="var/httpd/htdocs/skins/Agent/default/css/Core.Agent.Admin.Search.css"/>
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
-        <File Permission="770" Location="var/scripts/znuny-package.sh"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/TestPerformance.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/ES/IndexQueueDataProcess.pm"/>
         <File Permission="660" Location="scripts/test/Search/Ticket.t"/>
