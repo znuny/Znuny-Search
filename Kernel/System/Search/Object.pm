@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -94,11 +94,11 @@ sub Fallback {
     my $Result;
     my $IndexName = $Param{IndexName};
 
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Default::${IndexName}",
+    my $IsValid = $Self->IndexIsValid(
+        IndexName => $IndexName,
     );
 
-    return if !$Loaded;
+    return if !$IsValid;
     my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::${IndexName}");
 
     my $ValidResultType = $Self->ValidResultType(
@@ -315,6 +315,80 @@ sub ValidFieldsPrepare {
     );
 }
 
+=head2 IndexObjectQueueAdd()
+
+add cached operations for indexes to the queue
+
+    my $Success = $SearchChildObject->IndexObjectQueueAdd(
+        Index => 'Ticket',
+        Value => {
+            FunctionName => 'ObjectIndexSet',
+
+            ObjectID => 1,
+            # OR
+            QueryParams => { .. },
+        }
+    );
+
+=cut
+
+sub IndexObjectQueueAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Index Value)) {
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    if ( !$Param{Value}->{FunctionName} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'Parameter "FunctionName" inside Value hash is needed!',
+        );
+        return;
+    }
+
+    if ( !$Param{Value}->{QueryParams} && !$Param{Value}->{ObjectID} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'Either "QueryParams" or "ObjectID" inside Value hash is needed!',
+        );
+        return;
+    }
+
+    my $CacheObject  = $Kernel::OM->Get('Kernel::System::Cache');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+
+    my $IndexationQueueConfig = $ConfigObject->Get("SearchEngine::IndexationQueue") // {};
+    my $TTL                   = $IndexationQueueConfig->{Settings}->{TTL} || 180;
+
+    my $CachedValue = $CacheObject->Get(
+        Type => 'SearchEngineIndexQueue',
+        Key  => "Index::$Param{Index}",
+    ) || [];
+
+    push @{$CachedValue}, {
+        %{ $Param{Value} },
+    };
+
+    $CacheObject->Set(
+        Type  => 'SearchEngineIndexQueue',
+        Key   => "Index::$Param{Index}",
+        Value => $CachedValue,
+        TTL   => $TTL,
+    );
+
+    return 1;
+}
+
 =head2 _PostValidFieldsGet()
 
 set fields return type if not specified
@@ -377,11 +451,11 @@ sub _QueryPrepareSearch {
     for my $Object ( sort keys %{ $Param{Objects} } ) {
         next OBJECT if !$Object;
 
-        my $Loaded = $Self->_LoadModule(
-            Module => "Kernel::System::Search::Object::Query::${Object}",
+        my $IndexIsValid = $Self->IndexIsValid(
+            IndexName => $Object,
         );
 
-        next OBJECT if !$Loaded;
+        next OBJECT if !$IndexIsValid;
 
         my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Object}");
 
@@ -455,11 +529,11 @@ sub _QueryPrepareObjectIndexAdd {
 
     my $Index = $Param{Index};
 
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
+    my $IndexIsValid = $Self->IndexIsValid(
+        IndexName => $Index,
     );
 
-    return if !$Loaded;
+    return if !$IndexIsValid;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
 
@@ -501,11 +575,11 @@ sub _QueryPrepareObjectIndexSet {
 
     my $Index = $Param{Index};
 
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
+    my $IndexIsValid = $Self->IndexIsValid(
+        IndexName => $Index,
     );
 
-    return if !$Loaded;
+    return if !$IndexIsValid;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${Index}");
 
@@ -548,11 +622,11 @@ sub _QueryPrepareObjectIndexUpdate {
 
     my $Index = $Param{Index};
 
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
+    my $IndexIsValid = $Self->IndexIsValid(
+        IndexName => $Index,
     );
 
-    return if !$Loaded;
+    return if !$IndexIsValid;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
 
@@ -595,11 +669,11 @@ sub _QueryPrepareObjectIndexRemove {
 
     my $Index = $Param{Index};
 
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
+    my $IndexIsValid = $Self->IndexIsValid(
+        IndexName => $Index,
     );
 
-    return if !$Loaded;
+    return if !$IndexIsValid;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
 
@@ -766,11 +840,11 @@ sub _QueryPrepareIndexClear {
 
     my $Index = $Param{Index};
 
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
+    my $IndexIsValid = $Self->IndexIsValid(
+        IndexName => $Index,
     );
 
-    return if !$Loaded;
+    return if !$IndexIsValid;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
 
@@ -812,11 +886,11 @@ sub _QueryPrepareIndexMappingSet {
 
     my $Index = $Param{Index};
 
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
+    my $IndexIsValid = $Self->IndexIsValid(
+        IndexName => $Index,
     );
 
-    return if !$Loaded;
+    return if !$IndexIsValid;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
 
@@ -858,11 +932,11 @@ sub _QueryPrepareIndexMappingGet {
 
     my $Index = $Param{Index};
 
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
+    my $IndexIsValid = $Self->IndexIsValid(
+        IndexName => $Index,
     );
 
-    return if !$Loaded;
+    return if !$IndexIsValid;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
 
@@ -1031,11 +1105,11 @@ sub _QueryPrepareIndexRefresh {
 
     my $Index = $Param{Index};
 
-    my $Loaded = $Self->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${Index}",
+    my $IndexIsValid = $Self->IndexIsValid(
+        IndexName => $Index,
     );
 
-    return if !$Loaded;
+    return if !$IndexIsValid;
 
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
 

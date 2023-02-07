@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -30,7 +30,11 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    return if $SearchObject->{Fallback};
 
     NEEDED:
     for my $Needed (qw(Data Event Config)) {
@@ -54,15 +58,14 @@ sub Run {
         return;
     }
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
-
-    return if $SearchObject->{Fallback};
-
     my $FunctionName = $Param{Config}->{FunctionName};
 
-    my $Result = $SearchObject->$FunctionName(
-        Index    => 'DynamicField',
-        ObjectID => $Param{Data}->{NewData}->{ID}
+    $SearchChildObject->IndexObjectQueueAdd(
+        Index => 'DynamicField',
+        Value => {
+            FunctionName => $FunctionName,
+            ObjectID     => $Param{Data}->{NewData}->{ID},
+        },
     );
 
     # deleting dynamic field definition triggers event
@@ -70,11 +73,14 @@ sub Run {
     # even when sql engine delete them
     # delete dynamic field with dynamic field value data from advanced engine
     if ( $FunctionName eq 'ObjectIndexRemove' ) {
-        $SearchObject->ObjectIndexRemove(
-            Index       => 'DynamicFieldValue',
-            QueryParams => {
-                FieldID => $Param{Data}->{NewData}->{ID}
-            }
+        $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'DynamicFieldValue',
+            Value => {
+                FunctionName => $FunctionName,
+                QueryParams  => {
+                    FieldID => $Param{Data}->{NewData}->{ID}
+                }
+            },
         );
     }
 
