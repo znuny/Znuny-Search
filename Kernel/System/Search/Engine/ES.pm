@@ -116,7 +116,7 @@ sub Connect {
     # try to receive information about cluster after connection.
     my $ConnectObject = Search::Elasticsearch->new(
         nodes  => \@Nodes,
-        client => '7_0::Direct',
+        client => '8_0::Direct',
     );
 
     eval {
@@ -248,7 +248,8 @@ sub CheckNodeConnection {
                 path   => $Param{Path}     // '',
                 userinfo => $UserInfo,
             },
-        ]
+        ],
+        client => '8_0::Direct',
     );
 
     eval {
