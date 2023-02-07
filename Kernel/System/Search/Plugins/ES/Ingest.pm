@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -152,60 +152,6 @@ sub ClusterInit {
             Success => 1,
         }
     };
-}
-
-=head2 TicketToProcessAdd()
-
-add ticket for attachment rebuilding to the queue
-
-    my $Success = $SearchESIngestPluginObject->TicketToProcessAdd(
-        TicketID => 1,
-    );
-
-=cut
-
-sub TicketToProcessAdd {
-    my ( $Self, %Param ) = @_;
-
-    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
-    return if !$Param{TicketID};
-    return if $Self->TicketToProcessExists(
-        TicketID => $Param{TicketID},
-    );
-
-    return if !$DBObject->Do(
-        SQL  => "INSERT INTO es_attachment_content(ticket_id) VALUES (?)",
-        Bind => [ \$Param{TicketID} ]
-    );
-
-    return 1;
-}
-
-=head2 TicketToProcessExists()
-
-check if ticket was added into the rebuilding queue for it's attachments
-
-    my $TicketID = $SearchESIngestPluginObject->TicketToProcessExists(
-        TicketID => 1,
-    );
-
-=cut
-
-sub TicketToProcessExists {
-    my ( $Self, %Param ) = @_;
-
-    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
-    return if !$Param{TicketID};
-
-    return if !$DBObject->Prepare(
-        SQL  => "SELECT ticket_id FROM es_attachment_content WHERE ticket_id = ?",
-        Bind => [ \$Param{TicketID} ],
-    );
-
-    my @Data = $DBObject->FetchrowArray();
-
-    return 1 if $Data[0];
-    return;
 }
 
 1;

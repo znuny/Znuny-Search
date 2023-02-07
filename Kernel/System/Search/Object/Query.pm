@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -110,6 +110,15 @@ sub Search {
         NoPermissions => $Param{NoPermissions},
     );
 
+    if ( ref $SearchParams eq 'HASH' && $SearchParams->{Error} ) {
+        return {
+            Error    => 1,
+            Fallback => {
+                Enable => 1,
+            },
+        };
+    }
+
     # return the query
     my $Query = $Param{MappingObject}->Search(
         Limit => $Self->{IndexDefaultSearchLimit},    # default limit or override with limit from param
@@ -189,10 +198,12 @@ sub ObjectIndexAdd {
         ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
     );
 
+    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+
     # build and return query
     return $Param{MappingObject}->ObjectIndexAdd(
         %Param,
-        Body => $SQLSearchResult,
+        Body => $SQLSearchResult->{Data},
     );
 }
 
@@ -253,10 +264,12 @@ sub ObjectIndexSet {
         ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
     );
 
+    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+
     # build and return query
     return $Param{MappingObject}->ObjectIndexSet(
         %Param,
-        Body => $SQLSearchResult,
+        Body => $SQLSearchResult->{Data},
     );
 }
 
@@ -315,10 +328,12 @@ sub ObjectIndexUpdate {
         QueryParams => $QueryParams,
     );
 
+    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+
     # build and return query
     return $Param{MappingObject}->ObjectIndexUpdate(
         %Param,
-        Body => $SQLSearchResult,
+        Body => $SQLSearchResult->{Data},
     );
 }
 
@@ -365,6 +380,8 @@ sub ObjectIndexRemove {
         QueryParams   => $QueryParams,
         NoPermissions => $Param{NoPermissions},
     );
+
+    return if ref $QueryParams eq 'HASH' && $QueryParams->{Error};
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexRemove(
@@ -596,14 +613,17 @@ sub _QueryParamsPrepare {
     for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
 
         # apply search params for columns that are supported
-        my @Result = $Self->_QueryParamSet(
+        my $Result = $Self->_QueryParamSet(
             Name           => $SearchParam,
             Value          => $Param{QueryParams}->{$SearchParam},
             NoMappingCheck => $Param{NoMappingCheck},
         );
 
-        if ( scalar @Result ) {
-            push @{ $ValidParams->{$SearchParam}->{Query} }, @Result;
+        if ( IsArrayRefWithData($Result) ) {
+            push @{ $ValidParams->{$SearchParam}->{Query} }, @{$Result};
+        }
+        elsif ( ref $Result eq 'HASH' && $Result->{Error} ) {
+            return $Result;
         }
     }
     return $ValidParams;
@@ -623,19 +643,48 @@ set query param field to standardized output
 sub _QueryParamSet {
     my ( $Self, %Param ) = @_;
 
-    my $Name  = $Param{Name};
-    my $Value = $Param{Value};
+    my $Name      = $Param{Name};
+    my $Value     = $Param{Value};
+    my $IndexName = $Self->{IndexConfig}->{IndexName};
+
+    my $SearchQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$IndexName");
+
+    my $Data = $SearchQueryObject->_QueryFieldDataSet(
+        Name => $Name,
+    );
 
     # check if query param should pass
     return if !$Self->_QueryFieldCheck(
         Name           => $Name,
         Value          => $Value,
+        Data           => $Data,
         NoMappingCheck => $Param{NoMappingCheck},
     );
 
-    my $ReturnType = $Self->_QueryFieldReturnTypeSet(
-        Name => $Name,
-    );
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !defined $Data ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Data is needed!",
+        );
+        return { Error => 1 };
+    }
+
+    NEEDED:
+    for my $Needed (qw(Type ReturnType)) {
+
+        next NEEDED if $Data->{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "'$Needed' is needed in Data hash!",
+        );
+        return { Error => 1 };
+    }
+
+    my $Type       = $Data->{Type};
+    my $ReturnType = $Data->{ReturnType};
 
     my @Operators;
 
@@ -645,6 +694,7 @@ sub _QueryParamSet {
                 Operator   => $Value->{Operator} || '=',
                 Value      => $Value->{Value},
                 ReturnType => $ReturnType,
+                Type       => $Type,
             }
         );
     }
@@ -656,6 +706,7 @@ sub _QueryParamSet {
     {
         for my $Value ( @{$Value} ) {
             $Value->{ReturnType} = $ReturnType;
+            $Value->{Type}       = $Type;
         }
         @Operators = @{$Value};
     }
@@ -665,11 +716,34 @@ sub _QueryParamSet {
                 Operator   => '=',
                 Value      => $Value,
                 ReturnType => $ReturnType,
+                Type       => $Type,
             }
         );
     }
 
-    return @Operators;
+    # check operator validity
+    OPERATOR:
+    for ( my $i = 0; $i < scalar @Operators; $i++ ) {
+        my $OperatorData = $Operators[$i];
+
+        if ( !$OperatorData->{Operator} ) {
+            delete $Operators[$i];
+            next OPERATOR;
+        }
+
+        if ( !$Self->{IndexSupportedOperators}->{$Type}->{Operator}->{ $OperatorData->{Operator} } ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Query parameter $Name type $Type does not support operator $OperatorData->{Operator}!",
+            );
+            return { Error => 1 };
+        }
+    }
+
+    # clear undefs of possibly deleted values
+    @Operators = grep {$_} @Operators;
+
+    return \@Operators;
 }
 
 =head2 _QueryFieldCheck()
@@ -692,27 +766,45 @@ sub _QueryFieldCheck {
     return 1;
 }
 
-=head2 _QueryFieldReturnTypeSet()
+=head2 _QueryFieldDataSet()
 
-check specified return type field for index
+set data for field
 
-    my $Result = $SearchQueryObject->_QueryFieldReturnTypeSet(
+    my $Result = $SearchQueryObject->_QueryFieldDataSet(
         Name => 'SLAID',
     );
 
 =cut
 
-sub _QueryFieldReturnTypeSet {
+sub _QueryFieldDataSet {
     my ( $Self, %Param ) = @_;
 
-    return 'SCALAR' if $Param{Name} eq '_id';
+    my $DefaultValue = {
+        ReturnType => 'SCALAR',
+    };
+    my $Data = $DefaultValue;
 
-    # return type is either specified or scalar
-    if ( $Self->{IndexFields}->{ $Param{Name} } && $Self->{IndexFields}->{ $Param{Name} }->{ReturnType} ) {
-        return $Self->{IndexFields}->{ $Param{Name} }->{ReturnType};
+    if ( $Param{Name} eq '_id' ) {
+        $Data->{Type} = 'String';
+        return $DefaultValue;
     }
 
-    return 'SCALAR';
+    if ( $Self->{IndexFields}->{ $Param{Name} } ) {
+        for my $Property (qw(Type ReturnType)) {
+            if ( $Self->{IndexFields}->{ $Param{Name} }->{$Property} ) {
+                $Data->{$Property} = $Self->{IndexFields}->{ $Param{Name} }->{$Property};
+            }
+        }
+    }
+    elsif ( $Self->{IndexExternalFields}->{ $Param{Name} } ) {
+        for my $Property (qw(Type ReturnType)) {
+            if ( $Self->{IndexExternalFields}->{ $Param{Name} }->{$Property} ) {
+                $Data->{$Property} = $Self->{IndexExternalFields}->{ $Param{Name} }->{$Property};
+            }
+        }
+    }
+
+    return $Data;
 }
 
 =head2 _QueryAdvancedParamsBuild()
@@ -745,7 +837,9 @@ sub _QueryAdvancedParamsBuild {
                     AdvancedSQLQuery   => $AdvancedQuery,
                     AdvancedParamToSet => $SearchParam,
                     PrependOperator    => $PrependOperator,
+                    SelectAliases      => $Param{SelectAliases},
                 );
+
                 $PrependOperator = ' AND (';
             }
 
@@ -797,7 +891,7 @@ sub _QueryAdvancedParamBuildSQL {
             for my $OperatorData (@PreparedQueryParam) {
                 my $FieldRealName = $Self->{IndexFields}->{$FieldName}->{ColumnName};
                 my $Result        = $OperatorModule->OperatorQueryGet(
-                    Field    => $FieldRealName,
+                    Field    => $Param{SelectAliases} ? $FieldName : $FieldRealName,
                     Value    => $OperatorData->{Value},
                     Operator => $OperatorData->{Operator},
                     Object   => $Self->{IndexConfig}->{IndexName},
@@ -813,7 +907,14 @@ sub _QueryAdvancedParamBuildSQL {
                 $AdditionalSQLQuery .= $OperatorToPrepend . $Result->{Query};
                 if ( $Result->{Bindable} ) {
                     $OperatorData->{Value} = $Result->{BindableValue} if $Result->{BindableValue};
-                    push @{ $AdvancedSQLQuery->{Binds} }, \$OperatorData->{Value};
+                    if ( ref $OperatorData->{Value} eq "ARRAY" ) {
+                        for my $Value ( @{ $OperatorData->{Value} } ) {
+                            push @{ $AdvancedSQLQuery->{Binds} }, \$Value;
+                        }
+                    }
+                    else {
+                        push @{ $AdvancedSQLQuery->{Binds} }, \$OperatorData->{Value};
+                    }
                 }
                 $FirstOperatorSet = 1;
 
@@ -831,6 +932,7 @@ sub _QueryAdvancedParamBuildSQL {
                 PrependOperator    => ' OR (',
                 AdvancedParamToSet => $Queries,
                 AdvancedSQLQuery   => $AdvancedSQLQuery,
+                SelectAliases      => $Param{SelectAliases},
             );
         }
     }

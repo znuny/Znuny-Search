@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -145,7 +145,8 @@ search for specified object data
                 Value => 2,
             }
         },
-        AdvancedQueryParams => [ # optional, supported on indexes without relations
+        AdvancedQueryParams => [ # optional, mostly supported on indexes
+                                 # with first level of data structure nesting
                                  # advanced structure where an array is passed
                                  # any hashes inside are AND statements
                                  # any arrays inside are OR statements
@@ -717,8 +718,7 @@ sub IndexRemove {
         $MappingObject = $Self->{MappingIndexObject}->{ $Param{IndexName} };
     }
     elsif ( $Param{IndexRealName} ) {
-        my %RegisteredIndexesRealNameMapping = reverse %{ $Self->{Config}->{RegisteredIndexes} };
-        $MappingObject = $Self->{MappingIndexObject}->{ $RegisteredIndexesRealNameMapping{ $Param{IndexRealName} } };
+        $MappingObject = $Self->{MappingObject};
     }
     else {
         return;
@@ -1163,7 +1163,7 @@ sub Fallback {
         my $Response = $SearchChildObject->Fallback(
             %Param,
             IndexName => $Object,
-            %{ $Param{Objects}{$Object} },
+            %{ $Param{Objects}->{$Object} },
         );
 
         # on any error ignore response
@@ -1181,7 +1181,7 @@ sub Fallback {
             ResultType => $ResultType,
             Fallback   => 1,
             Silent     => $Param{Silent},
-            %{ $Param{Objects}{$Object} },
+            %{ $Param{Objects}->{$Object} },
         );
 
         # merge response into return data
@@ -1373,12 +1373,12 @@ sub ClusterInit {
     return if $ActiveCluster->{ClusterInitialized} && !$Param{Force};
 
     my %Operations;
-    PLUGINS:
+    PLUGIN:
     for my $Plugin ( sort keys %{ $Self->{Config}->{RegisteredPlugins} } ) {
         my $ContainerInitPluginOperation
             = $Kernel::OM->Get( $Self->{Config}->{RegisteredPlugins}->{$Plugin} )->ClusterInit();
 
-        next PLUGINS if !IsHashRefWithData($ContainerInitPluginOperation);
+        next PLUGIN if !IsHashRefWithData($ContainerInitPluginOperation);
         $Operations{ $ContainerInitPluginOperation->{PluginName} } = $ContainerInitPluginOperation->{Status};
     }
 
@@ -1466,7 +1466,7 @@ sub _SearchParamsStandardize {
         my %ValidFields = $SearchChildObject->ValidFieldsPrepare(
             Fields      => $Param{Param}->{Fields}->[$i],
             Object      => $ObjectName,
-            QueryParams => $Param{Param}{QueryParams},
+            QueryParams => $Param{Param}->{QueryParams},
             %Param,
         );
 

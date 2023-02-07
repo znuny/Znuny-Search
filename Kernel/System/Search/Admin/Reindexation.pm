@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -25,6 +25,7 @@ our @ObjectDependencies = (
     'Kernel::System::Cache',
     'Kernel::System::JSON',
     'Kernel::System::Search::Object',
+    'Kernel::System::Console::Command::Maint::Search::Reindex',
 );
 
 =head1 NAME
@@ -93,8 +94,8 @@ sub BuildReindexationSection {
         my $Date       = $DataEquality->{$IndexName}->{Date};
 
         my $DisplayData = $Percentage ? "$Percentage% ($Date)" : "Not found";
-        my $Icon        = $ReindexationStatus->{$IndexName}{Status}
-            ? $IconMapping{ $ReindexationStatus->{$IndexName}{Status} }
+        my $Icon        = $ReindexationStatus->{$IndexName}->{Status}
+            ? $IconMapping{ $ReindexationStatus->{$IndexName}->{Status} }
             : '';
         $LayoutObject->Block(
             Name => 'Index',
@@ -348,7 +349,7 @@ sub IndexReindexationStatus {
 
         $Status = 'Queued' if $OngoingFound;
 
-        if ( $Index eq $ReindexedIndex ) {
+        if ( $ReindexedIndex && $Index eq $ReindexedIndex ) {
             $Status       = 'Ongoing';
             $OngoingFound = 1;
         }
@@ -395,7 +396,7 @@ sub StopReindexation {
     my $AccessOk         = grep { $_ eq $PID{PID} } @{$UserProcs};
     my $AllUsersAccessOk = grep { $_ eq $PID{PID} } @{$AllProcs};
 
-    return if ( !$AccessOk && $AllUsersAccessOk );
+    return if !$AccessOk && $AllUsersAccessOk;
 
     my $Exists = $AccessOk || $AllUsersAccessOk ? 1 : 0;
 
@@ -445,6 +446,36 @@ sub StopReindexation {
     return 1 if $CacheDeleteSuccess && $DataEqualitySetSuccess;
 
     return;
+}
+
+=head2 StartReindexation()
+
+start re-indexing process
+
+    my $Status = $ReindexationObject->StartReindexation(
+        Params => [
+        '--index', 'Ticket',
+        '--recreate', 'default',  # optional
+        '--cluster-reinitialize', # optional
+        '--check-data-equality',  # optional
+        ]
+    );
+
+=cut
+
+sub StartReindexation {
+    my ( $Self, %Param ) = @_;
+
+    my $CommandObject = $Kernel::OM->Get('Kernel::System::Console::Command::Maint::Search::Reindex');
+
+    my ( $Result, $ExitCode );
+    {
+        local *STDOUT;
+        open STDOUT, '>:utf8', \$Result;    ## no critic
+        $ExitCode = $CommandObject->Execute( @{ $Param{Params} } );
+    }
+
+    return $ExitCode;
 }
 
 1;

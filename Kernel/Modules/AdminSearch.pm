@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -300,13 +300,11 @@ sub Run {
             push @Params, $Index;
         }
 
-        my $CommandObject = $Kernel::OM->Get('Kernel::System::Console::Command::Maint::Search::Reindex');
-        my ( $Result, $ExitCode );
-        {
-            local *STDOUT;
-            open STDOUT, '>:utf8', \$Result;    ## no critic
-            $ExitCode = $CommandObject->Execute(@Params);
-        }
+        my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
+
+        my $ExitCode = $ReindexationObject->StartReindexation(
+            Params => \@Params,
+        );
 
         my $JSON = $LayoutObject->JSONEncode(
             Data => {
@@ -538,7 +536,8 @@ sub Run {
         my $Count    = 1;
         my $NodeName = $LayoutObject->{LanguageObject}->Translate( '%s (copy) %s', $NodeData->{Name}, $Count );
 
-        # TODO: ???
+        # the maximum number of nodes with the same name
+        # (postfixed with it's copy number) cannot be equal or greater than 100
         while (
             IsHashRefWithData(
                 $SearchClusterObject->ClusterCommunicationNodeGet(
@@ -549,7 +548,7 @@ sub Run {
             && $Count < 100
             )
         {
-            $NodeName =~ s/\d+$/$Count/;
+            $NodeName =~ s{\d+$}{$Count};
             $Count++;
         }
 

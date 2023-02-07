@@ -1,5 +1,9 @@
-image: registry.znuny.com/znuny/internal/docker-znuny-ci:6.3
+image: registry.znuny.com/znuny/internal/docker-znuny-ci:6.4
 
 include:
   - project: 'Znuny/Internal/Znuny'
     file: '/templates/gitlab/default/default-db.yml'
+
+.before_script:
+  commands:
+    - cpanm Proc::Find
