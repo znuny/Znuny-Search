@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -113,7 +113,7 @@ sub _ResponseDataFormat {
                                     )
                                 {
                                     for my $DualNestedChildKey ( sort keys %{ $ChildHit->{inner_hits} } ) {
-                                        $DualNestedChildKey =~ /$ChildKey\.(.*)/;
+                                        $DualNestedChildKey =~ m{$ChildKey\.(.*)};
                                         my $DualNestedChildRealName = $1;
                                         for my $DualNestedChildHit (
                                             @{ $ChildHit->{inner_hits}->{$DualNestedChildKey}->{hits}->{hits} }
@@ -124,7 +124,7 @@ sub _ResponseDataFormat {
                                                     = decode_base64( $DualNestedChildHit->{_source}->{Content} );
                                             }
 
-                                            push @{ $ChildHit->{_source}{$DualNestedChildRealName} },
+                                            push @{ $ChildHit->{_source}->{$DualNestedChildRealName} },
                                                 $DualNestedChildHit->{_source};
                                         }
                                     }

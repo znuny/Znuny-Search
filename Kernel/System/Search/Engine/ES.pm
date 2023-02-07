@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -116,7 +116,7 @@ sub Connect {
     # try to receive information about cluster after connection.
     my $ConnectObject = Search::Elasticsearch->new(
         nodes  => \@Nodes,
-        client => '7_0::Direct',
+        client => '8_0::Direct',
     );
 
     eval {
@@ -248,7 +248,8 @@ sub CheckNodeConnection {
                 path   => $Param{Path}     // '',
                 userinfo => $UserInfo,
             },
-        ]
+        ],
+        client => '8_0::Direct',
     );
 
     eval {
@@ -295,6 +296,70 @@ sub UserInfoStrgBuild {
     my $Password = $PwdAuth->{Password} // '';
 
     return "$Login:$Password";
+}
+
+=head2 QueryStringReservedCharactersClean()
+
+clean reserved characters from query string
+
+    my $Result = $SearchMappingESObject->QueryStringReservedCharactersClean(
+        String => "<username>",
+    );
+
+=cut
+
+sub QueryStringReservedCharactersClean {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !defined $Param{String} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter 'String' is needed!",
+        );
+        return;
+    }
+
+    return '' if !$Param{String};
+
+    my @StandardReservedCharacters = (
+        '\+',
+        '\-',
+        '\=',
+        '\&&',
+        '\|\|',
+        '\!',
+        '\(',
+        '\)',
+        '\{',
+        '\}',
+        '\[',
+        '\]',
+        '\^',
+        '\"',
+        '\~',
+        '\*',
+        '\\\\',
+        '\?',
+        '\:',
+        '\/',
+        '\<',
+        '\>'
+    );
+
+    my $Result = $Param{String};
+
+    for my $Character (@StandardReservedCharacters) {
+
+        # remove special characters from the start/end of string
+        $Result =~ s{(^$Character*)(.*?)($Character*$)}{$2}mgs;
+
+        # any special character in the middle can be changed to space
+        $Result =~ s{$Character}{ }mgs;
+    }
+
+    return $Result;
 }
 
 =head2 QueryExecuteGeneric()

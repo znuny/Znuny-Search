@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -124,6 +124,129 @@ sub new {
     );
 
     return $Self;
+}
+
+sub ObjectIndexAdd {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ObjectIndexAction(
+        %Param,
+        FunctionName => 'ObjectIndexAdd',
+        UseSQLSearch => 1,
+    );
+}
+
+sub ObjectIndexSet {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ObjectIndexAction(
+        %Param,
+        FunctionName => 'ObjectIndexSet',
+        UseSQLSearch => 1,
+    );
+}
+
+sub ObjectIndexUpdate {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ObjectIndexAction(
+        %Param,
+        FunctionName => 'ObjectIndexUpdate',
+        UseSQLSearch => 1,
+    );
+}
+
+sub ObjectIndexRemove {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ObjectIndexAction(
+        %Param,
+        FunctionName => 'ObjectIndexRemove',
+        UseSQLSearch => 0,
+    );
+}
+
+sub ObjectIndexAction {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    NEEDED:
+    for my $Needed (qw(FunctionName UseSQLSearch)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    return if $SearchObject->{Fallback};
+
+    # use standard function for Article index
+    my $FunctionName = "SUPER::$Param{FunctionName}";
+
+    my $Success = $Self->$FunctionName(
+        %Param,
+    );
+    return if !$Success;
+
+    # if article data was correctly indexed, also index ArticleDataMIME part of data
+    return $Success if $Param{Reindex};
+    return $Success if !$SearchObject->{Config}->{RegisteredIndexes}->{ArticleDataMIME};
+
+    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
+    my $ArticleDataMIMEIdentifier   = $SearchArticleDataMIMEObject->{Config}->{Identifier};
+
+    if ( !$ArticleDataMIMEIdentifier ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Identifier not configured in ArticleDataMIME index!",
+        );
+        return;
+    }
+
+    # search for article ids that was before updated
+    my $QueryParams = $Param{QueryParams} || {
+        $Self->{Config}->{Identifier} => $Param{ObjectID},
+    };
+
+    my $Search = $SearchObject->Search(
+        QueryParams  => $QueryParams,
+        Objects      => ['Article'],
+        UseSQLSearch => $Param{UseSQLSearch},
+    );
+
+    return $Success if !IsHashRefWithData($Search);
+    return $Success if !IsArrayRefWithData( $Search->{Article} );
+
+    my @ArticleIDs;
+    ARTICLE:
+    for my $Article ( @{ $Search->{Article} } ) {
+        push @ArticleIDs, $Article->{ArticleID};
+    }
+
+    if ( !scalar @ArticleIDs ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Article data was found, but it does not contains it's ArticleDataMIME part!",
+        );
+        return;
+    }
+
+    my $ArticleDataMIMEFunctionName = $Param{FunctionName};
+
+    # index ArticleDataMIME data based on article ids identifier
+    $Success = $SearchObject->$ArticleDataMIMEFunctionName(
+        QueryParams => {
+            $SearchArticleDataMIMEObject->{Config}->{Identifier} => \@ArticleIDs,
+        },
+        Index => 'ArticleDataMIME',
+    );
+
+    return $Success;
 }
 
 1;

@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -32,7 +32,13 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject                 = $Kernel::OM->Get('Kernel::System::Log');
+    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+    my $SearchChildObject         = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    return if $SearchObject->{Fallback};
 
     NEEDED:
     for my $Needed (qw(Data Event Config)) {
@@ -56,12 +62,6 @@ sub Run {
         return;
     }
 
-    my $SearchObject              = $Kernel::OM->Get('Kernel::System::Search');
-    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
-    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
-
-    return if $SearchObject->{Fallback};
-
     my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
         Name => $Param{Data}->{FieldName},
     );
@@ -75,8 +75,8 @@ sub Run {
     return if !IsHashRefWithData($FieldValueTypeGet);
 
     my $FieldValueType = $FieldValueTypeGet->{ 'DynamicField_' . $DynamicFieldConfig->{Name} };
-
-    my $FunctionName = $Param{Config}->{FunctionName};
+    my $FunctionName   = $Param{Config}->{FunctionName};
+    my $Success;
 
     # array & scalar fields support
     if (
@@ -94,40 +94,55 @@ sub Run {
         # dynamic_field_value removal is problematic as Znuny won't return
         # ID of record to delete, so instead custom ID is defined for
         # advanced search engine
-        $SearchObject->ObjectIndexRemove(
+        $Success = $SearchChildObject->IndexObjectQueueAdd(
             Index => 'DynamicFieldValue',
+            Value => {
+                FunctionName => 'ObjectIndexRemove',
 
-            # use customized id which contains of "f*field_id*o*object_id*"
-            QueryParams => {
-                _id => 'f' . $DynamicFieldConfig->{ID} . 'o' . $Param{Data}->{TicketID},
+                # use customized id which contains of "f*field_id*o*object_id*"
+                QueryParams => {
+                    _id => 'f' . $DynamicFieldConfig->{ID} . 'o' . $Param{Data}->{TicketID},
+                },
             },
         );
 
         # update "Ticket" index as it also have dynamic fields as denormalized values
-        $SearchObject->ObjectIndexSet(
-            Index    => 'Ticket',
-            ObjectID => $Param{Data}->{TicketID},
+        $Success = $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'Ticket',
+            Value => {
+                FunctionName => 'ObjectIndexRemove',
+
+                # use customized id which contains of "f*field_id*o*object_id*"
+                ObjectID => $Param{Data}->{TicketID},
+            },
         );
 
-        return 1;
+        return $Success;
     }
 
     my $ObjectID = $Param{Data}->{ArticleID} || $Param{Data}->{TicketID};
 
-    $SearchObject->$FunctionName(
-        Index       => 'DynamicFieldValue',
-        QueryParams => {
-            FieldID  => $DynamicFieldConfig->{ID},
-            ObjectID => $ObjectID,
+    $Success = $SearchChildObject->IndexObjectQueueAdd(
+        Index => 'DynamicFieldValue',
+        Value => {
+            FunctionName => $FunctionName,
+            QueryParams  => {
+                FieldID  => $DynamicFieldConfig->{ID},
+                ObjectID => $ObjectID,
+            },
         },
     );
 
-    $SearchObject->ObjectIndexSet(
-        Index    => 'Ticket',
-        ObjectID => $Param{Data}->{TicketID},
+    # update "Ticket" index as it also have dynamic fields as denormalized values
+    $Success = $SearchChildObject->IndexObjectQueueAdd(
+        Index => 'Ticket',
+        Value => {
+            FunctionName => 'ObjectIndexSet',
+            ObjectID     => $Param{Data}->{TicketID},
+        },
     );
 
-    return 1;
+    return $Success;
 }
 
 1;

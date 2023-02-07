@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -28,9 +28,12 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject                 = $Kernel::OM->Get('Kernel::System::Log');
+    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+    my $SearchChildObject         = $Kernel::OM->Get('Kernel::System::Search::Object');
 
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     return if $SearchObject->{Fallback};
 
     NEEDED:
@@ -45,30 +48,25 @@ sub Run {
     }
 
     my $TicketID = $Param{Data}->{TicketID};
-
     return 1 if !$TicketID;
-
-    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
-    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
 
     my $DynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
         ObjectType => 'Ticket',
     );
 
     my @QueryParamsID;
-
     for my $DynamicField ( @{$DynamicFieldList} ) {
         push @QueryParamsID, 'f' . $DynamicField->{ID} . 'o' . $TicketID;
     }
-
     return 1 if !scalar @QueryParamsID;
 
-    $SearchObject->ObjectIndexRemove(
+    $SearchChildObject->IndexObjectQueueAdd(
         Index => 'DynamicFieldValue',
-
-        # use customized id which contains of "f*field_id*o*object_id*"
-        QueryParams => {
-            _id => \@QueryParamsID,
+        Value => {
+            FunctionName => 'ObjectIndexRemove',
+            QueryParams  => {
+                _id => \@QueryParamsID,
+            },
         },
     );
 

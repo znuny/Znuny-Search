@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -37,7 +37,7 @@ for fallback or separate engine.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Engine::ES::ArticleDataMIMEAttachment');
+    my $SearchArticleDataMIMEAttachmentObject = $Kernel::OM->Get('Kernel::System::Search::Object::Engine::ES::ArticleDataMIMEAttachment');
 
 =cut
 
@@ -117,7 +117,11 @@ sub new {
             ColumnName => 'attachment.content',
             Type       => 'Textarea',
             Alias      => 1,
-        }
+        },
+        TicketID => {
+            ColumnName => 'ticket_id',
+            Type       => 'Integer'
+        },
     };
 
     # get default config
@@ -135,8 +139,21 @@ sub new {
 sub ObjectIndexAdd {
     my ( $Self, %Param ) = @_;
 
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $Loaded = $SearchChildObject->IndexIsValid(
+        IndexName => $Self->{Config}->{IndexName},
+    );
+
+    return if !$Loaded;
+
+    my %Fields = $Self->ValidFieldsPrepare(
+        Fields => $Param{Fields},
+    );
+
     my $DataToProcess = $Self->_FetchDataToProcess(
         %Param,
+        Fields => \%Fields,
     );
 
     # build and return query
@@ -167,8 +184,21 @@ sub ObjectIndexAdd {
 sub ObjectIndexSet {
     my ( $Self, %Param ) = @_;
 
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $Loaded = $SearchChildObject->IndexIsValid(
+        IndexName => $Self->{Config}->{IndexName},
+    );
+
+    return if !$Loaded;
+
+    my %Fields = $Self->ValidFieldsPrepare(
+        Fields => $Param{Fields},
+    );
+
     my $DataToProcess = $Self->_FetchDataToProcess(
         %Param,
+        Fields => \%Fields,
     );
 
     # build and return query
@@ -201,6 +231,7 @@ sub SearchFormat {
 
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $DBObject     = $Kernel::OM->Get('Kernel::System::DB');
 
     my $ResultType = $Param{ResultType};
 
@@ -211,7 +242,7 @@ sub SearchFormat {
         $LogObject->Log(
             Priority => 'error',
             Message =>
-                "Specified result type: $Param{ResultType} isn't supported! Default value: \"ARRAY\" will be used instead.",
+                "Specified result type: $Param{ResultType} isn't supported! Default value: 'ARRAY' will be used instead.",
         );
 
         # revert to default result type
@@ -220,26 +251,32 @@ sub SearchFormat {
 
     my $IndexName               = $Self->{Config}->{IndexName};
     my $GloballyFormattedResult = $Param{GloballyFormattedResult};
+    my $ObjectData              = $GloballyFormattedResult->{$IndexName}->{ObjectData};
 
     # return only number of records without formatting its attribute
     if ( $Param{ResultType} eq "COUNT" ) {
         return {
-            $IndexName => $GloballyFormattedResult->{$IndexName}->{ObjectData} // 0,
+            $IndexName => $ObjectData // 0,
         };
     }
 
-    if ( !$SearchObject->{Fallback} && IsHashRefWithData( $Param{Fields}->{Content} ) ) {
-        OBJECT:
-        for my $ObjectData ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
-            next OBJECT if !$ObjectData->{Content};
-            $ObjectData->{Content} = decode_base64( delete $ObjectData->{Content} );
+    my $Fallback = $SearchObject->{Fallback} || $Param{Fallback};
+
+    if ( IsHashRefWithData( $Param{Fields}->{Content} ) ) {
+        if ( !$Fallback || ( $Fallback && !$DBObject->GetDatabaseFunction('DirectBlob') ) ) {
+
+            OBJECT:
+            for ( my $i = 0; $i < scalar @{$ObjectData}; $i++ ) {
+                next OBJECT if !$ObjectData->[$i]->{Content};
+                $ObjectData->[$i]->{Content} = decode_base64( $ObjectData->[$i]->{Content} );
+            }
         }
     }
 
     my $IndexResponse;
 
     if ( $Param{ResultType} eq "ARRAY" ) {
-        $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData};
+        $IndexResponse->{$IndexName} = $ObjectData;
     }
     elsif ( $Param{ResultType} eq "HASH" ) {
 
@@ -257,7 +294,7 @@ sub SearchFormat {
         $IndexResponse = { $IndexName => {} };
 
         DATA:
-        for my $Data ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
+        for my $Data ( @{$ObjectData} ) {
             if ( !$Data->{$Identifier} ) {
                 if ( !$Param{Silent} ) {
                     $LogObject->Log(
@@ -290,6 +327,46 @@ sub Fallback {
     return $FallbackSearchResult;
 }
 
+sub SQLObjectSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $GetTicketID;
+    my %Fields;
+
+    if ( IsHashRefWithData( $Param{Fields} ) ) {
+        %Fields      = %{ $Param{Fields} };
+        $GetTicketID = delete $Fields{TicketID} && $Fields{ArticleID};
+        delete $Fields{AttachmentContent};
+    }
+
+    # perform default sql object search
+    my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(
+        %Param,
+        Fields => \%Fields,
+    );
+
+    if (
+        $GetTicketID
+        && IsHashRefWithData($SQLSearchResult)
+        &&
+        IsArrayRefWithData( $SQLSearchResult->{Data} )
+        )
+    {
+        my $ArticleObject = $Kernel::OM->Get('Kernel::System::Ticket::Article');
+        ATTACHMENT:
+        for my $AttachmentData ( @{ $SQLSearchResult->{Data} } ) {
+            next ATTACHMENT if !$AttachmentData->{ArticleID};
+
+            my $TicketID = $ArticleObject->TicketIDLookup(
+                ArticleID => $AttachmentData->{ArticleID},
+            );
+            $AttachmentData->{TicketID} = $TicketID if $TicketID;
+        }
+    }
+
+    return $SQLSearchResult;
+}
+
 =head2 ValidFieldsPrepare()
 
 validates fields for object and return only valid ones
@@ -318,7 +395,7 @@ sub ValidFieldsPrepare {
     }
     else {
         for my $ParamField ( @{ $Param{Fields} } ) {
-            if ( $ParamField =~ /^Attachment_(.+)/ ) {
+            if ( $ParamField =~ m{^Attachment_(.+)} ) {
                 my $AttachmentField = $1;
                 if ( $AttachmentField && $AttachmentField eq '*' ) {
                     for my $AttachmentFieldName ( sort keys %AllAttachmentFields ) {
@@ -408,18 +485,21 @@ sub _FetchDataToProcess {
     my $SQLSearchResult = $Self->SQLObjectSearch(
         QueryParams => $QueryParams,
         ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+        Fields      => $Param{Fields},
     );
+
+    return if !$SQLSearchResult->{Success};
 
     # store content as base64
     RESULT:
-    for my $Result ( @{$SQLSearchResult} ) {
+    for my $Result ( @{ $SQLSearchResult->{Data} } ) {
         if ( $Result->{Content} ) {
             $EncodeObject->EncodeOutput( \$Result->{Content} );
             $Result->{Content} = encode_base64( $Result->{Content}, '' );
         }
     }
 
-    return $SQLSearchResult;
+    return $SQLSearchResult->{Data};
 }
 
 1;

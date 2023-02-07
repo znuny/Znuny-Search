@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -162,11 +162,18 @@ sub ValidFieldsPrepare {
 
     %{$Fields} = ( %{$Fields}, %{$AdditionalZnunyFields} );
 
-    PARAMFIELD:
+    FIELD:
     for my $ParamField ( @{ $Param{Fields} } ) {
-        next PARAMFIELD if !$Fields->{$ParamField};
+        if ( $ParamField =~ m{^$Param{Object}_(.+)$} ) {
+            my $Field = $1;
 
-        $ValidFields{$ParamField} = $Fields->{$ParamField};
+            if ( $Fields->{$Field} ) {
+                $ValidFields{$Field} = $Fields->{$Field};
+            }
+            elsif ( $Field eq '*' ) {
+                %ValidFields = %{$Fields};
+            }
+        }
     }
 
     return $SearchChildObject->_PostValidFieldsPrepare(
@@ -254,8 +261,10 @@ sub SQLObjectSearch {
         ResultType        => $ResultType,
     );
 
-    $SQLSearchResult = $QueryDynamicFieldValueObject->_PrepareDFSQLResponse(
-        SQLSearchResult => $SQLSearchResult,
+    return $SQLSearchResult if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+
+    $SQLSearchResult->{Data} = $QueryDynamicFieldValueObject->_PrepareDFSQLResponse(
+        SQLSearchResult => $SQLSearchResult->{Data},
         Index           => 'DynamicFieldValue',
     );
 
@@ -266,7 +275,7 @@ sub SQLObjectSearch {
     }
     elsif ( IsArrayRefWithData( $Param{Fields} ) ) {
         for ( my $i = 0; $i < scalar @{ $Param{Fields} }; $i++ ) {
-            if ( $Param{Fields}->[$i] =~ /^(ValueText|ValueDate|ValueInt)$/ ) {
+            if ( $Param{Fields}->[$i] =~ m{^(ValueText|ValueDate|ValueInt)$} ) {
                 delete $Param{Fields}->[$i];
             }
         }
@@ -274,7 +283,10 @@ sub SQLObjectSearch {
     }
 
     if ( $Param{ResultType} eq 'COUNT' ) {
-        return scalar @{$SQLSearchResult};
+        return {
+            Data    => scalar @{ $SQLSearchResult->{Data} },
+            Success => $SQLSearchResult->{Success},
+        };
     }
 
     return $SQLSearchResult;

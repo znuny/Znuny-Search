@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -30,24 +30,44 @@ sub QueryBuild {
         'OR'  => 'or'
     );
 
-    my $Value;
-    if ( ref $Param{Value} ne 'HASH' ) {
-        $Value = {
-            query    => $Param{Value},
-            operator => $OperatorMapping{AND}
+    my $ParamValue = $Param{Value};
+
+    if ( ref $ParamValue ne "HASH" ) {
+        $ParamValue = {
+            query    => $ParamValue,
+            operator => $OperatorMapping{AND},
         };
     }
     else {
-        $Value->{query}    = $Param{Value}->{Text};
-        $Value->{operator} = $OperatorMapping{ $Param{Value}->{QueryOperator} || "AND" };
+        $ParamValue = {
+            query    => $ParamValue->{Text},
+            operator => $OperatorMapping{ $Param{Value}->{QueryOperator} || 'AND' },
+        };
+    }
+
+    if ( ref( $ParamValue->{query} ) ne 'ARRAY' ) {
+        $ParamValue->{query} = [ $ParamValue->{query} ];
+    }
+
+    my $Value = {
+        bool => {
+            should => []
+        }
+    };
+
+    for my $QueryValue ( @{ $ParamValue->{query} } ) {
+        push @{ $Value->{bool}->{should} }, {
+            match => {
+                $Param{Field} => {
+                    query    => $QueryValue,
+                    operator => $ParamValue->{operator},
+                }
+            }
+        };
     }
 
     return {
-        Query => {
-            match => {
-                $Param{Field} => $Value
-            }
-        },
+        Query   => $Value,
         Section => 'must'
     };
 }

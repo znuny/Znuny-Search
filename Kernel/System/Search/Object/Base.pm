@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2012-2022 Znuny GmbH, https://znuny.com/
+# Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -83,7 +83,10 @@ sub Fallback {
     my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    my $SQLSearchResult = [];
+    my $SQLSearchResult = {
+        Success => 0,
+        Data    => [],
+    };
 
     if ( IsHashRefWithData( $Param{Fields} ) ) {
         $SQLSearchResult = $Self->SQLObjectSearch(
@@ -97,11 +100,13 @@ sub Fallback {
             Silent                      => $Param{Silent},
             ReturnDefaultSQLColumnNames => 0,
         );
+
+        return if !$SQLSearchResult->{Success};
     }
 
     my $Result = {
         EngineData => {},
-        ObjectData => $SQLSearchResult,
+        ObjectData => $SQLSearchResult->{Data},
     };
 
     return $Result;
@@ -389,10 +394,9 @@ sub SQLObjectSearch {
 
     my $QueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
 
-    my $IndexRealName      = $Self->{Config}->{IndexRealName};
-    my $Fields             = $Param{CustomIndexFields} // $Self->{Fields};
-    my $SupportedOperators = $Self->{SupportedOperators};
-    my $ResultType         = $Param{ResultType} || 'ARRAY';
+    my $IndexRealName = $Self->{Config}->{IndexRealName};
+    my $Fields        = $Param{CustomIndexFields} // $Self->{Fields};
+    my $ResultType    = $Param{ResultType} || 'ARRAY';
 
     # prepare sql statement
     my $SQL;
@@ -458,9 +462,17 @@ sub SQLObjectSearch {
             NoPermissions => $Param{NoPermissions},
         );
 
+        if ( ref $SearchParams eq 'HASH' && $SearchParams->{Error} ) {
+            return {
+                Success => 0,
+                Data    => [],
+            };
+        }
+
         # apply search params for columns that are supported
         PARAM:
         for my $FieldName ( sort keys %{$SearchParams} ) {
+
             for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Query} } ) {
                 my $OperatorValue = $OperatorData->{Value};
 
@@ -470,11 +482,14 @@ sub SQLObjectSearch {
                         Message =>
                             "Fallback SQL search does not support searching by $FieldName column in $IndexRealName table!"
                     );
-                    return [];
+                    return {
+                        Success => 0,
+                        Data    => [],
+                    };
                 }
-
-                my $Result = $OperatorModule->OperatorQueryGet(
-                    Field    => $Fields->{$FieldName}->{ColumnName},
+                my $FieldRealName = $Fields->{$FieldName}->{ColumnName};
+                my $Result        = $OperatorModule->OperatorQueryGet(
+                    Field    => $Param{SelectAliases} ? $FieldName : $FieldRealName,
                     Value    => $OperatorValue,
                     Operator => $OperatorData->{Operator},
                     Object   => $Self->{Config}->{IndexName},
@@ -483,11 +498,18 @@ sub SQLObjectSearch {
 
                 if ( $Result->{Bindable} && IsArrayRefWithData( $Result->{BindableValue} ) ) {
                     for my $BindableValue ( @{ $Result->{BindableValue} } ) {
-                        push @QueryParamValues, \$BindableValue;
+                        if ( ref $BindableValue eq "ARRAY" ) {
+                            for my $Value ( @{$BindableValue} ) {
+                                push @QueryParamValues, \$Value;
+                            }
+                        }
+                        else {
+                            push @QueryParamValues, \$BindableValue;
+                        }
                     }
                 }
 
-                push @QueryConditions, $Result->{Query};
+                push @QueryConditions, $Result->{Query} if $Result->{Query};
             }
         }
     }
@@ -506,6 +528,7 @@ sub SQLObjectSearch {
     my $AdvancedSQLQuery = $QueryObject->_QueryAdvancedParamsBuild(
         AdvancedQueryParams => $Param{AdvancedQueryParams},
         PrependOperator     => $PrependOperator,
+        SelectAliases       => $Param{SelectAliases}
     ) // {};
 
     if ( $AdvancedSQLQuery->{Content} ) {
@@ -518,8 +541,9 @@ sub SQLObjectSearch {
     my $SQLSortQuery = $Self->SQLSortQueryGet(
         OrderBy => $Param{OrderBy} // '',
         SortBy  => $Param{SortBy}  // '',
-        ResultType => $Param{ResultType},
-        Silent     => 1
+        ResultType    => $Param{ResultType},
+        Silent        => 1,
+        SelectAliases => $Param{SelectAliases}
     );
 
     # append query to sort data and apply order by
@@ -532,8 +556,9 @@ sub SQLObjectSearch {
 
     if ( $Param{OnlyReturnQuery} ) {
         return {
-            SQL  => $SQL,
-            Bind => \@QueryParamValues
+            SQL     => $SQL,
+            Bind    => \@QueryParamValues,
+            Success => 1,
         };
     }
 
@@ -546,7 +571,10 @@ sub SQLObjectSearch {
 
     if ( $ResultType eq 'COUNT' ) {
         my @Count = $DBObject->FetchrowArray();
-        return $Count[0];
+        return {
+            Success => 1,
+            Data    => $Count[0],
+        };
     }
 
     my @Result;
@@ -560,7 +588,10 @@ sub SQLObjectSearch {
         push @Result, \%Data;
     }
 
-    return \@Result;
+    return {
+        Success => 1,
+        Data    => \@Result,
+    };
 }
 
 =head2 SearchFormat()
@@ -650,7 +681,7 @@ sub SearchFormat {
 
 return all sql data of object ids
 
-    my $ResultIDs = $SearchTicketObject->ObjectListIDs();
+    my $ResultIDs = $SearchBaseObject->ObjectListIDs();
 
 =cut
 
@@ -667,12 +698,13 @@ sub ObjectListIDs {
         OrderBy     => $Param{OrderBy},
         SortBy      => $Identifier,
         ResultType  => $Param{ResultType},
+        Limit       => $Param{Limit},
     );
 
     # push hash data into array
     my @Result;
-    if ( IsArrayRefWithData($SQLSearchResult) ) {
-        for my $SQLData ( @{$SQLSearchResult} ) {
+    if ( $SQLSearchResult->{Success} && IsArrayRefWithData( $SQLSearchResult->{Data} ) ) {
+        for my $SQLData ( @{ $SQLSearchResult->{Data} } ) {
             push @Result, $SQLData->{$Identifier};
         }
     }
@@ -836,14 +868,6 @@ sub DefaultConfigGet {
         },
     };
 
-    # define list of values for types which should be set as undefined while indexing.
-    $Self->{DataTypeValuesBlackList} = {
-        Date => [
-            '0000-00-00 00:00:00',
-            '1000-00-00 00:00:00',
-        ]
-    };
-
     return 1;
 }
 
@@ -928,7 +952,11 @@ sub SQLSortQueryGet {
     my $SortBy = $Self->SortParamApply(%Param);
     return '' if !$SortBy;
 
-    my $SQLSortQuery = " ORDER BY $Self->{Fields}->{$SortBy->{Name}}->{ColumnName}";
+    my $ColumnName = $Param{SelectAliases}
+        ? $SortBy->{Name}
+        : $Self->{Fields}->{ $SortBy->{Name} }->{ColumnName};
+
+    my $SQLSortQuery = " ORDER BY $ColumnName";
     if ( $Param{OrderBy} ) {
         if ( $Param{OrderBy} eq 'Up' ) {
             $SQLSortQuery .= " ASC";
@@ -945,7 +973,7 @@ sub SQLSortQueryGet {
 
 return empty formatted response
 
-    my $Response = $SearchTicketESObject->SearchEmptyResponse();
+    my $Response = $SearchBaseObject->SearchEmptyResponse();
 
 =cut
 
