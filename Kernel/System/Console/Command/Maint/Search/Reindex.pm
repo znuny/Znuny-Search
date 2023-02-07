@@ -389,6 +389,7 @@ sub Run {
                 Index    => $Object->{Index},
                 ObjectID => \@ArrayPiece,
                 Refresh  => 0,
+                Reindex  => 1,
             );
 
             my $Percent = int( $i / ( scalar $ObjectCount / 100 ) );

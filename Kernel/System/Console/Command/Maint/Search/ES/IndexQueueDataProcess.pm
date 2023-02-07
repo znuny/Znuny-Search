@@ -10,7 +10,6 @@ package Kernel::System::Console::Command::Maint::Search::ES::IndexQueueDataProce
 
 use strict;
 use warnings;
-use POSIX;
 use Kernel::System::VariableCheck qw(:all);
 
 use parent qw(Kernel::System::Console::BaseCommand);
@@ -26,15 +25,6 @@ sub Configure {
 
     $Self->Description(
         'Process queued index data operations.'
-    );
-
-    $Self->AddOption(
-        Name => 'refresh',
-        Description =>
-            "Refresh data on rebuilding.",
-        Required => 0,
-        HasValue => 0,
-        Multiple => 0,
     );
 
     return;
@@ -56,8 +46,6 @@ sub PreRun {
         $Self->{Abort} = 1;
         return;
     }
-
-    $Self->{Refresh} = $Self->GetOption('refresh');
 
     return 1;
 }
@@ -83,95 +71,154 @@ sub Run {
         push @ActiveIndexes, $IndexName if $IndexName;
     }
 
-    my $RebuildedObjectSets = {
+    my $RebuildedObjectQueries = {
         Failed  => 0,
         Success => 0,
     };
 
-    my $ReindexationSettings = $ConfigObject->Get('SearchEngine::Reindexation')->{Settings};
-    my $ReindexationStep     = $ReindexationSettings->{ReindexationStep} // 500;
+    my $IndexationQueueConfig = $ConfigObject->Get("SearchEngine::IndexationQueue") // {};
+    my $TTL                   = $IndexationQueueConfig->{Settings}->{TTL} || 180;
+
+    my $CacheObject = $Kernel::OM->Get('Kernel::System::Cache');
+    my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
 
     INDEX:
     for my $IndexName (@ActiveIndexes) {
 
-        # support for generic index operations
-        OPERATION:
-        for my $Operation (qw(ObjectIndexSet ObjectIndexAdd ObjectIndexRemove ObjectIndexUpdate)) {
-            my @ObjectIDs;
-            my $ObjectData = $SearchChildObject->ObjectToProcessSearch(
-                Index     => $IndexName,
-                Operation => $Operation,
-            ) // [];
+        # get queued data for indexing
+        my $CachedValue = $CacheObject->Get(
+            Type => 'SearchEngineIndexQueue',
+            Key  => "Index::$IndexName",
+        );
 
-            for my $Data ( @{$ObjectData} ) {
-                if ( IsHashRefWithData($Data) && $Data->{ObjectID} ) {
-                    push @ObjectIDs, $Data->{ObjectID};
-                }
-            }
+        next INDEX if !defined $CachedValue;
 
-            my $ObjectCount = scalar @ObjectIDs;
-            next OPERATION if !$ObjectCount;
-
-            my $ObjectPartValues;
-
-            $Self->Print(
-                "<yellow>Index $IndexName queued operation will be done in parts with step: $ReindexationStep per each set of data. Operation: $Operation.</yellow>\n"
+        if ( ref $CachedValue ne 'ARRAY' ) {
+            $CacheObject->Delete(
+                Type => 'SearchEngineIndexQueue',
+                Key  => "Index::$IndexName",
             );
 
-            # rebuild data in parts to not over-load Elasticsearch
-            if ( $ObjectCount <= $ReindexationStep ) {
-                $ObjectPartValues = [ \@ObjectIDs ];
+            next INDEX;
+        }
+
+        my @QueuesToExecute;
+        my %ObjectIDData;
+
+        # check for either object id or query params
+        for my $QueuedData ( @{$CachedValue} ) {
+            my $ObjectID = $QueuedData->{ObjectID};
+            if ($ObjectID) {
+
+                # do not push object id operation into an array yet
+                # the last one will be assigned here for each object data
+                $ObjectIDData{$ObjectID} = $QueuedData;
             }
-            elsif ( $ReindexationStep > 0 ) {
+            elsif ( $QueuedData->{QueryParams} ) {
 
-                # separate Object ids into parts with reindexing step count
-                # example: reindexation step: 500
-                # object ids count to rebuild: 1020
-                # result: [[1 .. 500][501 .. 1000][1001 .. 1020]]
-                my $ObjectPartCount = ceil( $ObjectCount / $ReindexationStep );
-                my $Start           = 0;
-
-                for my $PartCount ( 1 .. $ObjectPartCount ) {
-                    my @PartObjectIDs = @ObjectIDs[ $Start .. $Start + $ReindexationStep - 1 ];
-                    $Start += $ReindexationStep;
-
-                    if ( $PartCount == $ObjectPartCount ) {
-                        @PartObjectIDs = grep {$_} @PartObjectIDs;
-                    }
-                    push @{$ObjectPartValues}, \@PartObjectIDs;
-                }
-            }
-
-            OBJECT_SET:
-            for my $ObjectIDsSet ( @{$ObjectPartValues} ) {
-                next OBJECT_SET if !IsArrayRefWithData($ObjectIDsSet);
-                my $Result = $Self->{SearchObject}->$Operation(
-                    Index    => $IndexName,
-                    ObjectID => $ObjectIDsSet,
-                    Refresh  => $Self->{Refresh},
-                );
-
-                if ($Result) {
-                    $RebuildedObjectSets->{Success}++;
-                    $SearchChildObject->ObjectToProcessDelete(
-                        Index     => $IndexName,
-                        Operation => 'ObjectIndexSet',
-                        ObjectID  => $ObjectIDsSet,
-                    );
-                }
-                else {
-                    $RebuildedObjectSets->{Failed}++;
-                }
+                # push query params every time as we can't identify
+                # what object id it will match
+                push @QueuesToExecute, $QueuedData;
             }
         }
+
+        # object id data should contain only last
+        # operation found for specified data
+        # push them now on the indexing queue
+        for my $ObjectID ( sort keys %ObjectIDData ) {
+            push @QueuesToExecute, $ObjectIDData{$ObjectID};
+        }
+
+        for ( my $i = 0; $i < scalar @QueuesToExecute; $i++ ) {
+            my %QueueData = %{ $QueuesToExecute[$i] };
+
+            my $FunctionName = $QueueData{FunctionName};
+            my %Query        = $QueueData{QueryParams}
+                ?
+                (
+                QueryParams => $QueueData{QueryParams},
+                )
+                :
+                (
+                ObjectID => $QueueData{ObjectID},
+                );
+
+            %QueueData = ( %QueueData, %Query );
+
+            my $Success = $Self->{SearchObject}->$FunctionName(
+                Index   => $IndexName,
+                Refresh => 0,
+                %QueueData,
+            );
+
+            if ( !$Success ) {
+                $RebuildedObjectQueries->{Failed}++;
+            }
+            else {
+                $RebuildedObjectQueries->{Success}++;
+            }
+        }
+
+        # get again cached values just in cases more was added into the queue
+        # while actual iteration was executing
+        my $CachedValueReGet = $CacheObject->Get(
+            Type => 'SearchEngineIndexQueue',
+            Key  => "Index::$IndexName",
+        );
+
+        if ( @{$CachedValueReGet} == @{$CachedValue} ) {
+
+            # case where nothing has been added
+            # delete cache of operation queue that was processed
+            $CacheObject->Delete(
+                Type => 'SearchEngineIndexQueue',
+                Key  => "Index::$IndexName",
+            );
+        }
+        else {
+            # meantime queue execution, it could only be extended
+            # this means that only new operations should be
+            # saved into the cache
+            if ( ref $CachedValueReGet eq 'ARRAY' && ref $CachedValue eq 'ARRAY' ) {
+                my $CachedCount      = scalar @{$CachedValue};
+                my $CachedReGetCount = scalar @{$CachedValueReGet};
+
+                my @CacheToSet;
+                if ( $CachedCount < $CachedReGetCount ) {
+
+                    # case where there was nothing cached, but meantime something was added
+                    # to the queue (nothing needs to be done as cached queue is updated)
+                    next INDEX if ( $CachedCount == 0 );
+
+                    # example case:
+                    # elasticsearch had a queue of 100 object data to index
+                    # it took 500 ms of time, in the meantime 5 new objects was added to the cached
+                    # queue - those needs to be assigned into queue without old ones
+                    # queue looks now like this: [100 old data, 5 new data]
+                    # simply set cache to only new ones to be processed in the next iteration of the
+                    # command
+                    @CacheToSet = @{$CachedValueReGet}[ $CachedCount .. scalar @{$CachedValueReGet} - 1 ];
+
+                    # set new cache data
+                    $CacheObject->Set(
+                        Type  => 'SearchEngineIndexQueue',
+                        Key   => "Index::$IndexName",
+                        Value => \@CacheToSet,
+                        TTL   => $TTL,
+                    );
+                }
+            }
+
+        }
+
     }
 
     $Self->Print(
-        "<green>Content of $RebuildedObjectSets->{Success} object sets was rebuilded for Elasticsearch.</green>\n"
+        "<green>Successfully executed $RebuildedObjectQueries->{Success} object queries for Elasticsearch.</green>\n"
     );
-    if ( $RebuildedObjectSets->{Failed} ) {
+    if ( $RebuildedObjectQueries->{Failed} ) {
         $Self->Print(
-            "<red>Rebuild of content failed for $RebuildedObjectSets->{Failed} object sets for Elasticsearch.\n</red>\n"
+            "<red>Execution of $RebuildedObjectQueries->{Failed} object queries failed for Elasticsearch.\n</red>\n"
         );
     }
 

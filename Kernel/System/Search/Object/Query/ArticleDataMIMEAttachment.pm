@@ -62,6 +62,7 @@ sub _QueryFieldCheck {
     my ( $Self, %Param ) = @_;
 
     return 1 if $Param{Name} eq "AttachmentContent";
+    return 1 if $Param{Name} eq "TicketID";
 
     return $Self->SUPER::_QueryFieldCheck(%Param);
 }
