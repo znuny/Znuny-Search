@@ -1459,32 +1459,26 @@ sub ValidFieldsPrepare {
 
     my %AllAttachmentFields = ( %{$AttachmentBasicFields}, %{$AttachmentExternalFields} );
 
-    FIELDS:
+    PARAMFIELD:
     for my $ParamField ( @{ $Param{Fields} } ) {
 
         # get information about field types if field
         # matches specified regexp
-        if ( $ParamField =~ m{\A(?:(Ticket)_DynamicField_(.+))|(?:(Article)_DynamicField_(.+))} ) {
-
-            my $DynamicFieldName = $2 || $4;
-            my $ObjectType       = $1 || $3;
+        if ( $ParamField =~ m{\A(Ticket|Article)_DynamicField_(.+)} ) {
+            my $ObjectType       = $1;
+            my $DynamicFieldName = $2;
 
             if ( $DynamicFieldName eq '*' ) {
-
-                my $DFColumnNamePre = '';
-
-                # get all dynamic fields for object type "Ticket" or "Article"
                 my $DynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
                     ObjectType => $ObjectType,
                 );
 
-                DYNAMICFIELD:
                 for my $DynamicFieldConfig ( @{$DynamicFieldList} ) {
                     my $Info = $SearchQueryObject->_QueryDynamicFieldInfoGet(
                         DynamicFieldConfig => $DynamicFieldConfig,
                     );
 
-                    next FIELDS if !$Info->{ColumnName};
+                    next PARAMFIELD if !$Info->{ColumnName};
                     $ValidFields{ $ObjectType . '_DynamicField' }->{ $Info->{ColumnName} } = $Info;
                 }
             }
@@ -1494,7 +1488,7 @@ sub ValidFieldsPrepare {
                     Name => $DynamicFieldName,
                 );
 
-                next FIELDS if $ObjectType ne $DynamicFieldConfig->{ObjectType};
+                next PARAMFIELD if $ObjectType ne $DynamicFieldConfig->{ObjectType};
 
                 if ( IsHashRefWithData($DynamicFieldConfig) && $DynamicFieldConfig->{Name} ) {
                     my $Info = $SearchQueryObject->_QueryDynamicFieldInfoGet(
@@ -1502,7 +1496,7 @@ sub ValidFieldsPrepare {
                         DynamicFieldConfig => $DynamicFieldConfig,
                     );
 
-                    next FIELDS if !$Info->{ColumnName};
+                    next PARAMFIELD if !$Info->{ColumnName};
                     $ValidFields{ $ObjectType . '_DynamicField' }->{ $Info->{ColumnName} } = $Info;
                 }
             }

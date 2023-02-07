@@ -28,9 +28,10 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     return if $SearchObject->{Fallback};
 
     NEEDED:
@@ -47,12 +48,14 @@ sub Run {
     # execute only on group change
     return 1 if $Param{Data}->{OldQueue}->{GroupID} == $Param{Data}->{Queue}->{GroupID};
 
-    $SearchObject->ObjectIndexUpdate(
-        Index       => 'Ticket',
-        QueryParams => {
-            QueueID => $Param{Data}->{OldQueue}->{QueueID},
+    $SearchChildObject->IndexObjectQueueAdd(
+        Index => 'Ticket',
+        Value => {
+            FunctionName => 'ObjectIndexSet',
+            QueryParams  => {
+                QueueID => $Param{Data}->{OldQueue}->{QueueID},
+            },
         },
-        Refresh => 1,
     );
 
     return 1;

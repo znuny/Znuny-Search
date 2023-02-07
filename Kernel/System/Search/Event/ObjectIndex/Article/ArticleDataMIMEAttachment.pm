@@ -29,10 +29,12 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
+
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     return if $SearchObject->{Fallback};
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
     for my $Needed (qw(Data Event Config)) {
@@ -45,26 +47,38 @@ sub Run {
         return;
     }
 
-    my $IngestPluginObject = $Kernel::OM->Get('Kernel::System::Search::Plugins::ES::Ingest');
+    NEEDED:
+    for my $Needed (qw(FunctionName)) {
+        next NEEDED if $Param{Config}->{$Needed};
 
-    if ( $Param{Event} eq 'ArticleCreate' ) {
-        my $Result = $SearchObject->ObjectIndexAdd(
-            Index       => 'ArticleDataMIMEAttachment',
-            QueryParams => {
-                ArticleID => $Param{Data}->{ArticleID}
-            }
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed in Config!"
         );
-    }
-    elsif ( $Param{Event} eq 'ArticleUpdate' ) {
-        my $Result = $SearchObject->ObjectIndexSet(
-            Index       => 'ArticleDataMIMEAttachment',
-            QueryParams => {
-                ArticleID => $Param{Data}->{ArticleID}
-            }
-        );
+        return;
     }
 
-    return 1;
+    my $ArticleStorageConfig = $ConfigObject->Get("Ticket::Article::Backend::MIMEBase::ArticleStorage");
+    my $FunctionName         = $Param{Config}->{FunctionName};
+    my $Success              = 1;
+
+    if (
+        $ArticleStorageConfig
+        && $ArticleStorageConfig eq 'Kernel::System::Ticket::Article::Backend::MIMEBase::ArticleStorageDB'
+        )
+    {
+        $Success = $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'ArticleDataMIMEAttachment',
+            Value => {
+                FunctionName => $FunctionName,
+                QueryParams  => {
+                    ArticleID => $Param{Data}->{ArticleID}
+                },
+            },
+        );
+    }
+
+    return $Success;
 }
 
 1;

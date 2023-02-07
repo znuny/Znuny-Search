@@ -33,9 +33,11 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     return if $SearchObject->{Fallback};
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
     for my $Needed (qw(Data Event Config)) {
@@ -64,6 +66,7 @@ sub Run {
         }
     }
 
+    my $Success   = 1;
     my $EventData = {
         Data => {
             DynamicField => {
@@ -77,57 +80,47 @@ sub Run {
                 }
             }
         },
-        Type => $Param{Config}->{Event},
+        Type => $Param{Event},
     };
 
-    if ( $Param{Config}->{Event} eq 'DynamicFieldDelete' ) {
-        my $TicketIDs = $SearchObject->Search(
-            Objects     => ['Ticket'],
-            QueryParams => {
-                $PrependToField . "DynamicField_$Param{Data}->{NewData}->{Name}" => {
-                    Operator => "IS DEFINED"
-                }
+    if ( $Param{Event} eq 'DynamicFieldDelete' ) {
+        $Success = $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'Ticket',
+            Value => {
+                FunctionName => $FunctionName,
+                QueryParams  => {
+                    $PrependToField . "DynamicField_$Param{Data}->{NewData}->{Name}" => {
+                        Operator => "IS DEFINED"
+                    }
+                },
+                Event => $EventData,
             },
-            ResultType => 'HASH',
-            Event      => $EventData,
         );
 
-        my @TicketIDs = keys %{ $TicketIDs->{Ticket} };
-        $SearchObject->$FunctionName(
-            Index    => 'Ticket',
-            ObjectID => \@TicketIDs,
-        );
-
-        return if !scalar @TicketIDs;
-        return 1;
+        return $Success;
     }
 
     if ( $Param{Data}->{NewData}->{Name} && $Param{Data}->{OldData}->{Name} ) {
         my $DynamicFieldNameChanged = $Param{Data}->{NewData}->{Name} ne $Param{Data}->{OldData}->{Name};
-
         if ($DynamicFieldNameChanged) {
-            my $TicketIDs = $SearchObject->Search(
-                Objects     => ['Ticket'],
-                QueryParams => {
-                    $PrependToField . "DynamicField_$Param{Data}->{OldData}->{Name}" => {
-                        Operator => "IS DEFINED"
-                    }
+            $Success = $SearchChildObject->IndexObjectQueueAdd(
+                Index => 'Ticket',
+                Value => {
+                    FunctionName => $FunctionName,
+                    QueryParams  => {
+                        $PrependToField . "DynamicField_$Param{Data}->{OldData}->{Name}" => {
+                            Operator => "IS DEFINED"
+                        }
+                    },
+                    Event => $EventData,
                 },
-                ResultType => 'HASH',
-                Event      => $EventData,
             );
 
-            my @TicketIDs = keys %{ $TicketIDs->{Ticket} };
-            return if !scalar @TicketIDs;
-
-            $SearchObject->$FunctionName(
-                Index    => 'Ticket',
-                ObjectID => \@TicketIDs,
-            );
+            return $Success;
         }
     }
 
-    return 1;
+    return $Success;
 }
 
 1;
