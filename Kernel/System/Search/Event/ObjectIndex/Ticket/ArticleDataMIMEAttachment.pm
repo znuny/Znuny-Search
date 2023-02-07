@@ -29,10 +29,12 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
+
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     return if $SearchObject->{Fallback};
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
     for my $Needed (qw(Data Event Config)) {
@@ -45,18 +47,33 @@ sub Run {
         return;
     }
 
-    my $IngestPluginObject = $Kernel::OM->Get('Kernel::System::Search::Plugins::ES::Ingest');
+    # TicketID was denormalized into the attachment data
+    # so it can be deleted based on this param
+    my $ArticleStorageConfig = $ConfigObject->Get("Ticket::Article::Backend::MIMEBase::ArticleStorage");
+    my $Success              = 1;
 
-    if ( $Param{Event} eq 'TicketDelete' ) {
-        my $Result = $SearchObject->ObjectIndexRemove(
-            Index       => 'ArticleDataMIMEAttachment',
-            QueryParams => {
-                ArticleID => $Param{Data}->{ArticleID}
-            }
-        );
+    if (
+        $ArticleStorageConfig
+        &&
+        $ArticleStorageConfig eq 'Kernel::System::Ticket::Article::Backend::MIMEBase::ArticleStorageDB'
+        )
+    {
+        if ( $Param{Event} eq 'TicketDelete' ) {
+            my $TicketID = $Param{Data}->{TicketID};
+
+            $Success = $SearchChildObject->IndexObjectQueueAdd(
+                Index => 'ArticleDataMIMEAttachment',
+                Value => {
+                    FunctionName => 'ObjectIndexRemove',
+                    QueryParams  => {
+                        TicketID => $TicketID,
+                    },
+                },
+            );
+        }
     }
 
-    return 1;
+    return $Success;
 }
 
 1;

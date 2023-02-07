@@ -789,9 +789,18 @@ sub _QueryFieldDataSet {
         return $DefaultValue;
     }
 
-    for my $Property (qw(Type ReturnType)) {
-        if ( $Self->{IndexFields}->{ $Param{Name} } && $Self->{IndexFields}->{ $Param{Name} }->{$Property} ) {
-            $Data->{$Property} = $Self->{IndexFields}->{ $Param{Name} }->{$Property};
+    if ( $Self->{IndexFields}->{ $Param{Name} } ) {
+        for my $Property (qw(Type ReturnType)) {
+            if ( $Self->{IndexFields}->{ $Param{Name} }->{$Property} ) {
+                $Data->{$Property} = $Self->{IndexFields}->{ $Param{Name} }->{$Property};
+            }
+        }
+    }
+    elsif ( $Self->{IndexExternalFields}->{ $Param{Name} } ) {
+        for my $Property (qw(Type ReturnType)) {
+            if ( $Self->{IndexExternalFields}->{ $Param{Name} }->{$Property} ) {
+                $Data->{$Property} = $Self->{IndexExternalFields}->{ $Param{Name} }->{$Property};
+            }
         }
     }
 

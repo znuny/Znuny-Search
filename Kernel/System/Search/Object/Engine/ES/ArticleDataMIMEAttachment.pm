@@ -117,7 +117,11 @@ sub new {
             ColumnName => 'attachment.content',
             Type       => 'Textarea',
             Alias      => 1,
-        }
+        },
+        TicketID => {
+            ColumnName => 'ticket_id',
+            Type       => 'Integer'
+        },
     };
 
     # get default config
@@ -135,8 +139,21 @@ sub new {
 sub ObjectIndexAdd {
     my ( $Self, %Param ) = @_;
 
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $Loaded = $SearchChildObject->IndexIsValid(
+        IndexName => $Self->{Config}->{IndexName},
+    );
+
+    return if !$Loaded;
+
+    my %Fields = $Self->ValidFieldsPrepare(
+        Fields => $Param{Fields},
+    );
+
     my $DataToProcess = $Self->_FetchDataToProcess(
         %Param,
+        Fields => \%Fields,
     );
 
     # build and return query
@@ -167,8 +184,21 @@ sub ObjectIndexAdd {
 sub ObjectIndexSet {
     my ( $Self, %Param ) = @_;
 
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $Loaded = $SearchChildObject->IndexIsValid(
+        IndexName => $Self->{Config}->{IndexName},
+    );
+
+    return if !$Loaded;
+
+    my %Fields = $Self->ValidFieldsPrepare(
+        Fields => $Param{Fields},
+    );
+
     my $DataToProcess = $Self->_FetchDataToProcess(
         %Param,
+        Fields => \%Fields,
     );
 
     # build and return query
@@ -221,16 +251,16 @@ sub SearchFormat {
 
     my $IndexName               = $Self->{Config}->{IndexName};
     my $GloballyFormattedResult = $Param{GloballyFormattedResult};
+    my $ObjectData              = $GloballyFormattedResult->{$IndexName}->{ObjectData};
 
     # return only number of records without formatting its attribute
     if ( $Param{ResultType} eq "COUNT" ) {
         return {
-            $IndexName => $GloballyFormattedResult->{$IndexName}->{ObjectData} // 0,
+            $IndexName => $ObjectData // 0,
         };
     }
 
-    my $ObjectData = $GloballyFormattedResult->{$IndexName}->{ObjectData};
-    my $Fallback   = $SearchObject->{Fallback} || $Param{Fallback};
+    my $Fallback = $SearchObject->{Fallback} || $Param{Fallback};
 
     if ( IsHashRefWithData( $Param{Fields}->{Content} ) ) {
         if ( !$Fallback || ( $Fallback && !$DBObject->GetDatabaseFunction('DirectBlob') ) ) {
@@ -295,6 +325,46 @@ sub Fallback {
     );
 
     return $FallbackSearchResult;
+}
+
+sub SQLObjectSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $GetTicketID;
+    my %Fields;
+
+    if ( IsHashRefWithData( $Param{Fields} ) ) {
+        %Fields      = %{ $Param{Fields} };
+        $GetTicketID = delete $Fields{TicketID} && $Fields{ArticleID};
+        delete $Fields{AttachmentContent};
+    }
+
+    # perform default sql object search
+    my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(
+        %Param,
+        Fields => \%Fields,
+    );
+
+    if (
+        $GetTicketID
+        && IsHashRefWithData($SQLSearchResult)
+        &&
+        IsArrayRefWithData( $SQLSearchResult->{Data} )
+        )
+    {
+        my $ArticleObject = $Kernel::OM->Get('Kernel::System::Ticket::Article');
+        ATTACHMENT:
+        for my $AttachmentData ( @{ $SQLSearchResult->{Data} } ) {
+            next ATTACHMENT if !$AttachmentData->{ArticleID};
+
+            my $TicketID = $ArticleObject->TicketIDLookup(
+                ArticleID => $AttachmentData->{ArticleID},
+            );
+            $AttachmentData->{TicketID} = $TicketID if $TicketID;
+        }
+    }
+
+    return $SQLSearchResult;
 }
 
 =head2 ValidFieldsPrepare()
@@ -415,6 +485,7 @@ sub _FetchDataToProcess {
     my $SQLSearchResult = $Self->SQLObjectSearch(
         QueryParams => $QueryParams,
         ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+        Fields      => $Param{Fields},
     );
 
     return if !$SQLSearchResult->{Success};

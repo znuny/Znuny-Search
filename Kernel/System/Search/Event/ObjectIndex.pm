@@ -11,6 +11,8 @@ package Kernel::System::Search::Event::ObjectIndex;
 use strict;
 use warnings;
 
+use Kernel::System::VariableCheck qw(:all);
+
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
@@ -28,9 +30,11 @@ sub new {
 sub Run {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     return if $SearchObject->{Fallback};
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
     for my $Needed (qw(Data Event Config)) {
@@ -54,10 +58,12 @@ sub Run {
         return;
     }
 
-    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Config}->{IndexName}");
+    my $IndexName              = $Param{Config}->{IndexName};
+    my $IndexSearchObject      = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
     my $ObjectIdentifierColumn = $IndexSearchObject->{Config}->{Identifier};
+    my $ObjectID               = $Param{Data}->{$ObjectIdentifierColumn};
 
-    if ( !$Param{Data}->{$ObjectIdentifierColumn} ) {
+    if ( !$ObjectID ) {
         $LogObject->Log(
             Priority => 'error',
             Message  => "Need ObjectID ($ObjectIdentifierColumn) in event Data!"
@@ -65,16 +71,12 @@ sub Run {
         return;
     }
 
-    my %QueryParam = (
-        Index    => $Param{Config}->{IndexName},
-        ObjectID => $Param{Data}->{$ObjectIdentifierColumn},
-    );
-
-    my $FunctionName = $Param{Config}->{FunctionName};
-
-    $SearchObject->$FunctionName(
-        %QueryParam,
-        Refresh => 1,    # live indexing should be refreshed every time
+    $SearchChildObject->IndexObjectQueueAdd(
+        Index => $IndexName,
+        Value => {
+            FunctionName => $Param{Config}->{FunctionName},
+            ObjectID     => $ObjectID,
+        },
     );
 
     return 1;
