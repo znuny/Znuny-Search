@@ -149,7 +149,7 @@ sub ObjectIndexAdd {
         MappingObject => $Param{MappingObject},
     );
 
-    return if !$PreparedQuery;
+    return 0 if !$PreparedQuery;
 
     my $Response = $Param{EngineObject}->QueryExecute(
         %Param,
@@ -203,7 +203,7 @@ sub ObjectIndexSet {
         MappingObject => $Param{MappingObject},
     );
 
-    return if !$PreparedQuery;
+    return 0 if !$PreparedQuery;
 
     my $Response = $Param{EngineObject}->QueryExecute(
         %Param,
@@ -257,7 +257,7 @@ sub ObjectIndexUpdate {
         MappingObject => $Param{MappingObject},
     );
 
-    return if !$PreparedQuery;
+    return 0 if !$PreparedQuery;
 
     my $Response = $Param{EngineObject}->QueryExecute(
         %Param,
@@ -311,7 +311,7 @@ sub ObjectIndexRemove {
         MappingObject => $Param{MappingObject},
     );
 
-    return if !$PreparedQuery;
+    return 0 if !$PreparedQuery;
 
     my $Response = $Param{EngineObject}->QueryExecute(
         %Param,
@@ -350,7 +350,7 @@ sub IndexMappingSet {
         MappingObject => $Param{MappingObject},
     );
 
-    return if !$PreparedQuery;
+    return 0 if !$PreparedQuery;
 
     my $Response = $Param{EngineObject}->QueryExecute(
         %Param,
@@ -703,9 +703,14 @@ sub ObjectListIDs {
 
     # push hash data into array
     my @Result;
-    if ( $SQLSearchResult->{Success} && IsArrayRefWithData( $SQLSearchResult->{Data} ) ) {
-        for my $SQLData ( @{ $SQLSearchResult->{Data} } ) {
-            push @Result, $SQLData->{$Identifier};
+    if ( $SQLSearchResult->{Success} ) {
+        if ( IsArrayRefWithData( $SQLSearchResult->{Data} ) ) {
+            for my $SQLData ( @{ $SQLSearchResult->{Data} } ) {
+                push @Result, $SQLData->{$Identifier};
+            }
+        }
+        elsif ( $SQLSearchResult->{Data} ) {
+            return $SQLSearchResult->{Data};
         }
     }
 
