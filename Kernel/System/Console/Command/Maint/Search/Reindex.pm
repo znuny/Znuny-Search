@@ -390,19 +390,22 @@ sub Run {
         my $GeneralStartTime = Time::HiRes::time();
         my $ObjectIDs;
 
+        my $From;
         my $Refresh         = 0;
         my $IterationNumber = 1;
-        my $From            = 1;
-        my $EndID           = defined $Limit ? $LastObjectID->[0] - $Limit : 1;
+        my $EndID           = defined $Limit ? $LastObjectID->[-1] : 1;
+        my $StartID         = $LastObjectID->[0];
 
         $EndID = 1 if ( $EndID < 1 );
 
+        my $ReindexationRange = $ReindexationStep > $StartID - $EndID ? $StartID - $EndID + 1 : $ReindexationStep;
+
         STEP:
-        for ( my $i = $LastObjectID->[0]; $i >= 1; $i = $i - $ReindexationStep ) {
+        for ( my $i = $StartID; $i >= $EndID; $i = $i - $ReindexationRange ) {
 
             my $From = $i;
-            my $To   = $i - $ReindexationStep + 1;
-            $IterationNumber += $ReindexationStep;
+            my $To   = $i - $ReindexationRange + 1;
+            $IterationNumber += $ReindexationRange;
 
             $To = 1 if ( $To < 1 );
 
@@ -418,7 +421,7 @@ sub Run {
                 Reindex  => 1,
             );
 
-            my $Percent = int( $IterationNumber / ( scalar $LastObjectID->[0] / 100 ) );
+            my $Percent = int( $IterationNumber / ( scalar $StartID / 100 ) );
 
             my $ReindexingQueue = $CacheObject->Get(
                 Type => 'ReindexingProcess',
@@ -454,7 +457,7 @@ sub Run {
             {
                 $Refresh = $Seconds;
                 $Self->Print(
-                    "<yellow>$IterationNumber</yellow> of <yellow>$LastObjectID->[0]</yellow> processed (<yellow>$Percent %</yellow> done).\n"
+                    "<yellow>$IterationNumber</yellow> of <yellow>$StartID</yellow> processed (<yellow>$Percent %</yellow> done).\n"
                 );
             }
 
@@ -469,7 +472,7 @@ sub Run {
         }
 
         $Self->Print(
-            "<yellow>$LastObjectID->[0]</yellow> of <yellow>$LastObjectID->[0]</yellow> processed (<yellow>100%</yellow> done).\n"
+            "<yellow>$StartID</yellow> of <yellow>$StartID</yellow> processed (<yellow>100%</yellow> done).\n"
         ) if !IsArrayRefWithData( $IndexObjectStatus{ $Object->{Index} }->{ObjectFails} );
 
         $CacheObject->Set(
