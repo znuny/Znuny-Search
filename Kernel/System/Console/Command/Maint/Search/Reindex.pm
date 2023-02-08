@@ -277,12 +277,6 @@ sub Run {
             TTL   => 24 * 60 * 60,
         );
 
-        my $ObjectIDs = $Object->ObjectListIDs(
-            OrderBy    => 'Down',
-            ResultType => 'ARRAY',
-            Limit      => defined $Limit ? $Limit : undef,
-        );
-
         $CacheObject->Set(
             Type  => 'ReindexingProcess',
             Key   => 'ReindexedIndex',
@@ -366,7 +360,11 @@ sub Run {
 
         $Self->Print("<green>Index initialized.</green>\n<yellow>Adding indexes..</yellow>\n");
 
-        if ( !IsArrayRefWithData($ObjectIDs) ) {
+        my $ObjectCount = $Object->ObjectListIDs(
+            ResultType => 'COUNT',
+        );
+
+        if ( !($ObjectCount) ) {
             $Self->Print(
                 "<yellow>No data to re-index.</yellow>\n\n"
             );
@@ -375,15 +373,43 @@ sub Run {
             next OBJECT;
         }
 
+        my $LastObjectID = $Object->ObjectListIDs(
+            ResultType => 'ARRAY',
+            OrderBy    => 'DESC',
+            Limit      => defined $Limit ? $Limit : 1
+        );
+
+        if ( !( IsArrayRefWithData($LastObjectID) ) ) {
+            $Self->Print(
+                "<red>Couldn't find last object id.</red>\n\n"
+            );
+            $IndexObjectStatus{ $Object->{Index} }->{Successful} = 0;
+            next OBJECT;
+        }
+
         my $GeneralStartTime = Time::HiRes::time();
-        my $ObjectCount      = scalar @{$ObjectIDs};
+        my $ObjectIDs;
 
-        my $Refresh = 0;
+        my $Refresh         = 0;
+        my $IterationNumber = 1;
+        my $From            = 1;
+        my $EndID           = defined $Limit ? $LastObjectID->[0] - $Limit : 1;
+
+        $EndID = 1 if ( $EndID < 1 );
+
         STEP:
-        for ( my $i = 0; $i <= $ObjectCount; $i = $i + $ReindexationStep ) {
+        for ( my $i = $LastObjectID->[0]; $i >= 1; $i = $i - $ReindexationStep ) {
 
-            my $IterationNumber = $i + 1;
-            my @ArrayPiece      = splice( @{$ObjectIDs}, 0, $ReindexationStep );
+            my $From = $i;
+            my $To   = $i - $ReindexationStep + 1;
+            $IterationNumber += $ReindexationStep;
+
+            $To = 1 if ( $To < 1 );
+
+            my @ArrayPiece;
+            for ( my $j = $From; $j >= $To; $j-- ) {
+                push @ArrayPiece, $j;
+            }
 
             my $Result = $Self->{SearchObject}->ObjectIndexAdd(
                 Index    => $Object->{Index},
@@ -392,7 +418,7 @@ sub Run {
                 Reindex  => 1,
             );
 
-            my $Percent = int( $i / ( scalar $ObjectCount / 100 ) );
+            my $Percent = int( $IterationNumber / ( scalar $LastObjectID->[0] / 100 ) );
 
             my $ReindexingQueue = $CacheObject->Get(
                 Type => 'ReindexingProcess',
@@ -428,7 +454,7 @@ sub Run {
             {
                 $Refresh = $Seconds;
                 $Self->Print(
-                    "<yellow>$IterationNumber</yellow> of <yellow>$ObjectCount</yellow> processed (<yellow>$Percent %</yellow> done).\n"
+                    "<yellow>$IterationNumber</yellow> of <yellow>$LastObjectID->[0]</yellow> processed (<yellow>$Percent %</yellow> done).\n"
                 );
             }
 
@@ -439,11 +465,11 @@ sub Run {
                 TTL   => 24 * 60 * 60,
             );
 
-            push @{ $IndexObjectStatus{ $Object->{Index} }->{ObjectFails} }, @ArrayPiece if !$Result;
+            push @{ $IndexObjectStatus{ $Object->{Index} }->{ObjectFails} }, @ArrayPiece if !defined $Result;
         }
 
         $Self->Print(
-            "<yellow>$ObjectCount</yellow> of <yellow>$ObjectCount</yellow> processed (<yellow>100%</yellow> done).\n"
+            "<yellow>$LastObjectID->[0]</yellow> of <yellow>$LastObjectID->[0]</yellow> processed (<yellow>100%</yellow> done).\n"
         ) if !IsArrayRefWithData( $IndexObjectStatus{ $Object->{Index} }->{ObjectFails} );
 
         $CacheObject->Set(
