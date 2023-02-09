@@ -80,6 +80,15 @@ sub Configure {
         Multiple   => 0,
         ValueRegex => qr/\A\d+\z/,
     );
+    $Self->AddOption(
+        Name => 'start-from',
+        Description =>
+            "Start re-indexing from specified object id.",
+        Required   => 0,
+        HasValue   => 1,
+        Multiple   => 0,
+        ValueRegex => qr/\A\d+\z/,
+    );
 
     return;
 }
@@ -119,6 +128,7 @@ sub Run {
     my $CheckDataEquality   = $Self->GetOption('check-data-equality');
     my $Recreate            = $Self->GetOption('recreate');
     my $Limit               = $Self->GetOption('limit');
+    my $StartFrom           = $Self->GetOption('start-from');
 
     $Self->{Index} = $Self->GetOption('index');
 
@@ -370,7 +380,7 @@ sub Run {
             next OBJECT;
         }
 
-        my $LastObjectID = $SearchIndexObject->ObjectListIDs(
+        my $LastObjectID = $StartFrom ? [$StartFrom] : $SearchIndexObject->ObjectListIDs(
             ResultType => 'ARRAY',
             OrderBy    => 'DESC',
             Limit      => defined $Limit ? $Limit : 1
@@ -390,19 +400,34 @@ sub Run {
         my $From;
         my $Refresh         = 0;
         my $IterationNumber = 1;
-        my $EndID           = defined $Limit ? $LastObjectID->[-1] : 1;
-        my $StartID         = $LastObjectID->[0];
+        my $EndID;
 
+        if ($StartFrom) {
+            $EndID = defined $Limit ? $LastObjectID->[0] - $Limit : 1;
+        }
+        else {
+            $EndID = defined $Limit ? $LastObjectID->[0] - $Limit : 1;
+        }
+
+        my $StartID = $LastObjectID->[0];
         $EndID = 1 if ( $EndID < 1 );
 
         my $ReindexationRange = $ReindexationStep > $StartID - $EndID ? $StartID - $EndID + 1 : $ReindexationStep;
 
+        my $TotalCount = $StartID - $EndID + 1;
         STEP:
         for ( my $i = $StartID; $i >= $EndID; $i = $i - $ReindexationRange ) {
 
             my $From = $i;
             my $To   = $i - $ReindexationRange + 1;
-            $IterationNumber += $ReindexationRange;
+
+            if ( $To < $EndID ) {
+                $To = $EndID;
+                $IterationNumber += $From - $To;
+            }
+            else {
+                $IterationNumber += $ReindexationRange;
+            }
 
             $To = 1 if ( $To < 1 );
 
@@ -416,9 +441,10 @@ sub Run {
                 ObjectID => \@ArrayPiece,
                 Refresh  => 0,
                 Reindex  => 1,
+                Silent   => 1,
             );
 
-            my $Percent = int( $IterationNumber / ( scalar $StartID / 100 ) );
+            my $Percent = int( $IterationNumber / ( scalar $TotalCount / 100 ) );
 
             my $ReindexingQueue = $CacheObject->Get(
                 Type => 'ReindexingProcess',
@@ -454,7 +480,7 @@ sub Run {
             {
                 $Refresh = $Seconds;
                 $Self->Print(
-                    "<yellow>$IterationNumber</yellow> of <yellow>$StartID</yellow> processed (<yellow>$Percent %</yellow> done).\n"
+                    "<yellow>$IterationNumber</yellow> of <yellow>$TotalCount</yellow> processed (<yellow>$Percent %</yellow> done).\n"
                 );
             }
 
@@ -469,7 +495,7 @@ sub Run {
         }
 
         $Self->Print(
-            "<yellow>$StartID</yellow> of <yellow>$StartID</yellow> processed (<yellow>100%</yellow> done).\n"
+            "<yellow>$TotalCount</yellow> of <yellow>$TotalCount</yellow> processed (From object ID: $StartID to $EndID, <yellow>100%</yellow> done).\n"
         ) if !( $IndexObjectStatus{$IndexName}->{ObjectFails} );
 
         $CacheObject->Set(
