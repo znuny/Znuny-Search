@@ -204,10 +204,6 @@ sub Run {
                 next INDEX;
             }
 
-            my $IndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Index");
-
-            $IndexObject->{Index} = $Index;
-
             if (
                 $EqualityDataStatus->{$Index}->{Percentage}
                 && $EqualityDataStatus->{$Index}->{Percentage} == 100
@@ -226,7 +222,7 @@ sub Run {
                 Successful => 0,
             };
 
-            push @Objects, $IndexObject;
+            push @Objects, $Index;
         }
     }
 
@@ -259,13 +255,15 @@ sub Run {
     my $ReindexationStep = $ReindexationSettings->{ReindexationStep} // 500;
 
     OBJECT:
-    for my $Object (@Objects) {
+    for my $IndexName (@Objects) {
         $Self->Print("<yellow>-----\n</yellow>");
-        $Self->Print("<yellow>Re-indexing $Object->{Index}</yellow>\n");
+        $Self->Print("<yellow>Re-indexing $IndexName</yellow>\n");
         $Self->Print("<yellow>--\n</yellow>");
 
+        my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
+
         # get real name index name from sysconfig
-        my $IndexRealName = $Self->{SearchObject}->{Config}->{RegisteredIndexes}->{ $Object->{Index} };
+        my $IndexRealName = $Self->{SearchObject}->{Config}->{RegisteredIndexes}->{$IndexName};
 
         # check if real name index on remote side exists
         my $RemoteExists = grep { $_ eq $IndexRealName } @ActiveClusterRemoteIndexList;
@@ -280,51 +278,50 @@ sub Run {
         $CacheObject->Set(
             Type  => 'ReindexingProcess',
             Key   => 'ReindexedIndex',
-            Value => $Object->{Index},
+            Value => $IndexName,
             TTL   => 24 * 60 * 60,
         );
 
         if ( !$RemoteExists ) {
-            my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Object->{Index}");
-            my $IndexRealName     = $SearchIndexObject->{Config}->{IndexRealName};
+            my $IndexRealName = $SearchIndexObject->{Config}->{IndexRealName};
 
             $Self->Print(
-                "<yellow>$Object->{Index} index is valid in Znuny, but does not exist in the search engine.\n"
+                "<yellow>$IndexName index is valid in Znuny, but does not exist in the search engine.\n"
                     .
-                    "Index in search engine with real name \"$IndexRealName\" as \"$Object->{Index}\" (friendly name in Znuny) will be created.\n\n</yellow>"
+                    "Index in search engine with real name \"$IndexRealName\" as \"$IndexName\" (friendly name in Znuny) will be created.\n\n</yellow>"
             );
 
             my $AddSuccess = $Self->{SearchObject}->IndexAdd(
-                IndexName => $Object->{Index},
+                IndexName => $IndexName,
             );
         }
         elsif ($Recreate) {
             my $IndexSettings = {};
             if ( $Recreate eq 'latest' ) {
                 $IndexSettings = $Self->{SearchObject}->IndexInitialSettingsGet(
-                    Index => $Object->{Index}
+                    Index => $IndexName,
                 );
             }
 
             my $RemoveSuccess = $Self->{SearchObject}->IndexRemove(
-                IndexName => $Object->{Index},
+                IndexName => $IndexName,
             );
 
             if ( !$RemoveSuccess ) {
                 $Self->Print(
-                    "<red>Could not remove index $Object->{Index}! Ignoring re-indexation for that index.\n</red>"
+                    "<red>Could not remove index $IndexName! Ignoring re-indexation for that index.\n</red>"
                 );
                 next OBJECT;
             }
 
             my $AddSuccess = $Self->{SearchObject}->IndexAdd(
-                IndexName => $Object->{Index},
+                IndexName => $IndexName,
                 Settings  => $IndexSettings,
             );
 
             if ( !$AddSuccess ) {
                 $Self->Print(
-                    "<red>Could not add index $Object->{Index}! Ignoring re-indexation for that index.\n</red>"
+                    "<red>Could not add index $IndexName! Ignoring re-indexation for that index.\n</red>"
                 );
                 next OBJECT;
             }
@@ -336,12 +333,12 @@ sub Run {
         else {
             # clear whole index to reindex it correctly
             my $ClearSuccess = $Self->{SearchObject}->IndexClear(
-                Index => $Object->{Index}
+                Index => $IndexName,
             );
 
             if ( !$ClearSuccess ) {
                 $Self->Print(
-                    "<red>Could not clear index $Object->{Index} data! Ignoring re-indexation for that index.\n</red>"
+                    "<red>Could not clear index $IndexName data! Ignoring re-indexation for that index.\n</red>"
                 );
                 next OBJECT;
             }
@@ -349,18 +346,18 @@ sub Run {
 
         # initialize index
         my $InitSuccess = $Self->{SearchObject}->IndexInit(
-            Index => $Object->{Index},
+            Index => $IndexName,
         );
 
         if ( !$InitSuccess ) {
-            $Self->PrintError("Can't initialize index $Object->{Index}!\n");
-            $IndexObjectStatus{ $Object->{Index} }->{Successful} = 0;
+            $Self->PrintError("Can't initialize index $IndexName!\n");
+            $IndexObjectStatus{$IndexName}->{Successful} = 0;
             next OBJECT;
         }
 
         $Self->Print("<green>Index initialized.</green>\n<yellow>Adding indexes..</yellow>\n");
 
-        my $ObjectCount = $Object->ObjectListIDs(
+        my $ObjectCount = $SearchIndexObject->ObjectListIDs(
             ResultType => 'COUNT',
         );
 
@@ -369,11 +366,11 @@ sub Run {
                 "<yellow>No data to re-index.</yellow>\n\n"
             );
             $Self->Print("<green>Done.</green>\n");
-            $IndexObjectStatus{ $Object->{Index} }->{Successful} = 1;
+            $IndexObjectStatus{$IndexName}->{Successful} = 1;
             next OBJECT;
         }
 
-        my $LastObjectID = $Object->ObjectListIDs(
+        my $LastObjectID = $SearchIndexObject->ObjectListIDs(
             ResultType => 'ARRAY',
             OrderBy    => 'DESC',
             Limit      => defined $Limit ? $Limit : 1
@@ -383,7 +380,7 @@ sub Run {
             $Self->Print(
                 "<red>Couldn't find last object id.</red>\n\n"
             );
-            $IndexObjectStatus{ $Object->{Index} }->{Successful} = 0;
+            $IndexObjectStatus{$IndexName}->{Successful} = 0;
             next OBJECT;
         }
 
@@ -415,7 +412,7 @@ sub Run {
             }
 
             my $Result = $Self->{SearchObject}->ObjectIndexAdd(
-                Index    => $Object->{Index},
+                Index    => $IndexName,
                 ObjectID => \@ArrayPiece,
                 Refresh  => 0,
                 Reindex  => 1,
@@ -443,7 +440,7 @@ sub Run {
                 $CacheObject->Set(
                     Type  => 'ReindexingProcess',
                     Key   => 'ReindexedIndex',
-                    Value => $Object->{Index},
+                    Value => $IndexName,
                     TTL   => 24 * 60 * 60,
                 );
             }
@@ -468,12 +465,12 @@ sub Run {
                 TTL   => 24 * 60 * 60,
             );
 
-            push @{ $IndexObjectStatus{ $Object->{Index} }->{ObjectFails} }, @ArrayPiece if !defined $Result;
+            $IndexObjectStatus{$IndexName}->{ObjectFails} += scalar @ArrayPiece if !defined $Result;
         }
 
         $Self->Print(
             "<yellow>$StartID</yellow> of <yellow>$StartID</yellow> processed (<yellow>100%</yellow> done).\n"
-        ) if !IsArrayRefWithData( $IndexObjectStatus{ $Object->{Index} }->{ObjectFails} );
+        ) if !( $IndexObjectStatus{$IndexName}->{ObjectFails} );
 
         $CacheObject->Set(
             Type  => 'ReindexingProcess',
@@ -483,7 +480,7 @@ sub Run {
         );
 
         $Self->Print("<green>Done.</green>\n\n");
-        $IndexObjectStatus{ $Object->{Index} }->{Successful} = 1;
+        $IndexObjectStatus{$IndexName}->{Successful} = 1;
     }
 
     $Self->Print("\n<yellow>Summary:</yellow>\n");
@@ -493,13 +490,10 @@ sub Run {
 
             $Self->Print("Status: ");
             if ( $IndexObjectStatus{$Index}->{Successful} ) {
-                if ( IsArrayRefWithData( $IndexObjectStatus{$Index}->{ObjectFails} ) ) {
+                if ( ( $IndexObjectStatus{$Index}->{ObjectFails} ) ) {
                     $Self->Print("<yellow>Success with object fails.\n</yellow>");
                     $Self->Print(
                         "Failed objects count: " . scalar( @{ $IndexObjectStatus{$Index}->{ObjectFails} } ) . "\n"
-                    );
-                    $Self->Print(
-                        "ObjectIDs failed: " . join( ",", @{ $IndexObjectStatus{$Index}->{ObjectFails} } ) . "\n"
                     );
                 }
                 else {
