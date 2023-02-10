@@ -273,7 +273,8 @@ sub DataEqualitySet {
         }
         else {
             $EngineResponse->{$Index} //= 0;
-            $IndexEqualityPercentage->{$Index} = ( $EngineResponse->{$Index} * 100 ) / $DBResponse->{$Index};
+            $IndexEqualityPercentage->{$Index}
+                = sprintf( "%.2f", ( $EngineResponse->{$Index} * 100 ) / $DBResponse->{$Index} );
         }
 
         return if !$DBObject->Do(
@@ -284,8 +285,6 @@ sub DataEqualitySet {
             Bind => [ \$Param{ClusterID}, \$Index, \$IndexEqualityPercentage->{$Index} ]
         );
     }
-
-    $Kernel::OM->Get('Kernel::System::Search');
 
     return 1;
 }
