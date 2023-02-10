@@ -496,7 +496,7 @@ sub Run {
 
         $Self->Print(
             "<yellow>$TotalCount</yellow> of <yellow>$TotalCount</yellow> processed (From object ID: $StartID to $EndID, <yellow>100%</yellow> done).\n"
-        ) if !( $IndexObjectStatus{$IndexName}->{ObjectFails} );
+        );
 
         $CacheObject->Set(
             Type  => 'ReindexingProcess',
@@ -519,7 +519,7 @@ sub Run {
                 if ( ( $IndexObjectStatus{$Index}->{ObjectFails} ) ) {
                     $Self->Print("<yellow>Success with object fails.\n</yellow>");
                     $Self->Print(
-                        "Failed objects count: " . scalar( @{ $IndexObjectStatus{$Index}->{ObjectFails} } ) . "\n"
+                        "Failed objects count: " . $IndexObjectStatus{$Index}->{ObjectFails} . "\n"
                     );
                 }
                 else {
