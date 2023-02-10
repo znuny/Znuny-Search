@@ -441,7 +441,6 @@ sub Run {
                 ObjectID => \@ArrayPiece,
                 Refresh  => 0,
                 Reindex  => 1,
-                Silent   => 1,
             );
 
             my $Percent = int( $IterationNumber / ( scalar $TotalCount / 100 ) );
