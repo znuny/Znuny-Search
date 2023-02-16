@@ -243,7 +243,7 @@ On executing ticket search by Kernel::System::Search:
             DynamicField_Text => 'TextValue',
             DynamicField_Multiselect => [1,2,3],
 
-            # article & article_data_mime fields (denormalized)
+            # article fields (denormalized)
             Article_From => 'value',
             Article_To => 'value',
             Article_Cc => 'value',
@@ -665,11 +665,12 @@ sub ExecuteSearch {
 
     # build and append article query if needed
     if ( IsHashRefWithData($ArticleSearchParams) ) {
-        my %AllArticleFields = $IndexQueryObject->_DenormalizedArticleFieldsGet();
+        my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
+        my %AllArticleFields = ( %{$SearchArticleObject->{Fields}}, %{$SearchArticleObject->{ExternalFields}} );
 
         # check if field exists in the mapping
         for my $ArticleQueryParam ( sort keys %{$ArticleSearchParams} ) {
-            delete $ArticleSearchParams->{$ArticleQueryParam} if ( !$AllArticleFields{Fields}->{$ArticleQueryParam} );
+            delete $ArticleSearchParams->{$ArticleQueryParam} if ( !$AllArticleFields{$ArticleQueryParam} );
         }
 
         for my $ArticleField ( sort keys %{$ArticleSearchParams} ) {
@@ -1073,15 +1074,13 @@ sub IndexMappingSet {
     my $DataTypes = $Param{MappingObject}->MappingDataTypesGet();
 
     my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
     my $SearchArticleDataMIMEAttachmentObject
         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
-    my $ArticleFields                   = $SearchArticleObject->{Fields};
-    my $ArticleDataMIMEFields           = $SearchArticleDataMIMEObject->{Fields};
+    my %ArticleFields                   = ( %{$SearchArticleObject->{Fields}}, %{$SearchArticleObject->{ExternalFields}});
     my $ArticleDataMIMEAttachmentFields = $SearchArticleDataMIMEAttachmentObject->{Fields};
 
-    # add nested type relation for articles && article data mime tables
-    if ( IsHashRefWithData($ArticleFields) && IsHashRefWithData($ArticleDataMIMEFields) ) {
+    # add nested type relation for articles
+    if ( keys %ArticleFields ) {
         $MappingQuery->{Body}->{properties}->{Articles} = {
             type       => 'nested',
             properties => {
@@ -1091,13 +1090,9 @@ sub IndexMappingSet {
             }
         };
 
-        for my $ArticleFieldName ( sort keys %{$ArticleFields} ) {
+        for my $ArticleFieldName ( sort keys %ArticleFields ) {
             $MappingQuery->{Body}->{properties}->{Articles}->{properties}->{$ArticleFieldName}
-                = $DataTypes->{ $ArticleFields->{$ArticleFieldName}->{Type} };
-        }
-        for my $ArticleFieldName ( sort keys %{$ArticleDataMIMEFields} ) {
-            $MappingQuery->{Body}->{properties}->{Articles}->{properties}->{$ArticleFieldName}
-                = $DataTypes->{ $ArticleDataMIMEFields->{$ArticleFieldName}->{Type} };
+                = $DataTypes->{ $ArticleFields{$ArticleFieldName}->{Type} };
         }
         for my $ArticleFieldName ( sort keys %{$ArticleDataMIMEAttachmentFields} ) {
 
@@ -1151,7 +1146,6 @@ sub SQLObjectSearch {
     my $DynamicFieldBackendObject   = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
     my $ArticleObject               = $Kernel::OM->Get('Kernel::System::Ticket::Article');
     my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
     my $SearchArticleDataMIMEAttachmentObject
         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
 
@@ -1256,16 +1250,6 @@ sub SQLObjectSearch {
 
                 if ( $Articles->{Success} && IsArrayRefWithData( $Articles->{Data} ) ) {
                     for my $Article ( @{ $Articles->{Data} } ) {
-                        my $ArticlesDataMIME = $SearchArticleDataMIMEObject->SQLObjectSearch(
-                            QueryParams => {
-                                ArticleID => $Article->{ArticleID},
-                            }
-                        );
-
-                        if ( $ArticlesDataMIME->{Success} && IsHashRefWithData( $ArticlesDataMIME->{Data}[0] ) ) {
-                            my $ArticleDataMIMERow = $ArticlesDataMIME->{Data}[0];
-                            %{$Article} = ( %{$Article}, %{$ArticleDataMIMERow} );
-                        }
 
                         # add article dynamic fields
                         DYNAMICFIELDCONFIG:
@@ -1451,8 +1435,8 @@ sub ValidFieldsPrepare {
     my $ArticleDataMIMEAttachmentObject
         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
 
-    my %DenormalizedArticleFields = $SearchQueryObject->_DenormalizedArticleFieldsGet();
-    my %AllArticleFields          = %{ $DenormalizedArticleFields{Fields} };
+    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
+    my %AllArticleFields = ( %{$SearchArticleObject->{Fields}}, %{$SearchArticleObject->{ExternalFields}} );
 
     my $AttachmentBasicFields    = $ArticleDataMIMEAttachmentObject->{Fields};
     my $AttachmentExternalFields = $ArticleDataMIMEAttachmentObject->{ExternalFields};

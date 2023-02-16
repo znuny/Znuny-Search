@@ -30,7 +30,6 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/Article.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Default/ArticleDataMIME.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Extensions/Ticket/CustomPackage.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/TicketHistory.pm"/>
@@ -41,7 +40,6 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Query/ArticleDataMIME.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicFieldValue.pm"/>
