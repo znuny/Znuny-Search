@@ -149,12 +149,13 @@ sub new {
     # that can be used as query parameters
     # for either indexing or searching
     $Self->{SearchableFields} = {
-        SQL => '*',
+        SQL    => '*',
         Engine => '*',
     };
 
     # get default config
     $Self->DefaultConfigGet();
+
     # restrict usage of other operators than default one
     # for SQL search
     $Self->{SupportedOperators}->{SimplifiedMode} = {
@@ -177,9 +178,9 @@ sub ObjectIndexAdd {
     my $LogObject          = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
 
-    return if !$Self->_BaseCheckIndexOperation( %Param );
+    return if !$Self->_BaseCheckIndexOperation(%Param);
 
-    my $Identifier  = $Self->{Config}->{Identifier};
+    my $Identifier = $Self->{Config}->{Identifier};
 
     my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} : {
         $Identifier => $Param{ObjectID},
@@ -194,10 +195,11 @@ sub ObjectIndexAdd {
     # additional limit for single request
     my $ReindexationSettings = $ConfigObject->Get('SearchEngine::Reindexation')->{Settings};
     my $ReindexationStep     = $ReindexationSettings->{ReindexationStep} // 10;
+
     # success is hard to identify for that many objects
     # simply return 1 when 100% of data will execute queries
     # correctly, otherwise return 0
-    my $Success = 1;
+    my $Success                 = 1;
     my $ArticleOffsetMultiplier = 0;
 
     do {
@@ -217,13 +219,13 @@ sub ObjectIndexAdd {
         # index object without any restrictions on first level
         # ignore restrictions on single object id and reindexation as it does have it's
         # own mechanism to restrict data size
-        if($Param{Reindex} || ($Param{ObjectID} && IsNumber($Param{ObjectID}))){
+        if ( $Param{Reindex} || ( $Param{ObjectID} && IsNumber( $Param{ObjectID} ) ) ) {
             my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(
                 %Param,
                 QueryParams => {
                     $Identifier => $SQLDataIDs,
                 },
-                ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+                ResultType    => $Param{SQLSearchResultType} || 'ARRAY',
                 NoPermissions => 1,
             );
 
@@ -234,19 +236,20 @@ sub ObjectIndexAdd {
 
             # do not count failures of indexing articles on ticket index
             $SearchTicketObject->ObjectIndexAddArticle(
-                ArticleData => $SQLSearchResult,
-                EngineObject => $Param{EngineObject},
+                ArticleData   => $SQLSearchResult,
+                EngineObject  => $Param{EngineObject},
                 ConnectObject => $Param{ConnectObject},
             );
-        } else {
+        }
+        else {
             # no need to object count restrictions
-            if($DataCount <= $ReindexationStep){
+            if ( $DataCount <= $ReindexationStep ) {
                 my $SQLSearchResult = $Self->SQLObjectSearch(
                     %Param,
                     QueryParams => {
                         $Identifier => $SQLDataIDs,
                     },
-                    ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+                    ResultType    => $Param{SQLSearchResultType} || 'ARRAY',
                     NoPermissions => 1,
                 );
 
@@ -257,16 +260,17 @@ sub ObjectIndexAdd {
 
                 # do not count failures of indexing articles on ticket index
                 $SearchTicketObject->ObjectIndexAddArticle(
-                    ArticleData => $SQLSearchResult,
-                    EngineObject => $Param{EngineObject},
+                    ArticleData   => $SQLSearchResult,
+                    EngineObject  => $Param{EngineObject},
                     ConnectObject => $Param{ConnectObject},
                 );
-            } else {
+            }
+            else {
                 # restrict data size
-                my $IterationCount = ceil($DataCount/$ReindexationStep);
+                my $IterationCount = ceil( $DataCount / $ReindexationStep );
 
                 # index data in parts
-                for my $OffsetMultiplier (0 .. $IterationCount - 1){
+                for my $OffsetMultiplier ( 0 .. $IterationCount - 1 ) {
                     my $Offset = $OffsetMultiplier * $ReindexationStep;
 
                     my $SQLSearchResult = $Self->SQLObjectSearch(
@@ -274,13 +278,13 @@ sub ObjectIndexAdd {
                         QueryParams => {
                             $Identifier => $SQLDataIDs,
                         },
-                        ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
-                        Offset => $Offset,
-                        Limit => $ReindexationStep,
+                        ResultType    => $Param{SQLSearchResultType} || 'ARRAY',
+                        Offset        => $Offset,
+                        Limit         => $ReindexationStep,
                         NoPermissions => 1,
                     );
 
-                    my $PartSuccess =  $Self->_ObjectIndexAddAction(
+                    my $PartSuccess = $Self->_ObjectIndexAddAction(
                         %Param,
                         DataToIndex => $SQLSearchResult,
                     );
@@ -289,15 +293,16 @@ sub ObjectIndexAdd {
 
                     # do not count failures of indexing articles on ticket index
                     $SearchTicketObject->ObjectIndexAddArticle(
-                        ArticleData => $SQLSearchResult,
-                        EngineObject => $Param{EngineObject},
+                        ArticleData   => $SQLSearchResult,
+                        EngineObject  => $Param{EngineObject},
                         ConnectObject => $Param{ConnectObject},
                     );
                 }
             }
         }
-    # index all data in parts until no more will be found
-    } while ($DataCount == $IDLimit);
+
+        # index all data in parts until no more will be found
+    } while ( $DataCount == $IDLimit );
 
     return $Success;
 }
@@ -321,30 +326,31 @@ sub SQLObjectSearch {
 
     my $ExternalFields;
     my $Join = {
-        Type => 'INNER JOIN',
+        Type  => 'INNER JOIN',
         Table => 'article_data_mime',
         On    => 'article.id = article_data_mime.article_id',
     };
 
-    my $Fields = $Param{Fields};
+    my $Fields            = $Param{Fields};
     my %CustomIndexFields = $Self->DenormalizedArticleFieldsGet();
 
-    if(IsArrayRefWithData($Param{Fields})){
-        my @ExternalArticleFields = grep {$Self->{ExternalFields}->{$_}} @{$Param{Fields}};
-        if(scalar @ExternalArticleFields){
+    if ( IsArrayRefWithData( $Param{Fields} ) ) {
+        my @ExternalArticleFields = grep { $Self->{ExternalFields}->{$_} } @{ $Param{Fields} };
+        if ( scalar @ExternalArticleFields ) {
             $ExternalFields = \@ExternalArticleFields;
-        } else {
+        }
+        else {
             undef $Join;
         }
-    } 
+    }
     else {
         $Fields = \%CustomIndexFields;
     }
 
     my $ArticleData = $Self->SUPER::SQLObjectSearch(
         %Param,
-        Join => $Join,
-        Fields => $Fields,
+        Join              => $Join,
+        Fields            => $Fields,
         CustomIndexFields => \%CustomIndexFields,
     );
 
@@ -366,14 +372,15 @@ sub ValidFieldsPrepare {
     my ( $Self, %Param ) = @_;
 
     my $Fields;
-    my $ArticleBasicFields = $Self->{Fields};
+    my $ArticleBasicFields    = $Self->{Fields};
     my $ArticleExternalFields = $Self->{ExternalFields};
 
-    my %AllArticleFields = ( %{ $ArticleBasicFields }, %{$ArticleExternalFields} );
+    my %AllArticleFields = ( %{$ArticleBasicFields}, %{$ArticleExternalFields} );
 
     if ( !IsArrayRefWithData( $Param{Fields} ) || $Param{Param}->{UseSQLSearch} ) {
         $Fields = \%AllArticleFields;
-    } else {
+    }
+    else {
         for my $ParamField ( @{ $Param{Fields} } ) {
             if ( $ParamField =~ m{^Article_(.+)} ) {
                 my $ArticleField = $1;

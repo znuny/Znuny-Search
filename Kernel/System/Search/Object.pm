@@ -380,10 +380,10 @@ sub IndexObjectQueueAdd {
     };
 
     $CacheObject->Set(
-        Type  => 'SearchEngineIndexQueue',
-        Key   => "Index::$Param{Index}",
-        Value => $CachedValue,
-        TTL   => $TTL,
+        Type           => 'SearchEngineIndexQueue',
+        Key            => "Index::$Param{Index}",
+        Value          => $CachedValue,
+        TTL            => $TTL,
         CacheInBackend => 1,
         CacheInMemory  => 0,
     );

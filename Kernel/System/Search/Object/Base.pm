@@ -395,9 +395,9 @@ sub SQLObjectSearch {
 
     my $QueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
 
-    my $Table         = $Param{Table} || $Self->{Config}->{IndexRealName};
-    my $Fields        = $Param{CustomIndexFields} // $Self->{Fields};
-    my $ResultType    = $Param{ResultType} || 'ARRAY';
+    my $Table      = $Param{Table} || $Self->{Config}->{IndexRealName};
+    my $Fields     = $Param{CustomIndexFields} // $Self->{Fields};
+    my $ResultType = $Param{ResultType} || 'ARRAY';
 
     # prepare sql statement
     my $SQL;
@@ -450,14 +450,16 @@ sub SQLObjectSearch {
 
         my $SQLJoin = '';
 
-        if($Param{Join}){
+        if ( $Param{Join} ) {
             $SQLJoin .= ' ';
-            for (my $i = 0; $i < scalar @AliasNameTableColumns; $i++) {
+            for ( my $i = 0; $i < scalar @AliasNameTableColumns; $i++ ) {
                 my $Column = $AliasNameTableColumns[$i];
-                if($Self->{ExternalFields}->{$Column}){
-                    $SQLTableColumns[$i] = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{$Column}->{ColumnName},
-                } else {
-                    $SQLTableColumns[$i] = $Table . '.' . $Self->{Fields}->{$Column}->{ColumnName},
+                if ( $Self->{ExternalFields}->{$Column} ) {
+                    $SQLTableColumns[$i]
+                        = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{$Column}->{ColumnName},;
+                }
+                else {
+                    $SQLTableColumns[$i] = $Table . '.' . $Self->{Fields}->{$Column}->{ColumnName},;
                 }
             }
             $SQLJoin .= "$Param{Join}->{Type} $Param{Join}->{Table} ON $Param{Join}->{On} ";
@@ -505,15 +507,17 @@ sub SQLObjectSearch {
                 }
                 my $FieldRealName = $Fields->{$FieldName}->{ColumnName};
 
-                if($Param{Join}){
-                    if($Self->{ExternalFields}->{$FieldName}){
-                        $FieldRealName = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{$FieldName}->{ColumnName},
-                    } else {
-                        $FieldRealName = $Table . '.' . $Self->{Fields}->{$FieldName}->{ColumnName},
+                if ( $Param{Join} ) {
+                    if ( $Self->{ExternalFields}->{$FieldName} ) {
+                        $FieldRealName
+                            = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{$FieldName}->{ColumnName},;
+                    }
+                    else {
+                        $FieldRealName = $Table . '.' . $Self->{Fields}->{$FieldName}->{ColumnName},;
                     }
                 }
 
-                my $Result        = $OperatorModule->OperatorQueryGet(
+                my $Result = $OperatorModule->OperatorQueryGet(
                     Field    => $Param{SelectAliases} ? $FieldName : $FieldRealName,
                     Value    => $OperatorValue,
                     Operator => $OperatorData->{Operator},
@@ -580,7 +584,7 @@ sub SQLObjectSearch {
     }
 
     # apply offset query
-    if ($Param{Offset} ) {
+    if ( $Param{Offset} ) {
         $SQL .= " OFFSET $Param{Offset}";
     }
 
@@ -828,56 +832,56 @@ sub DefaultConfigGet {
     $Self->{SupportedOperators} = {
         Operator => {
             Date => {
-                    ">="             => 1,
-                    "="              => 1,
-                    "!="             => 1,
-                    "<="             => 1,
-                    "<"              => 1,
-                    ">"              => 1,
-                    "BETWEEN"        => 1,
-                    "IS DEFINED"     => 1,
-                    "IS NOT DEFINED" => 1,
+                ">="             => 1,
+                "="              => 1,
+                "!="             => 1,
+                "<="             => 1,
+                "<"              => 1,
+                ">"              => 1,
+                "BETWEEN"        => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
             },
             String => {
 
-                    "="              => 1,
-                    "!="             => 1,
-                    ">="             => 1,
-                    "<="             => 1,
-                    "<"              => 1,
-                    ">"              => 1,
-                    "IS EMPTY"       => 1,
-                    "IS NOT EMPTY"   => 1,
-                    "IS DEFINED"     => 1,
-                    "IS NOT DEFINED" => 1,
-                    "FULLTEXT"       => 1,
-                    "PATTERN"        => 1,
+                "="              => 1,
+                "!="             => 1,
+                ">="             => 1,
+                "<="             => 1,
+                "<"              => 1,
+                ">"              => 1,
+                "IS EMPTY"       => 1,
+                "IS NOT EMPTY"   => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
+                "FULLTEXT"       => 1,
+                "PATTERN"        => 1,
             },
             Integer => {
-                    ">="             => 1,
-                    "="              => 1,
-                    "!="             => 1,
-                    "<="             => 1,
-                    "<"              => 1,
-                    ">"              => 1,
-                    "BETWEEN"        => 1,
-                    "IS EMPTY"       => 1,
-                    "IS NOT EMPTY"   => 1,
-                    "IS DEFINED"     => 1,
-                    "IS NOT DEFINED" => 1,
+                ">="             => 1,
+                "="              => 1,
+                "!="             => 1,
+                "<="             => 1,
+                "<"              => 1,
+                ">"              => 1,
+                "BETWEEN"        => 1,
+                "IS EMPTY"       => 1,
+                "IS NOT EMPTY"   => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
             },
             Long => {
-                    ">="             => 1,
-                    "="              => 1,
-                    "!="             => 1,
-                    "<="             => 1,
-                    "<"              => 1,
-                    ">"              => 1,
-                    "BETWEEN"        => 1,
-                    "IS EMPTY"       => 1,
-                    "IS NOT EMPTY"   => 1,
-                    "IS DEFINED"     => 1,
-                    "IS NOT DEFINED" => 1,
+                ">="             => 1,
+                "="              => 1,
+                "!="             => 1,
+                "<="             => 1,
+                "<"              => 1,
+                ">"              => 1,
+                "BETWEEN"        => 1,
+                "IS EMPTY"       => 1,
+                "IS NOT EMPTY"   => 1,
+                "IS DEFINED"     => 1,
+                "IS NOT DEFINED" => 1,
             },
             Textarea => {
                 "FULLTEXT"       => 1,
@@ -980,17 +984,18 @@ sub SQLSortQueryGet {
     return '' if !$SortBy;
 
     my $ColumnName;
-    if($Param{SelectAliases}){
+    if ( $Param{SelectAliases} ) {
         $ColumnName = $SortBy->{Name};
     }
     else {
         $ColumnName = $Self->{Fields}->{ $SortBy->{Name} }->{ColumnName};
 
-        if($Param{Join}){
-            if($Self->{ExternalFields}->{$SortBy->{Name}}){
-                $ColumnName = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{$SortBy->{Name}}->{ColumnName},
-            } else {
-                $ColumnName = $Self->{Config}->{IndexName} . '.' . $Self->{Fields}->{$SortBy->{Name}}->{ColumnName},
+        if ( $Param{Join} ) {
+            if ( $Self->{ExternalFields}->{ $SortBy->{Name} } ) {
+                $ColumnName = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{ $SortBy->{Name} }->{ColumnName},;
+            }
+            else {
+                $ColumnName = $Self->{Config}->{IndexName} . '.' . $Self->{Fields}->{ $SortBy->{Name} }->{ColumnName},;
             }
         }
     }
@@ -1048,22 +1053,22 @@ sub _Load {
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
-
-    if($Param{CustomConfigNotSupported}){
+    if ( $Param{CustomConfigNotSupported} ) {
         $Self->{Fields} = $Param{Fields};
-    } else {
-        my $Config           = $Self->CustomFieldsConfig();
+    }
+    else {
+        my $Config = $Self->CustomFieldsConfig();
 
         %{ $Self->{Config} } = ( %{ $Param{Config} }, %{ $Config->{Config} } );
+
         # load custom field mapping
         %{ $Self->{Fields} } = ( %{ $Param{Fields} }, %{ $Config->{Fields} } );
     }
-    
+
     $Self->{OperatorMapping} = $SearchObject->{DefaultOperatorMapping};
 
     return 1;
 }
-
 
 =head2 _BaseCheckIndexOperation()
 
@@ -1135,15 +1140,14 @@ sub _ObjectIndexAddAction {
 
     my $DataToIndex = $Param{DataToIndex};
 
-    return if !$DataToIndex->{Success};
-    return 0 if !IsArrayRefWithData( $DataToIndex->{Data}); # TODO: globalize
-    return $Self->_ObjectIndexBaseAction(%Param,
-        Body => $DataToIndex->{Data},
+    return   if !$DataToIndex->{Success};
+    return 0 if !IsArrayRefWithData( $DataToIndex->{Data} );    # TODO: globalize
+    return $Self->_ObjectIndexBaseAction(
+        %Param,
+        Body     => $DataToIndex->{Data},
         Function => 'ObjectIndexAdd',
     );
 }
-
-
 
 =head2 _ObjectIndexBaseAction()
 
@@ -1164,10 +1168,10 @@ sub _ObjectIndexBaseAction {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed ( qw(Function MappingObject EngineObject) ) {
-    
-        next NEEDED if defined $Param{ $Needed };
-    
+    for my $Needed (qw(Function MappingObject EngineObject)) {
+
+        next NEEDED if defined $Param{$Needed};
+
         $LogObject->Log(
             Priority => 'error',
             Message  => "Parameter '$Needed' is needed!",
@@ -1181,15 +1185,15 @@ sub _ObjectIndexBaseAction {
     my $PreparedQuery = $Param{MappingObject}->$Function(
         %Param,
     );
-    
+
     return 0 if !$PreparedQuery;
 
     my $Response = $Param{EngineObject}->QueryExecute(
         %Param,
-        Operation            => $Function,
-        Query                => $PreparedQuery,
-        ConnectObject        => $Param{ConnectObject},
-        Config               => $Param{Config},
+        Operation     => $Function,
+        Query         => $PreparedQuery,
+        ConnectObject => $Param{ConnectObject},
+        Config        => $Param{Config},
     );
 
     my $FunctionFormat = $Function . 'Format';

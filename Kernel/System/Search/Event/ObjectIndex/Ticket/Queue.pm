@@ -56,9 +56,9 @@ sub Run {
     $SearchChildObject->IndexObjectQueueAdd(
         Index => 'Ticket',
         Value => {
-            FunctionName => 'ObjectIndexUpdate',
+            FunctionName                                     => 'ObjectIndexUpdate',
             $Param{Data}->{Queue}->{QueueID} . "_$QueueType" => {
-                QueryParams  => {
+                QueryParams => {
                     QueueID => $Param{Data}->{OldQueue}->{QueueID},
                 },
             },
