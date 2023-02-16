@@ -174,11 +174,13 @@ sub new {
 sub ObjectIndexAdd {
     my ( $Self, %Param ) = @_;
 
-    my $ConfigObject       = $Kernel::OM->Get('Kernel::Config');
-    my $LogObject          = $Kernel::OM->Get('Kernel::System::Log');
-    my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $IndexInto    = $Param{IndexInto} || 'Article';
 
-    return if !$Self->_BaseCheckIndexOperation(%Param);
+    return if !$Self->_BaseCheckIndexOperation(
+        %Param,
+    ) && $IndexInto eq 'Article';
 
     my $Identifier = $Self->{Config}->{Identifier};
 
@@ -215,33 +217,8 @@ sub ObjectIndexAdd {
 
         $DataCount = scalar @{$SQLDataIDs};
 
-        # indexation of ticket base values with it's dynamic fields
-        # index object without any restrictions on first level
-        # ignore restrictions on single object id and reindexation as it does have it's
-        # own mechanism to restrict data size
-        if ( $Param{Reindex} || ( $Param{ObjectID} && IsNumber( $Param{ObjectID} ) ) ) {
-            my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(
-                %Param,
-                QueryParams => {
-                    $Identifier => $SQLDataIDs,
-                },
-                ResultType    => $Param{SQLSearchResultType} || 'ARRAY',
-                NoPermissions => 1,
-            );
+        if ($DataCount) {
 
-            $Success = $Self->_ObjectIndexAddAction(
-                %Param,
-                DataToIndex => $SQLSearchResult,
-            ) if $Success;
-
-            # do not count failures of indexing articles on ticket index
-            $SearchTicketObject->ObjectIndexAddArticle(
-                ArticleData   => $SQLSearchResult,
-                EngineObject  => $Param{EngineObject},
-                ConnectObject => $Param{ConnectObject},
-            );
-        }
-        else {
             # no need to object count restrictions
             if ( $DataCount <= $ReindexationStep ) {
                 my $SQLSearchResult = $Self->SQLObjectSearch(
@@ -249,21 +226,16 @@ sub ObjectIndexAdd {
                     QueryParams => {
                         $Identifier => $SQLDataIDs,
                     },
-                    ResultType    => $Param{SQLSearchResultType} || 'ARRAY',
-                    NoPermissions => 1,
+                    ResultType => $Param{SQLSearchResultType} || 'ARRAY',
                 );
 
-                $Success = $Self->_ObjectIndexAddAction(
+                my $SuccessLocal = $Self->_ObjectIndexAddAction(
                     %Param,
                     DataToIndex => $SQLSearchResult,
-                ) if $Success;
-
-                # do not count failures of indexing articles on ticket index
-                $SearchTicketObject->ObjectIndexAddArticle(
-                    ArticleData   => $SQLSearchResult,
-                    EngineObject  => $Param{EngineObject},
-                    ConnectObject => $Param{ConnectObject},
+                    IndexInto   => $IndexInto,
                 );
+
+                $Success = $SuccessLocal if $Success && !$SuccessLocal;
             }
             else {
                 # restrict data size
@@ -278,25 +250,18 @@ sub ObjectIndexAdd {
                         QueryParams => {
                             $Identifier => $SQLDataIDs,
                         },
-                        ResultType    => $Param{SQLSearchResultType} || 'ARRAY',
-                        Offset        => $Offset,
-                        Limit         => $ReindexationStep,
-                        NoPermissions => 1,
+                        ResultType => $Param{SQLSearchResultType} || 'ARRAY',
+                        Offset     => $Offset,
+                        Limit      => $ReindexationStep,
                     );
 
                     my $PartSuccess = $Self->_ObjectIndexAddAction(
                         %Param,
                         DataToIndex => $SQLSearchResult,
+                        IndexInto   => $IndexInto,
                     );
 
                     $Success = $PartSuccess if $Success && !$PartSuccess;
-
-                    # do not count failures of indexing articles on ticket index
-                    $SearchTicketObject->ObjectIndexAddArticle(
-                        ArticleData   => $SQLSearchResult,
-                        EngineObject  => $Param{EngineObject},
-                        ConnectObject => $Param{ConnectObject},
-                    );
                 }
             }
         }
@@ -426,6 +391,22 @@ sub _PostValidFieldsPrepare {
     }
 
     return %ValidFields;
+}
+
+sub _ObjectIndexAddAction {
+    my ( $Self, %Param ) = @_;
+
+    # index article into Article index
+    return $Self->SUPER::_ObjectIndexAddAction(%Param)
+        if $Param{IndexInto} eq 'Article';
+
+    # index article into Ticket index
+    my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
+    return $SearchTicketObject->ObjectIndexAddArticle(
+        ArticleData   => $Param{DataToIndex},
+        EngineObject  => $Param{EngineObject},
+        ConnectObject => $Param{ConnectObject},
+    );
 }
 
 1;

@@ -889,6 +889,7 @@ sub ObjectIndexAdd {
 
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
     my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
     return if !$Self->_BaseCheckIndexOperation(%Param);
 
@@ -898,77 +899,39 @@ sub ObjectIndexAdd {
         $Identifier => $Param{ObjectID},
     };
 
-    my $IDLimit = 100_000_000;
+    my $DataCount;
+    my $SQLDataIDs;
 
-    my $SQLDataIDs = $Self->ObjectListIDs(
-        QueryParams => $QueryParams,
-        Fields      => [$Identifier],
-        ResultType  => 'ARRAY',
-        Limit       => $IDLimit,
-    );
+    # ticket id limit to process at once
+    my $IDLimit = 100_00;
 
-    my $DataCount = scalar @{$SQLDataIDs};
-
-    if ( $DataCount == $IDLimit ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Data for indexing exceeded limit of: $IDLimit objects count!",
-        );
-        return;
-    }
-
+    # additional limit for single request
     my $ReindexationSettings = $ConfigObject->Get('SearchEngine::Reindexation')->{Settings};
     my $ReindexationStep     = $ReindexationSettings->{ReindexationStep} // 10;
-    my $Success              = 1;
 
-    # indexation of ticket base values with it's dynamic fields
-    # index object without any restrictions on first level
-    # ignore restrictions on single object id and reindexation as it does have it's
-    # own mechanism to restrict data size
-    if ( $Param{Reindex} || ( $Param{ObjectID} && IsNumber( $Param{ObjectID} ) ) ) {
+    # success is hard to identify for that many objects
+    # simply return 1 when 100% of data will execute queries
+    # correctly, otherwise return 0
+    my $Success                = 1;
+    my $TicketOffsetMultiplier = 0;
 
-        my $SQLSearchResult = $Self->SQLObjectSearch(
-            %Param,
-            QueryParams => {
-                $Identifier => $SQLDataIDs,
-            },
-            ResultType     => $Param{SQLSearchResultType} || 'ARRAY',
-            IgnoreArticles => 1,
-            UserID         => 1,
-            NoPermissions  => 1,
+    do {
+        my $TicketOffset = $TicketOffsetMultiplier++ * $IDLimit;
+
+        $SQLDataIDs = $Self->ObjectListIDs(
+            QueryParams => $QueryParams,
+            Fields      => [$Identifier],
+            ResultType  => 'ARRAY',
+            Limit       => $IDLimit,
+            Offset      => $TicketOffset,
         );
 
-        $Success = $Self->_ObjectIndexAddAction(
-            %Param,
-            DataToIndex => $SQLSearchResult,
-        );
-    }
-    else {
-        # no need to object count restrictions
-        if ( $DataCount <= $ReindexationStep ) {
-            my $SQLSearchResult = $Self->SQLObjectSearch(
-                %Param,
-                QueryParams => {
-                    $Identifier => $SQLDataIDs,
-                },
-                ResultType     => $Param{SQLSearchResultType} || 'ARRAY',
-                IgnoreArticles => 1,
-                NoPermissions  => 1,
-            );
+        $DataCount = scalar @{$SQLDataIDs};
 
-            $Success = $Self->_ObjectIndexAddAction(
-                %Param,
-                DataToIndex => $SQLSearchResult,
-            );
-        }
-        else {
-            # restrict data size
-            my $IterationCount = ceil( $DataCount / $ReindexationStep );
+        if ($DataCount) {
 
-            # index data in parts
-            for my $OffsetMultiplier ( 0 .. $IterationCount - 1 ) {
-                my $Offset = $OffsetMultiplier * $ReindexationStep;
-
+            # no need to object count restrictions
+            if ( $DataCount <= $ReindexationStep ) {
                 my $SQLSearchResult = $Self->SQLObjectSearch(
                     %Param,
                     QueryParams => {
@@ -976,20 +939,112 @@ sub ObjectIndexAdd {
                     },
                     ResultType     => $Param{SQLSearchResultType} || 'ARRAY',
                     IgnoreArticles => 1,
-                    Offset         => $Offset,
-                    Limit          => $ReindexationStep,
                     NoPermissions  => 1,
                 );
 
-                my $PartSuccess = $Self->_ObjectIndexAddAction(
+                my $SuccessLocal = $Self->_ObjectIndexAddAction(
                     %Param,
                     DataToIndex => $SQLSearchResult,
+                    TicketIDs   => $SQLDataIDs,
                 );
 
-                $Success = $PartSuccess if $Success && !$PartSuccess;
+                $Success = $SuccessLocal if $Success && !$SuccessLocal;
             }
+            else {
+                # restrict data size
+                my $IterationCount = ceil( $DataCount / $ReindexationStep );
+
+                # index data in parts
+                for my $OffsetMultiplier ( 0 .. $IterationCount - 1 ) {
+                    my $Offset = $OffsetMultiplier * $ReindexationStep;
+
+                    my $SQLSearchResult = $Self->SQLObjectSearch(
+                        %Param,
+                        QueryParams => {
+                            $Identifier => $SQLDataIDs,
+                        },
+                        ResultType     => $Param{SQLSearchResultType} || 'ARRAY',
+                        IgnoreArticles => 1,
+                        Offset         => $Offset,
+                        Limit          => $ReindexationStep,
+                        NoPermissions  => 1,
+                    );
+
+                    my $PartSuccess = $Self->_ObjectIndexAddAction(
+                        %Param,
+                        DataToIndex => $SQLSearchResult,
+                        TicketIDs   => $SQLDataIDs->[ $Offset .. $Offset + $ReindexationStep - 1 ],
+                    );
+
+                    $Success = $PartSuccess if $Success && !$PartSuccess;
+                }
+            }
+
+            $SearchObject->IndexRefresh(
+                Index => 'Ticket',
+            );
+
+            # run attachment pipeline after indexation
+            my $Query = {
+                Method => 'POST',
+                Path   => "$Self->{Config}->{IndexRealName}/_update_by_query",
+                Body   => {
+                    query => {
+                        terms => {
+                            TicketID => $SQLDataIDs,
+                        },
+                    },
+                },
+                QS => { pipeline => 'attachment_nested' },
+            };
+
+            $Param{EngineObject}->QueryExecute(
+                Operation     => 'Generic',
+                Query         => $Query,
+                ConnectObject => $Param{ConnectObject},
+            );
         }
-    }
+    } while ( $DataCount == $IDLimit );
+
+    return $Success;
+}
+
+=head2 _ObjectIndexAddAction()
+
+perform add operation on ticket data
+
+    my $FunctionResult = $SearchTicketESObject->_ObjectIndexAddAction(
+        DataToIndex => $DataToIndex,
+        %AdditionalParams,
+    );
+
+=cut
+
+sub _ObjectIndexAddAction {
+    my ( $Self, %Param ) = @_;
+
+    return if !$Param{DataToIndex}->{Success};
+    return if !$Param{TicketIDs};
+
+    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Engine::ES::Article');
+
+    # index ticket base values with dfs
+    my $Success = $Self->SUPER::_ObjectIndexAddAction(
+        %Param
+    );
+
+    # index ticket articles
+    $SearchArticleObject->ObjectIndexAdd(
+        IndexInto   => 'Ticket',
+        QueryParams => {
+            TicketID => $Param{TicketIDs},
+        },
+        Index         => 'Article',
+        MappingObject => $Param{MappingObject},
+        EngineObject  => $Param{EngineObject},
+        ConnectObject => $Param{ConnectObject},
+        Config        => $Param{Config},
+    );
 
     return $Success;
 }
@@ -1122,11 +1177,6 @@ sub ObjectIndexAddArticle {
                     }
                 },
             },
-
-            # wait until article will index
-            # this will slow down indexation a little bit
-            # TODO: possible optimization
-            QS => { refresh => 'true' },
         };
 
         $Param{EngineObject}->QueryExecute(
@@ -1135,25 +1185,6 @@ sub ObjectIndexAddArticle {
             ConnectObject => $Param{ConnectObject},
         );
 
-        # run attachment pipeline
-        $Query = {
-            Method => 'POST',
-            Path   => "$Self->{Config}->{IndexRealName}/_update_by_query",
-            Body   => {
-                query => {
-                    term => {
-                        TicketID => $TicketID,
-                    },
-                },
-            },
-            QS => { pipeline => 'attachment_nested' },
-        };
-
-        $Param{EngineObject}->QueryExecute(
-            Operation     => 'Generic',
-            Query         => $Query,
-            ConnectObject => $Param{ConnectObject},
-        );
     }
 
     return 1;
