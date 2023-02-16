@@ -17,7 +17,6 @@
                 <Item Key="Ticket">ticket</Item>
                 <Item Key="TicketHistory">ticket_history</Item>
                 <Item Key="Article">article</Item>
-                <Item Key="ArticleDataMIME">article_data_mime</Item>
                 <Item Key="ArticleDataMIMEAttachment">article_data_mime_attachment</Item>
                 <Item Key="DynamicField">dynamic_field</Item>
                 <Item Key="DynamicFieldValue">dynamic_field_value</Item>
