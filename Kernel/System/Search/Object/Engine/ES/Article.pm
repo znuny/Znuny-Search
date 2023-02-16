@@ -332,7 +332,7 @@ sub SQLObjectSearch {
     };
 
     my $Fields            = $Param{Fields};
-    my %CustomIndexFields = $Self->DenormalizedArticleFieldsGet();
+    my %CustomIndexFields = ( %{ $Self->{Fields} }, %{ $Self->{ExternalFields} } );
 
     if ( IsArrayRefWithData( $Param{Fields} ) ) {
         my @ExternalArticleFields = grep { $Self->{ExternalFields}->{$_} } @{ $Param{Fields} };
