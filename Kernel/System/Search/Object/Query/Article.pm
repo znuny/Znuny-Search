@@ -42,13 +42,10 @@ sub new {
 
     my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
 
-    # get index specified fields
-    $Self->{IndexFields}               = $IndexObject->{Fields};
-    $Self->{IndexSupportedOperators}   = $IndexObject->{SupportedOperators};
-    $Self->{IndexOperatorMapping}      = $IndexObject->{OperatorMapping};
-    $Self->{IndexDefaultSearchLimit}   = $IndexObject->{DefaultSearchLimit};
-    $Self->{IndexSupportedResultTypes} = $IndexObject->{SupportedResultTypes};
-    $Self->{IndexConfig}               = $IndexObject->{Config};
+    for my $Property( qw(Fields SupportedOperators OperatorMapping DefaultSearchLimit
+        SupportedResultTypes Config ExternalFields SearchableFields )) {
+        $Self->{'Index' . $Property} = $IndexObject->{$Property};
+    }
 
     bless( $Self, $Type );
 
