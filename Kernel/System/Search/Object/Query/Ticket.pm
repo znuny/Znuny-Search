@@ -49,9 +49,12 @@ sub new {
 
     my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
 
-    for my $Property( qw(Fields SupportedOperators OperatorMapping DefaultSearchLimit
-        SupportedResultTypes Config ExternalFields SearchableFields )) {
-        $Self->{'Index' . $Property} = $IndexObject->{$Property};
+    for my $Property (
+        qw(Fields SupportedOperators OperatorMapping DefaultSearchLimit
+        SupportedResultTypes Config ExternalFields SearchableFields )
+        )
+    {
+        $Self->{ 'Index' . $Property } = $IndexObject->{$Property};
     }
 
     bless( $Self, $Type );
@@ -457,7 +460,7 @@ sub _QueryFieldDataSet {
     elsif ( $Param{Name} =~ m{\AArticle_(.+)\z} ) {
 
         my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-        my $ArticleFields = $SearchArticleObject->DenormalizedArticleFieldsGet();
+        my $ArticleFields       = $SearchArticleObject->DenormalizedArticleFieldsGet();
 
         my $ArticleParam = $1;
         if ($ArticleParam) {
@@ -465,8 +468,7 @@ sub _QueryFieldDataSet {
                 if ( $ArticleFields->{$FieldStructure}->{$ArticleParam} ) {
                     for my $Property (qw(Type ReturnType)) {
                         if ( $ArticleFields->{$FieldStructure}->{$ArticleParam}->{$Property} ) {
-                            $Data->{$Property}
-                                = $ArticleFields->{$FieldStructure}->{$ArticleParam}->{$Property};
+                            $Data->{$Property} = $ArticleFields->{$FieldStructure}->{$ArticleParam}->{$Property};
                         }
                     }
                     return $Data;
