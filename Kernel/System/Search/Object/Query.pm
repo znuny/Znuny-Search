@@ -613,10 +613,10 @@ sub _QueryParamsPrepare {
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     NEEDED:
-    for my $Needed ( qw(QueryFor) ) {
-    
-        next NEEDED if defined $Param{ $Needed };
-    
+    for my $Needed (qw(QueryFor)) {
+
+        next NEEDED if defined $Param{$Needed};
+
         $LogObject->Log(
             Priority => 'error',
             Message  => "Parameter '$Needed' is needed!",
@@ -625,18 +625,18 @@ sub _QueryParamsPrepare {
     }
 
     my $ValidParams;
-    my $SimplifiedMode = $Self->{IndexSupportedOperators}->{SimplifiedMode}->{$Param{QueryFor}};
-    my $SearchableFields = $Self->{IndexSearchableFields}->{$Param{QueryFor}};
+    my $SimplifiedMode   = $Self->{IndexSupportedOperators}->{SimplifiedMode}->{ $Param{QueryFor} };
+    my $SearchableFields = $Self->{IndexSearchableFields}->{ $Param{QueryFor} };
 
     PARAM:
     for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
 
         # apply search params for columns that are supported
         my $Result = $Self->_QueryParamSet(
-            Name           => $SearchParam,
-            Value          => $Param{QueryParams}->{$SearchParam},
-            NoMappingCheck => $Param{NoMappingCheck},
-            SimplifiedMode => $SimplifiedMode,
+            Name             => $SearchParam,
+            Value            => $Param{QueryParams}->{$SearchParam},
+            NoMappingCheck   => $Param{NoMappingCheck},
+            SimplifiedMode   => $SimplifiedMode,
             SearchableFields => $SearchableFields
         );
 
@@ -667,9 +667,10 @@ set query param field to standardized output
 sub _QueryParamSet {
     my ( $Self, %Param ) = @_;
 
-    my $Name      = $Param{Name};
-    return { Error => 1 } if $Param{SearchableFields} && $Param{SearchableFields} ne '*' && !$Param{SearchableFields}->{$Name};
-    
+    my $Name = $Param{Name};
+    return { Error => 1 }
+        if $Param{SearchableFields} && $Param{SearchableFields} ne '*' && !$Param{SearchableFields}->{$Name};
+
     my $Value     = $Param{Value};
     my $IndexName = $Self->{IndexConfig}->{IndexName};
 
@@ -715,10 +716,11 @@ sub _QueryParamSet {
     my @Operators;
 
     if ( ref $Value eq "HASH" ) {
-        if($Param{SimplifiedMode}){
+        if ( $Param{SimplifiedMode} ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message  => "Query parameter $Name is specified in a hash which is not allowed for index $Self->{IndexConfig}->{IndexName}!",
+                Message =>
+                    "Query parameter $Name is specified in a hash which is not allowed for index $Self->{IndexConfig}->{IndexName}!",
             );
             return { Error => 1 };
         }
@@ -738,10 +740,11 @@ sub _QueryParamSet {
         ref $Value->[0] eq 'HASH'
         )
     {
-        if($Param{SimplifiedMode}){
+        if ( $Param{SimplifiedMode} ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message  => "Query parameter $Name is specified in an array of hashes which is not allowed for index $Self->{IndexConfig}->{IndexName}!",
+                Message =>
+                    "Query parameter $Name is specified in an array of hashes which is not allowed for index $Self->{IndexConfig}->{IndexName}!",
             );
             return { Error => 1 };
         }

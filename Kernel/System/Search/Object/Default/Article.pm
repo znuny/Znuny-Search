@@ -138,7 +138,7 @@ sub DenormalizedArticleFieldsGet {
     my ( $Self, %Param ) = @_;
 
     return {
-        Fields => $Self->{Fields},
+        Fields         => $Self->{Fields},
         ExternalFields => $Self->{ExternalFields} || {},
     };
 }

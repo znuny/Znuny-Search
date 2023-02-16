@@ -44,9 +44,12 @@ sub new {
 
     my $IndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
 
-    for my $Property( qw(Fields SupportedOperators OperatorMapping DefaultSearchLimit
-        SupportedResultTypes Config ExternalFields SearchableFields )) {
-        $Self->{'Index' . $Property} = $IndexObject->{$Property};
+    for my $Property (
+        qw(Fields SupportedOperators OperatorMapping DefaultSearchLimit
+        SupportedResultTypes Config ExternalFields SearchableFields )
+        )
+    {
+        $Self->{ 'Index' . $Property } = $IndexObject->{$Property};
     }
 
     bless( $Self, $Type );
