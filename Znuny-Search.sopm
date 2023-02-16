@@ -37,6 +37,7 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicFieldValue.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>
