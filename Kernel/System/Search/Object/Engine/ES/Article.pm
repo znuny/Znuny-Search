@@ -402,23 +402,6 @@ sub ValidFieldsPrepare {
     );
 }
 
-=head2 Fallback()
-
-return all sql data of object ids
-
-    my $ResultIDs = $SearchBaseObject->ObjectListIDs();
-
-=cut
-
-sub Fallback {
-    my ( $Self, %Param ) = @_;
-
-    # search for all objects
-    return $Self->SUPER::Fallback(
-        %Param,
-    );
-}
-
 =head2 _PostValidFieldsPrepare()
 
 set fields return type if not specified

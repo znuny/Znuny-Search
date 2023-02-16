@@ -456,10 +456,10 @@ sub SQLObjectSearch {
                 my $Column = $AliasNameTableColumns[$i];
                 if ( $Self->{ExternalFields}->{$Column} ) {
                     $SQLTableColumns[$i]
-                        = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{$Column}->{ColumnName},;
+                        = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{$Column}->{ColumnName};
                 }
                 else {
-                    $SQLTableColumns[$i] = $Table . '.' . $Self->{Fields}->{$Column}->{ColumnName},;
+                    $SQLTableColumns[$i] = $Table . '.' . $Self->{Fields}->{$Column}->{ColumnName};
                 }
             }
             $SQLJoin .= "$Param{Join}->{Type} $Param{Join}->{Table} ON $Param{Join}->{On} ";
@@ -510,10 +510,10 @@ sub SQLObjectSearch {
                 if ( $Param{Join} ) {
                     if ( $Self->{ExternalFields}->{$FieldName} ) {
                         $FieldRealName
-                            = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{$FieldName}->{ColumnName},;
+                            = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{$FieldName}->{ColumnName};
                     }
                     else {
-                        $FieldRealName = $Table . '.' . $Self->{Fields}->{$FieldName}->{ColumnName},;
+                        $FieldRealName = $Table . '.' . $Self->{Fields}->{$FieldName}->{ColumnName};
                     }
                 }
 
@@ -992,10 +992,10 @@ sub SQLSortQueryGet {
 
         if ( $Param{Join} ) {
             if ( $Self->{ExternalFields}->{ $SortBy->{Name} } ) {
-                $ColumnName = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{ $SortBy->{Name} }->{ColumnName},;
+                $ColumnName = $Param{Join}->{Table} . '.' . $Self->{ExternalFields}->{ $SortBy->{Name} }->{ColumnName};
             }
             else {
-                $ColumnName = $Self->{Config}->{IndexName} . '.' . $Self->{Fields}->{ $SortBy->{Name} }->{ColumnName},;
+                $ColumnName = $Self->{Config}->{IndexName} . '.' . $Self->{Fields}->{ $SortBy->{Name} }->{ColumnName};
             }
         }
     }
