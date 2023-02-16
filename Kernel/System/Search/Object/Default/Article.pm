@@ -126,4 +126,21 @@ sub new {
     return $Self;
 }
 
+=head2 DenormalizedArticleFieldsGet()
+
+get all article fields
+
+    my %Fields = $SearchArticleObject->DenormalizedArticleFieldsGet();
+
+=cut
+
+sub DenormalizedArticleFieldsGet {
+    my ( $Self, %Param ) = @_;
+
+    return {
+        Fields => $Self->{Fields},
+        ExternalFields => $Self->{ExternalFields} || {},
+    };
+}
+
 1;
