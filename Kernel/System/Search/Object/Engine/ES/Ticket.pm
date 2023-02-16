@@ -13,6 +13,7 @@ package Kernel::System::Search::Object::Engine::ES::Ticket;
 use strict;
 use warnings;
 use MIME::Base64;
+use POSIX qw/ceil/;
 
 use parent qw( Kernel::System::Search::Object::Default::Ticket );
 use Kernel::System::VariableCheck qw(:all);
@@ -131,10 +132,6 @@ sub new {
             ColumnName => 'timeout',
             Type       => 'Integer'
         },
-        UntilTime => {
-            ColumnName => 'until_time',
-            Type       => 'Integer'
-        },
         EscalationTime => {
             ColumnName => 'escalation_time',
             Type       => 'Integer'
@@ -179,6 +176,14 @@ sub new {
             Type       => 'Integer',
             Alias      => 0,
         },
+    };
+
+    # define searchable fields
+    # that can be used as query parameters
+    # for either indexing or searching
+    $Self->{SearchableFields} = {
+        SQL => '*',
+        Engine => '*',
     };
 
     # get default config
@@ -457,6 +462,7 @@ sub ExecuteSearch {
     my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
         QueryParams   => $QueryParams,
         NoPermissions => $Param{NoPermissions},
+        QueryFor      => 'Engine',
     );
 
     return $Self->SearchEmptyResponse(%Param)
@@ -880,36 +886,274 @@ add object for specified index
 
 sub ObjectIndexAdd {
     my ( $Self, %Param ) = @_;
+    
+    my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    return if !$Self->_BaseCheckIndexOperation( %Param );
+
+    my $Identifier  = $Self->{Config}->{Identifier};
+
+    my $QueryParams = $Param{QueryParams} ? $Param{QueryParams} : {
+        $Identifier => $Param{ObjectID},
+    };
+
+    my $IDLimit = 100_000_000;
+
+    my $SQLDataIDs = $Self->ObjectListIDs(
+        QueryParams => $QueryParams,
+        Fields      => [$Identifier],
+        ResultType  => 'ARRAY',
+        Limit       => $IDLimit,
+    );
+
+    my $DataCount = scalar @{$SQLDataIDs};
+
+    if($DataCount == $IDLimit){
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Data for indexing exceeded limit of: $IDLimit objects count!",
+        );
+        return;
+    }
+
+    my $ReindexationSettings = $ConfigObject->Get('SearchEngine::Reindexation')->{Settings};
+    my $ReindexationStep     = $ReindexationSettings->{ReindexationStep} // 10;
+    my $Success = 1;
+
+    # indexation of ticket base values with it's dynamic fields
+    # index object without any restrictions on first level
+    # ignore restrictions on single object id and reindexation as it does have it's
+    # own mechanism to restrict data size
+    if($Param{Reindex} || ($Param{ObjectID} && IsNumber($Param{ObjectID}))){
+
+        my $SQLSearchResult = $Self->SQLObjectSearch(
+            %Param,
+            QueryParams => {
+                $Identifier => $SQLDataIDs,
+            },
+            ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+            IgnoreArticles => 1,
+            UserID => 1,
+            NoPermissions => 1,
+        );
+
+        $Success = $Self->_ObjectIndexAddAction(
+            %Param,
+            DataToIndex => $SQLSearchResult,
+        );
+    } else {
+        # no need to object count restrictions
+        if($DataCount <= $ReindexationStep){
+            my $SQLSearchResult = $Self->SQLObjectSearch(
+                %Param,
+                QueryParams => {
+                    $Identifier => $SQLDataIDs,
+                },
+                ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+                IgnoreArticles => 1,
+                NoPermissions => 1,
+            );
+
+            $Success = $Self->_ObjectIndexAddAction(
+                %Param,
+                DataToIndex => $SQLSearchResult,
+            );
+        } else {
+            # restrict data size
+            my $IterationCount = ceil($DataCount/$ReindexationStep);
+
+            # index data in parts
+            for my $OffsetMultiplier (0 .. $IterationCount - 1){
+                my $Offset = $OffsetMultiplier * $ReindexationStep;
+
+                my $SQLSearchResult = $Self->SQLObjectSearch(
+                    %Param,
+                    QueryParams => {
+                        $Identifier => $SQLDataIDs,
+                    },
+                    ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+                    IgnoreArticles => 1,
+                    Offset => $Offset,
+                    Limit => $ReindexationStep,
+                    NoPermissions => 1,
+                );
+
+                my $PartSuccess =  $Self->_ObjectIndexAddAction(
+                    %Param,
+                    DataToIndex => $SQLSearchResult,
+                );
+
+                $Success = $PartSuccess if $Success && !$PartSuccess;
+            }
+        }
+    }
+
+    return $Success;
+}
+
+=head2 ObjectIndexAddArticle()
+
+add nested article data into ticket index
+
+    my $Result = $SearchTicketESObject->ObjectIndexAddArticle(
+        ArticleData => $Param{ArticleData},
+    );
+
+=cut
+
+sub ObjectIndexAddArticle {
+    my ( $Self, %Param ) = @_;
 
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+    my $DynamicFieldObject = $Kernel::OM->Get('Kernel::System::DynamicField');
+    my $ArticleObject = $Kernel::OM->Get('Kernel::System::Ticket::Article');
+    my $EncodeObject                = $Kernel::OM->Get('Kernel::System::Encode');
 
-    my $PreparedQuery = $SearchChildObject->QueryPrepare(
-        %Param,
-        Operation     => 'ObjectIndexAdd',
-        Config        => $Param{Config},
-        MappingObject => $Param{MappingObject},
-        NoPermissions => 1,
+    my $ArticleData = $Param{ArticleData};
+
+    my $IndexIsValid = $SearchChildObject->IndexIsValid(
+        IndexName => 'Ticket',
     );
 
-    return 0 if !$PreparedQuery;
+    return if !$IndexIsValid;
+    return if !$ArticleData->{Success};
+    return if !IsArrayRefWithData($ArticleData->{Data});
 
-    my $Response = $Param{EngineObject}->QueryExecute(
-        %Param,
-        Operation            => 'ObjectIndexAdd',
-        Query                => $PreparedQuery,
-        ConnectObject        => $Param{ConnectObject},
-        Config               => $Param{Config},
-        AdditionalParameters => {
-            pipeline => 'attachment_nested'
+    # check all configured article dynamic fields
+    my $ArticleDynamicFields = $DynamicFieldObject->DynamicFieldListGet(
+        ObjectType => 'Article',
+    );
+
+    my %ArticlesToIndex;
+    my %AttachmentsToIndex;
+    my @AllAttachments;
+
+    for my $Article(@{$ArticleData->{Data}}){
+        
+        # add article dynamic fields
+        DYNAMICFIELDCONFIG:
+        for my $DynamicFieldConfig ( @{$ArticleDynamicFields} ) {
+
+            # get the current value for each dynamic field
+            my $Value = $DynamicFieldBackendObject->ValueGet(
+                DynamicFieldConfig => $DynamicFieldConfig,
+                ObjectID           => $Article->{ArticleID},
+            );
+
+            # set the dynamic field name and value into the ticket hash
+            # only if value is defined
+            next DYNAMICFIELDCONFIG if !defined $Value;
+
+            $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
         }
-    );
 
-    return $Param{MappingObject}->ObjectIndexAddFormat(
-        %Param,
-        Response      => $Response,
-        Config        => $Param{Config},
-        NoPermissions => 1,
-    );
+        my %Index = $ArticleObject->ArticleAttachmentIndex(
+            TicketID         => $Article->{TicketID},
+            ArticleID        => $Article->{ArticleID},
+            ExcludePlainText => 1,
+            ExcludeHTMLBody  => 1,
+            ExcludeInline    => 1,
+        );
+
+        my @Attachments = ();
+
+        for my $AttachmentID ( sort keys %Index ) {
+            my %Attachment = $ArticleObject->ArticleAttachment(
+                TicketID  => $Article->{TicketID},
+                ArticleID => $Article->{ArticleID},
+                FileID    => $AttachmentID,
+            );
+
+            push @Attachments, {
+                ContentAlternative => $Attachment{ContentAlternative},
+                ContentID          => $Attachment{ContentID},
+                Disposition        => $Attachment{Disposition},
+                ContentType        => $Attachment{ContentType},
+                Filename           => $Attachment{Filename},
+                ID                 => $AttachmentID,
+                Content            => $Attachment{Content}
+            };
+        }
+
+        # there is a need to store content as base64
+        # as ingest pipeline needs it to create 
+        # readable attachment content
+        ATTACHMENT:
+        for my $Result (@Attachments) {
+            if ( $Result->{Content} ) {
+                $EncodeObject->EncodeOutput( \$Result->{Content} );
+                $Result->{Content} = encode_base64( $Result->{Content}, '' );
+            }
+        }
+
+        $Article->{Attachments} = \@Attachments;
+
+        my $ArticleTemp = $Article;
+
+        undef $Article;
+        push @{$ArticlesToIndex{$ArticleTemp->{TicketID}}}, $ArticleTemp;
+        push @{$AttachmentsToIndex{$ArticleTemp->{TicketID}}}, @{$ArticleTemp->{Attachments}};
+
+    }
+
+    for my $TicketID(keys %ArticlesToIndex){
+
+        my $Query = {
+            Method => 'POST',
+            Path => "$Self->{Config}->{IndexRealName}/_update/$TicketID",
+            Body => {
+                script => {
+                    source => "
+                        ArrayList NewArticles = params.Articles;
+                        for(int i=0;i<NewArticles.size();i++){
+                            ctx._source.Articles.add(NewArticles[i]);    
+                        }
+                        ctx._source.AttachmentStorageClearTemp = params.AttachmentStorageClearTemp;
+                        ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
+                    ",
+                    params => {
+                        Articles => $ArticlesToIndex{$TicketID} || [],
+                        AttachmentStorageTemp => $AttachmentsToIndex{$TicketID} || [],
+                        AttachmentStorageClearTemp => {},
+                    }
+                },
+            },
+            # wait until article will index
+            # this will slow down indexation a little bit
+            # TODO: possible optimization
+            QS => { refresh => 'true' },
+        };
+
+        $Param{EngineObject}->QueryExecute(
+            Operation => 'Generic',
+            Query => $Query,
+            ConnectObject => $Param{ConnectObject},
+        );
+
+        # run attachment pipeline
+        $Query = {
+            Method => 'POST',
+            Path => "$Self->{Config}->{IndexRealName}/_update_by_query",
+            Body => {
+                query => {
+                    term => {
+                        TicketID => $TicketID,
+                    },
+                },
+            },
+            QS => { pipeline => 'attachment_nested' },
+        };
+
+        $Param{EngineObject}->QueryExecute(
+            Operation => 'Generic',
+            Query => $Query,
+            ConnectObject => $Param{ConnectObject},
+        );
+    }
+
+    return 1;
 }
 
 =head2 ObjectIndexSet()
@@ -1003,12 +1247,35 @@ update object for specified index
 sub ObjectIndexUpdate {
     my ( $Self, %Param ) = @_;
 
-    return $Self->SUPER::ObjectIndexUpdate(
+    # TODO: restriction
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchChildObject->QueryPrepare(
         %Param,
-        NoPermissions         => 1,
-        IgnoreAttachmentsTemp => 1,
-        IgnoreArticles        => 1,
-        IgnoreDynamicFields   => 1,
+        Operation     => 'ObjectIndexUpdate',
+        Config        => $Param{Config},
+        MappingObject => $Param{MappingObject},
+        NoPermissions => 1,
+    );
+
+    return 0 if !$PreparedQuery;
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        %Param,
+        Operation            => 'ObjectIndexUpdate',
+        Query                => $PreparedQuery,
+        ConnectObject        => $Param{ConnectObject},
+        Config               => $Param{Config},
+        AdditionalParameters => {
+            pipeline => 'attachment_nested'
+        }
+    );
+
+    return $Param{MappingObject}->ObjectIndexAddFormat(
+        %Param,
+        Response      => $Response,
+        Config        => $Param{Config},
+        NoPermissions => 1,
     );
 }
 
@@ -1204,17 +1471,17 @@ sub SQLObjectSearch {
     return $SQLSearchResult if !$SQLSearchResult->{Success};
     return $SQLSearchResult if !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
-    # get all dynamic fields for the object type Ticket
-    my $TicketDynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
-        ObjectType => 'Ticket'
-    );
+    if ( !$Param{IgnoreDynamicFields} || !$Param{IgnoreArticles} ) {
+        # get all dynamic fields for the object type Ticket
+        my $TicketDynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
+            ObjectType => 'Ticket'
+        );
 
-    # check all configured article dynamic fields
-    my $ArticleDynamicFields = $DynamicFieldObject->DynamicFieldListGet(
-        ObjectType => 'Article',
-    );
+        # check all configured article dynamic fields
+        my $ArticleDynamicFields = $DynamicFieldObject->DynamicFieldListGet(
+            ObjectType => 'Article',
+        );
 
-    if ( !$Param{IgnoreDynamicFields} && !$Param{IgnoreArticles} ) {
         TICKET:
         for my $Ticket ( @{ $SQLSearchResult->{Data} } ) {
 
@@ -1318,6 +1585,8 @@ sub SQLObjectSearch {
                 }
 
                 $Ticket->{Articles} = $Articles->{Data};
+            } else {
+                $Ticket->{Articles} = [];
             }
         }
     }
@@ -1410,11 +1679,10 @@ sub ValidFieldsPrepare {
         return ();
     }
 
-    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Object}");
     my $SearchQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Object}");
 
-    my $Fields         = $IndexSearchObject->{Fields};
-    my $ExternalFields = $IndexSearchObject->{ExternalFields};
+    my $Fields         = $Self->{Fields};
+    my $ExternalFields = $Self->{ExternalFields};
     my %ValidFields;
 
     # when no fields are specified use all standard fields
@@ -1562,14 +1830,16 @@ sub ObjectListIDs {
 
     # search for all objects
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
-        QueryParams         => {},
+        QueryParams         => $Param{QueryParams} || {},
         Fields              => [$Identifier],
         OrderBy             => $Param{OrderBy},
-        SortBy              => $Identifier,
+        SortBy              => $Param{SortBy} // $Identifier,
         ResultType          => $Param{ResultType},
         Limit               => $Param{Limit},
+        Offset              => $Param{Offset},
         IgnoreArticles      => 1,
         IgnoreDynamicFields => 1,
+        NoPermissions       => 1,
     );
 
     # push hash data into array

@@ -45,16 +45,27 @@ sub Run {
         return;
     }
 
+    my $OldGroupID = $Param{Data}->{OldQueue}->{GroupID};
+    my $NewGroupID = $Param{Data}->{Queue}->{GroupID};
+
     # execute only on group change
-    return 1 if $Param{Data}->{OldQueue}->{GroupID} == $Param{Data}->{Queue}->{GroupID};
+    return 1 if $OldGroupID == $NewGroupID;
+
+    my $QueueType = 'GroupIDChanged';
 
     $SearchChildObject->IndexObjectQueueAdd(
         Index => 'Ticket',
         Value => {
-            FunctionName => 'ObjectIndexSet',
-            QueryParams  => {
-                QueueID => $Param{Data}->{OldQueue}->{QueueID},
+            FunctionName => 'ObjectIndexUpdate',
+            $Param{Data}->{Queue}->{QueueID} . "_$QueueType" => {
+                QueryParams  => {
+                    QueueID => $Param{Data}->{OldQueue}->{QueueID},
+                },
             },
+            NewData => {
+                GroupID => $NewGroupID,
+            },
+            QueueType => $QueueType,
         },
     );
 

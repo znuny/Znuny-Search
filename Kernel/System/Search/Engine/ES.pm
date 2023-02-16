@@ -362,11 +362,11 @@ sub QueryStringReservedCharactersClean {
     return $Result;
 }
 
-=head2 QueryExecuteGeneric()
+=head2 _QueryExecuteGeneric()
 
 executes generic query for active engine
 
-    my $Result = $SearchEngineESObject->QueryExecuteGeneric(
+    my $Result = $SearchEngineESObject->_QueryExecuteGeneric(
         ConnectObject   => $ConnectObject,
         Query           => $Query,
         Method          => 'POST',
@@ -375,7 +375,7 @@ executes generic query for active engine
 
 =cut
 
-sub QueryExecuteGeneric {
+sub _QueryExecuteGeneric {
     my ( $Self, %Param ) = @_;
 
     return $Param{ConnectObject}->transport()->perform_request(
@@ -401,7 +401,7 @@ executes query for active engine with specified object "Search" operation
 sub _QueryExecuteSearch {
     my ( $Self, %Param ) = @_;
 
-    return $Self->QueryExecuteGeneric(
+    return $Self->_QueryExecuteGeneric(
         ConnectObject => $Param{ConnectObject},
         Query         => $Param{Query},
     );
@@ -596,7 +596,7 @@ executes query for active engine with specified "Remove" operation
 sub _QueryExecuteObjectIndexRemove {
     my ( $Self, %Param ) = @_;
 
-    return $Self->QueryExecuteGeneric(
+    return $Self->_QueryExecuteGeneric(
         ConnectObject => $Param{ConnectObject},
         Query         => $Param{Query},
     );
@@ -718,7 +718,7 @@ executes query for active engine with specified index refresh operation
 sub _QueryExecuteIndexRefresh {
     my ( $Self, %Param ) = @_;
 
-    return $Self->QueryExecuteGeneric(
+    return $Self->_QueryExecuteGeneric(
         ConnectObject => $Param{ConnectObject},
         Query         => $Param{Query},
     );

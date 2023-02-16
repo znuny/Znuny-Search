@@ -108,6 +108,7 @@ sub Search {
     my $SearchParams = $Self->_QueryParamsPrepare(
         QueryParams   => $Param{QueryParams},
         NoPermissions => $Param{NoPermissions},
+        QueryFor      => 'Engine',
     );
 
     if ( ref $SearchParams eq 'HASH' && $SearchParams->{Error} ) {
@@ -195,7 +196,7 @@ sub ObjectIndexAdd {
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         %Param,
         QueryParams => $QueryParams,
-        ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+        ResultType  => 'ARRAY',
     );
 
     return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
@@ -379,6 +380,7 @@ sub ObjectIndexRemove {
     $QueryParams = $Self->_QueryParamsPrepare(
         QueryParams   => $QueryParams,
         NoPermissions => $Param{NoPermissions},
+        QueryFor      => 'Engine',
     );
 
     return if ref $QueryParams eq 'HASH' && $QueryParams->{Error};
@@ -608,7 +610,24 @@ prepare valid structure output for query params
 sub _QueryParamsPrepare {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed ( qw(QueryFor) ) {
+    
+        next NEEDED if defined $Param{ $Needed };
+    
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
     my $ValidParams;
+    my $SimplifiedMode = $Self->{IndexSupportedOperators}->{SimplifiedMode}->{$Param{QueryFor}};
+    my $SearchableFields = $Self->{IndexSearchableFields}->{$Param{QueryFor}};
+
     PARAM:
     for my $SearchParam ( sort keys %{ $Param{QueryParams} } ) {
 
@@ -617,6 +636,8 @@ sub _QueryParamsPrepare {
             Name           => $SearchParam,
             Value          => $Param{QueryParams}->{$SearchParam},
             NoMappingCheck => $Param{NoMappingCheck},
+            SimplifiedMode => $SimplifiedMode,
+            SearchableFields => $SearchableFields
         );
 
         if ( IsArrayRefWithData($Result) ) {
@@ -626,6 +647,7 @@ sub _QueryParamsPrepare {
             return $Result;
         }
     }
+
     return $ValidParams;
 }
 
@@ -636,6 +658,8 @@ set query param field to standardized output
     my @Result = $SearchQueryObject->_QueryParamSet(
         Name => $Name,
         Value => $Value,
+        QueryFor => 'SQL', # possible: 'Engine', 'SQL'
+        SimplifiedMode => '0', # optional, prevent using operators
     );
 
 =cut
@@ -644,6 +668,8 @@ sub _QueryParamSet {
     my ( $Self, %Param ) = @_;
 
     my $Name      = $Param{Name};
+    return { Error => 1 } if $Param{SearchableFields} && $Param{SearchableFields} ne '*' && !$Param{SearchableFields}->{$Name};
+    
     my $Value     = $Param{Value};
     my $IndexName = $Self->{IndexConfig}->{IndexName};
 
@@ -689,6 +715,14 @@ sub _QueryParamSet {
     my @Operators;
 
     if ( ref $Value eq "HASH" ) {
+        if($Param{SimplifiedMode}){
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Query parameter $Name is specified in a hash which is not allowed for index $Self->{IndexConfig}->{IndexName}!",
+            );
+            return { Error => 1 };
+        }
+
         @Operators = (
             {
                 Operator   => $Value->{Operator} || '=',
@@ -704,6 +738,13 @@ sub _QueryParamSet {
         ref $Value->[0] eq 'HASH'
         )
     {
+        if($Param{SimplifiedMode}){
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Query parameter $Name is specified in an array of hashes which is not allowed for index $Self->{IndexConfig}->{IndexName}!",
+            );
+            return { Error => 1 };
+        }
         for my $Value ( @{$Value} ) {
             $Value->{ReturnType} = $ReturnType;
             $Value->{Type}       = $Type;
@@ -731,7 +772,7 @@ sub _QueryParamSet {
             next OPERATOR;
         }
 
-        if ( !$Self->{IndexSupportedOperators}->{$Type}->{Operator}->{ $OperatorData->{Operator} } ) {
+        if ( !$Self->{IndexSupportedOperators}->{Operator}->{$Type}->{ $OperatorData->{Operator} } ) {
             $LogObject->Log(
                 Priority => 'error',
                 Message  => "Query parameter $Name type $Type does not support operator $OperatorData->{Operator}!",

@@ -32,6 +32,7 @@ sub Run {
 
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $JSONObject = $Kernel::OM->Get('Kernel::System::JSON');
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     return if $SearchObject->{Fallback};
@@ -71,11 +72,22 @@ sub Run {
         return;
     }
 
+    my $AdditionalValueParameters;
+
+    if($Param{Config}->{AdditionalValueParameters}){
+        my $DecodedJSON = $JSONObject->Decode(
+            Data => $Param{Config}->{AdditionalValueParameters},
+        );
+
+        $AdditionalValueParameters = $DecodedJSON;
+    }
+
     $SearchChildObject->IndexObjectQueueAdd(
         Index => $IndexName,
         Value => {
-            FunctionName => $Param{Config}->{FunctionName},
-            ObjectID     => $ObjectID,
+            FunctionName         => $Param{Config}->{FunctionName},
+            ObjectID             => $ObjectID,
+            AdditionalParameters => $AdditionalValueParameters
         },
     );
 

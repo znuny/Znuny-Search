@@ -384,6 +384,8 @@ sub IndexObjectQueueAdd {
         Key   => "Index::$Param{Index}",
         Value => $CachedValue,
         TTL   => $TTL,
+        CacheInBackend => 1,
+        CacheInMemory  => 0,
     );
 
     return 1;

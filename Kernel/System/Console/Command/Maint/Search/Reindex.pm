@@ -262,7 +262,7 @@ sub Run {
     my @ActiveClusterRemoteIndexList = $Self->{SearchObject}->IndexList();
     my $ReindexationSettings         = $ConfigObject->Get('SearchEngine::Reindexation')->{Settings};
 
-    my $ReindexationStep = $ReindexationSettings->{ReindexationStep} // 500;
+    my $ReindexationStep = $ReindexationSettings->{ReindexationStep} // 10;
 
     OBJECT:
     for my $IndexName (@Objects) {
