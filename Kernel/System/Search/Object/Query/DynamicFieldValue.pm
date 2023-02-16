@@ -267,6 +267,7 @@ sub ObjectIndexRemove {
     $QueryParams = $Self->_QueryParamsPrepare(
         QueryParams    => $QueryParams,
         NoMappingCheck => $NoMappingCheck,
+        QueryFor       => 'Engine',
     );
 
     return if ref $QueryParams eq 'HASH' && $QueryParams->{Error};

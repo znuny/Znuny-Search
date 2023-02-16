@@ -430,15 +430,15 @@ sub _PostValidFieldsPrepare {
 
     return () if !IsHashRefWithData( $Param{Fields} );
 
-    my %Fields = %{ $Param{Fields} };
+    my %ValidFields = %{ $Param{Fields} };
 
     FIELD:
-    for my $Field ( sort keys %Fields ) {
-        $Fields{$Field} = $Self->{Fields}->{$Field};
-        $Fields{$Field}->{ReturnType} = 'SCALAR' if !$Fields{$Field}->{ReturnType};
+    for my $Field ( sort keys %ValidFields ) {
+        $ValidFields{$Field} = $Self->{Fields}->{$Field};
+        $ValidFields{$Field}->{ReturnType} = 'SCALAR' if !$ValidFields{$Field}->{ReturnType};
     }
 
-    return %Fields;
+    return %ValidFields;
 }
 
 sub _FetchDataToProcess {

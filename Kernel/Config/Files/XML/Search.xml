@@ -30,8 +30,33 @@
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
-                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime|TicketOwnerSet|ArticleWriteAttachment|TicketCreate|TicketCustomerUpdate</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
+                <Item Key="Event">TicketCreate</Item>
+                <Item Key="FunctionName">ObjectIndexAdd</Item>
+                <Item Key="IndexName">Ticket</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###001-Ticket-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
+                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime|TicketOwnerSet|ArticleWriteAttachment</Item>
+                <Item Key="FunctionName">ObjectIndexUpdate</Item>
+                <Item Key="IndexName">Ticket</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Ticket::EventModulePost###002-Ticket-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
+                <Item Key="Event">TicketCustomerUpdate</Item>
+                <Item Key="FunctionName">ObjectIndexUpdate</Item>
+                <Item Key="AdditionalValueParameters">{"CreateIfNotExists":1}</Item>
                 <Item Key="IndexName">Ticket</Item>
             </Hash>
         </Value>
@@ -348,7 +373,7 @@
         <Navigation>Core::Search</Navigation>
         <Value>
             <Hash>
-                <Item Key="ReindexationStep" ValueType="String" ValueRegex="^[0-9]{1,6}$">500</Item>
+                <Item Key="ReindexationStep" ValueType="String" ValueRegex="^[0-9]{1,6}$">10</Item>
             </Hash>
         </Value>
     </Setting>
