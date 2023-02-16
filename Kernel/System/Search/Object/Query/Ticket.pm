@@ -459,17 +459,18 @@ sub _QueryFieldDataSet {
         }
     }
     elsif ( $Param{Name} =~ m{\AArticle_(.+)\z} ) {
-        my %DenormalizedArticleFields = $Self->_DenormalizedArticleFieldsGet(
-            ExternalFieldsGet => 1
-        );
+
+        my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
+        my $ArticleFields = $SearchArticleObject->DenormalizedArticleFieldsGet();
+
         my $ArticleParam = $1;
         if ($ArticleParam) {
             for my $FieldStructure (qw(Fields ExternalFields)) {
-                if ( $DenormalizedArticleFields{$FieldStructure}->{$ArticleParam} ) {
+                if ( $ArticleFields->{$FieldStructure}->{$ArticleParam} ) {
                     for my $Property (qw(Type ReturnType)) {
-                        if ( $DenormalizedArticleFields{$FieldStructure}->{$ArticleParam}->{$Property} ) {
+                        if ( $ArticleFields->{$FieldStructure}->{$ArticleParam}->{$Property} ) {
                             $Data->{$Property}
-                                = $DenormalizedArticleFields{$FieldStructure}->{$ArticleParam}->{$Property};
+                                = $ArticleFields->{$FieldStructure}->{$ArticleParam}->{$Property};
                         }
                     }
                     return $Data;
@@ -563,41 +564,6 @@ sub _QueryDynamicFieldInfoGet {
         ReturnType => $FieldValueType->{$DynamicFieldColumnName} || 'SCALAR',
         Type       => $Type,
     };
-}
-
-=head2 _DenormalizedArticleFieldsGet()
-
-get all article fields including article data mime
-
-    my %Fields = $SearchTicketESObject->_DenormalizedArticleFieldsGet(
-        ExternalFieldsGet => 1 # optional
-    );
-
-=cut
-
-sub _DenormalizedArticleFieldsGet {
-    my ( $Self, %Param ) = @_;
-
-    my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
-
-    my $ArticleFields         = $SearchArticleObject->{Fields};
-    my $ArticleDataMIMEFields = $SearchArticleDataMIMEObject->{Fields};
-
-    my %AllArticleFields = (
-        Fields => {
-            %{$ArticleFields}, %{$ArticleDataMIMEFields}
-        }
-    );
-
-    if ( $Param{ExternalFieldsGet} ) {
-        my $ArticleExternalFields         = $SearchArticleObject->{ExternalFields}         // {};
-        my $ArticleDataMIMEExternalFields = $SearchArticleDataMIMEObject->{ExternalFields} // {};
-
-        %{ $AllArticleFields{ExternalFields} } = ( %{$ArticleExternalFields}, %{$ArticleDataMIMEExternalFields} );
-    }
-
-    return %AllArticleFields;
 }
 
 1;
