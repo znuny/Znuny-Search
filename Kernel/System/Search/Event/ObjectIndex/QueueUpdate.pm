@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Event::ObjectIndex::Ticket::Queue;
+package Kernel::System::Search::Event::ObjectIndex::QueueUpdate;
 
 use strict;
 use warnings;
@@ -14,6 +14,7 @@ use warnings;
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
+    'Kernel::System::Search::Object',
 );
 
 sub new {
@@ -45,27 +46,36 @@ sub Run {
         return;
     }
 
+    my $IsValid = $SearchChildObject->IndexIsValid(
+        IndexName => 'Ticket',
+    );
+
+    return if !$IsValid;
+
     my $OldGroupID = $Param{Data}->{OldQueue}->{GroupID};
     my $NewGroupID = $Param{Data}->{Queue}->{GroupID};
 
     # execute only on group change
     return 1 if $OldGroupID == $NewGroupID;
 
-    my $QueueType = 'GroupIDChanged';
+    my $OldQueue = $Param{Data}->{OldQueue}->{QueueID};
 
     $SearchChildObject->IndexObjectQueueAdd(
         Index => 'Ticket',
         Value => {
-            FunctionName                                     => 'ObjectIndexUpdate',
-            $Param{Data}->{Queue}->{QueueID} . "_$QueueType" => {
-                QueryParams => {
-                    QueueID => $Param{Data}->{OldQueue}->{QueueID},
+            FunctionName => 'ObjectIndexUpdate',
+            QueryParams  => {
+                QueueID => $OldQueue,
+            },
+            AdditionalParameters => {
+                CustomFunction => {
+                    Name   => 'ObjectIndexUpdateGroupID',
+                    Params => {
+                        NewGroupID => $NewGroupID,
+                    }
                 },
             },
-            NewData => {
-                GroupID => $NewGroupID,
-            },
-            QueueType => $QueueType,
+            Context => "ObjUpdate_GChange_${OldQueue}_${NewGroupID}",
         },
     );
 

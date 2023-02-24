@@ -16,7 +16,8 @@ use Kernel::System::VariableCheck qw(:all);
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
-    'Kernel::System::Ticket',
+    'Kernel::System::Search::Object',
+    'Kernel::System::Search::Object::Default::TicketHistory',
 );
 
 sub new {
@@ -49,40 +50,72 @@ sub Run {
         return;
     }
 
-    NEEDED:
-    for my $Needed (qw(FunctionName)) {
-        next NEEDED if $Param{Config}->{$Needed};
+    my $SearchTicketHistoryObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::TicketHistory');
 
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Need $Needed in Config!"
+    my $FunctionName = $Param{Config}->{FunctionName};
+    my $TicketID     = $Param{Data}->{TicketID};
+
+    my $Query;
+
+    if ( $Param{Event} eq 'TicketMerge' ) {
+        my $MergedIntoTicketID = $Param{Data}->{MainTicketID};
+
+        $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'TicketHistory',
+            Value => {
+                FunctionName => 'ObjectIndexSet',
+                QueryParams  => {
+                    TicketID => $TicketID,
+                },
+                Context => "ObjSet_TMerge_$TicketID",
+            },
         );
-        return;
+
+        $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'TicketHistory',
+            Value => {
+                FunctionName => 'ObjectIndexSet',
+                QueryParams  => {
+                    TicketID => $MergedIntoTicketID,
+                },
+                Context => "ObjSet_TMerge_$MergedIntoTicketID",
+            },
+        );
     }
+    elsif ( $Param{Event} eq 'HistoryDelete' ) {
+        $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'TicketHistory',
+            Value => {
+                FunctionName => 'ObjectIndexRemove',
+                QueryParams  => {
+                    TicketID => $TicketID,
+                },
+                Context => "ObjRemove_HDelete_$TicketID",
+            },
+        );
+    }
+    elsif ( $Param{Event} eq 'HistoryAdd' ) {
 
-    my $FunctionName       = $Param{Config}->{FunctionName};
-    my $TicketID           = $Param{Data}->{TicketID};
-    my $MergedIntoTicketID = $Param{Data}->{MainTicketID};
-
-    $SearchChildObject->IndexObjectQueueAdd(
-        Index => 'TicketHistory',
-        Value => {
-            FunctionName => $FunctionName,
-            QueryParams  => {
+        # at this moment last ticket history from the sql table
+        # is the ticket history entry that caused the event
+        # get it to save into indexing queue afterwards
+        # as event does not return ticket history id entry
+        my $TicketHistoryID = $SearchTicketHistoryObject->ObjectListIDs(
+            QueryParams => {
                 TicketID => $TicketID,
             },
-        },
-    );
+            Limit   => 1,
+            OrderBy => 'Down',
+        );
 
-    $SearchChildObject->IndexObjectQueueAdd(
-        Index => 'TicketHistory',
-        Value => {
-            FunctionName => $FunctionName,
-            QueryParams  => {
-                TicketID => $MergedIntoTicketID,
+        $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'TicketHistory',
+            Value => {
+                FunctionName => 'ObjectIndexAdd',
+                ObjectID     => $TicketHistoryID->[0],
             },
-        },
-    ) if $MergedIntoTicketID;
+        );
+    }
 
     return 1;
 }

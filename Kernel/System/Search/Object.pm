@@ -18,6 +18,8 @@ our @ObjectDependencies = (
     'Kernel::System::Main',
     'Kernel::System::Search',
     'Kernel::System::Search::Object::Query',
+    'Kernel::Config',
+    'Kernel::System::Cache',
 );
 
 =head1 NAME
@@ -327,6 +329,7 @@ add cached operations for indexes to the queue
             ObjectID => 1,
             # OR
             QueryParams => { .. },
+            Context => 'Identifier_for_query', # needed if QueryParams specified
         }
     );
 
@@ -364,25 +367,37 @@ sub IndexObjectQueueAdd {
         return;
     }
 
-    my $CacheObject  = $Kernel::OM->Get('Kernel::System::Cache');
-    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+    if ( $Param{Value}->{QueryParams} && !$Param{Value}->{Context} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'Required "Context" when using "QueryParams"!',
+        );
+        return;
+    }
+
+    return if !$Self->IndexIsValid( IndexName => $Param{Index} );
+
+    my $CacheObject       = $Kernel::OM->Get('Kernel::System::Cache');
+    my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
+    my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
 
     my $IndexationQueueConfig = $ConfigObject->Get("SearchEngine::IndexationQueue") // {};
     my $TTL                   = $IndexationQueueConfig->{Settings}->{TTL} || 180;
 
-    my $CachedValue = $CacheObject->Get(
+    my $Queue = $CacheObject->Get(
         Type => 'SearchEngineIndexQueue',
         Key  => "Index::$Param{Index}",
-    ) || [];
+    ) || {};
 
-    push @{$CachedValue}, {
-        %{ $Param{Value} },
-    };
+    my $QueueChanged = $SearchIndexObject->ObjectIndexQueueApplyRules(
+        Queue      => $Queue,
+        QueueToAdd => $Param{Value},
+    );
 
     $CacheObject->Set(
         Type           => 'SearchEngineIndexQueue',
         Key            => "Index::$Param{Index}",
-        Value          => $CachedValue,
+        Value          => $Queue,
         TTL            => $TTL,
         CacheInBackend => 1,
         CacheInMemory  => 0,

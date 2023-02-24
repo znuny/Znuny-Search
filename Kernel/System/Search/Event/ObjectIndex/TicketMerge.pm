@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Event::ObjectIndex::DynamicField;
+package Kernel::System::Search::Event::ObjectIndex::TicketMerge;
 
 use strict;
 use warnings;
@@ -48,41 +48,39 @@ sub Run {
         return;
     }
 
-    NEEDED:
-    for my $Needed (qw(FunctionName)) {
-        next NEEDED if $Param{Config}->{$Needed};
+    for my $Ticket (qw(TicketID MainTicketID)) {
 
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Need $Needed in Config!"
-        );
-        return;
-    }
-
-    my $FunctionName = $Param{Config}->{FunctionName};
-
-    $SearchChildObject->IndexObjectQueueAdd(
-        Index => 'DynamicField',
-        Value => {
-            FunctionName => $FunctionName,
-            ObjectID     => $Param{Data}->{NewData}->{ID},
-        },
-    );
-
-    # deleting dynamic field definition triggers event
-    # dynamic field delete but does not trigger dynamic field value delete
-    # even when sql engine delete them
-    # delete dynamic field with dynamic field value data from advanced engine
-    if ( $FunctionName eq 'ObjectIndexRemove' ) {
-        my $FieldID = $Param{Data}->{NewData}->{ID};
+        # update articles of changed tickets
         $SearchChildObject->IndexObjectQueueAdd(
-            Index => 'DynamicFieldValue',
+            Index => 'Article',
             Value => {
-                FunctionName => $FunctionName,
+                FunctionName => 'ObjectIndexSet',
                 QueryParams  => {
-                    FieldID => $FieldID,
+                    TicketID => $Param{Data}->{$Ticket},
                 },
-                Context => "ObjRemove_DFDelete_$FieldID",
+                Context => "ObjSet_TMerge_$Param{Data}->{$Ticket}",
+            },
+        );
+
+        # update tickets that contains changed articles
+        $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'Ticket',
+            Value => {
+                FunctionName => 'ObjectIndexSet',
+                ObjectID     => $Param{Data}->{$Ticket},
+            },
+        );
+
+        # update tickets that contains changed articles
+        $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'ArticleDataMIMEAttachment',
+            Value => {
+                FunctionName => 'ObjectIndexSet',
+                QueryParams  => {
+                    TicketID    => $Param{Data}->{$Ticket},
+                    Disposition => 'attachment'
+                },
+                Context => "ObjSet_TMerge_$Param{Data}->{$Ticket}",
             },
         );
     }

@@ -30,7 +30,8 @@ our @ObjectDependencies = (
     'Kernel::System::Search::Object::Query::Ticket',
     'Kernel::System::DB',
     'Kernel::System::Search::Object::Default::Article',
-    'Kernel::System::Search::Object::Default::ArticleDataMIME',
+    'Kernel::Config',
+    'Kernel::System::Ticket::Article',
     'Kernel::System::Search::Object::Operators',
     'Kernel::System::Encode',
     'Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment',
@@ -707,50 +708,18 @@ sub ExecuteSearch {
         my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
         my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
 
-        my %IgnoreDynamicFieldProcessing;
-
-        # search for event (live indexation) data
-        if ( $Param{Event} && $Param{Event}->{Type} ) {
-            my $NewName = $Param{Event}->{Data}->{DynamicField}->{Article}->{New}->{Name};
-
-            # ignore dynamic field further processing as it changed it's name
-            # on the OTRS side when updating, but there is a need to search for
-            # old name in ES engine
-            if ( $Param{Event}->{Type} eq 'DynamicFieldUpdate' ) {
-                my $OldName = $Param{Event}->{Data}->{DynamicField}->{Article}->{Old}->{Name};
-
-                if ( $NewName && $OldName && $ArticleDynamicFieldsSearchParams->{$OldName} ) {
-                    $IgnoreDynamicFieldProcessing{$OldName} = 1;
-                }
-            }
-
-            # ignore dynamic field further processing as it does not exists
-            # on the OTRS side when removing
-            elsif ( $Param{Event}->{Type} eq 'DynamicFieldDelete' ) {
-
-                if ( $NewName && $ArticleDynamicFieldsSearchParams->{$NewName} ) {
-                    $IgnoreDynamicFieldProcessing{$NewName} = 1;
-                }
-            }
-        }
-
         ARTICLEDYNAMICFIELDNAME:
         for my $ArticleDynamicFieldName ( sort keys %{$ArticleDynamicFieldsSearchParams} ) {
 
-            my $DynamicFieldConfig;
-            my $FieldValueType;
+            my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
+                Name => $ArticleDynamicFieldName,
+            );
+            next ARTICLEDYNAMICFIELDNAME if !IsHashRefWithData($DynamicFieldConfig);
 
-            if ( !$IgnoreDynamicFieldProcessing{$ArticleDynamicFieldName} ) {
-                $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
-                    Name => $ArticleDynamicFieldName,
-                );
-                next ARTICLEDYNAMICFIELDNAME if !IsHashRefWithData($DynamicFieldConfig);
-
-                $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
-                    DynamicFieldConfig => $DynamicFieldConfig,
-                    FieldType          => 'Edit',
-                );
-            }
+            my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
+                DynamicFieldConfig => $DynamicFieldConfig,
+                FieldType          => 'Edit',
+            );
 
             my $ReturnType = $FieldValueType->{"DynamicField_$ArticleDynamicFieldName"} || 'SCALAR';
 
@@ -857,11 +826,35 @@ sub FallbackExecuteSearch {
     return $FormattedResult || { Ticket => [] };
 }
 
-=head2 ObjectIndexAdd()
+sub ObjectIndexAdd() {
+    my ( $Self, %Param ) = @_;
 
-add object for specified index
+    return $Self->ObjectIndexGeneric(
+        %Param,
+        Function         => '_ObjectIndexAddAction',
+        SetEmptyArticles => 1,
+        RunPipeline      => 1,
+        NoPermissions    => 1,
+    );
+}
 
-    my $Success = $SearchTicketESObject->ObjectIndexAdd(
+sub ObjectIndexSet() {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ObjectIndexGeneric(
+        %Param,
+        Function         => '_ObjectIndexSetAction',
+        SetEmptyArticles => 1,
+        RunPipeline      => 1,
+        NoPermissions    => 1,
+    );
+}
+
+=head2 ObjectIndexUpdate()
+
+update object to specified index
+
+    my $Success = $SearchObject->ObjectIndexUpdate(
         Index    => 'Ticket',
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
@@ -879,18 +872,439 @@ add object for specified index
             },
         },
 
+        # update tickets found from query params
+        # specify at least one, do not combine "UpdateArticle" with "AddArticle"
+        UpdateTicket  => 1, # base ticket properties with dynamic fields
+        UpdateArticle => 5, # ticket nested articles with dynamic fields
+                            # possible:
+                            # - any article id: 1
+                            # - array of article ids: [1,2,3,4,5]
+                            # - every article: '*'
+
+        AddArticle    => 1, # add nested articles with dynamic fields to ticket
+                            # possible:
+                            # - any article id: 1
+                            # - array of article ids: [1,2,3,4,5]
+
+        # perform custom handling
+        CustomFunction => {
+            Name => 'ObjectIndexUpdateGroupID',
+            Params => {
+                NewGroupID => $NewGroupID,
+            }
+        },
+    );
+
+=cut
+
+sub ObjectIndexUpdate {
+    my ( $Self, %Param ) = @_;
+
+    my $Success   = 1;
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    # update base ticket properties
+    # or update specified ticket articles
+    # or add specified ticket articles
+    if ( $Param{UpdateTicket} || $Param{UpdateArticle} || $Param{AddArticle} ) {
+        my $RunPipeline = $Param{UpdateArticle} || $Param{AddArticle} ? 1 : 0;
+
+        # TODO: possible optimization to not get all of ticket base fields + dfs
+        # on only article update action
+        $Success = $Self->ObjectIndexGeneric(
+            %Param,
+            Function      => '_ObjectIndexUpdateAction',
+            RunPipeline   => $RunPipeline,
+            NoPermissions => 1,
+        );
+    }
+
+    # custom handling of update
+    if ( IsHashRefWithData( $Param{CustomFunction} ) ) {
+
+        NEEDED:
+        for my $Needed (qw(Name Params)) {
+
+            next NEEDED if defined $Param{CustomFunction}->{$Needed};
+
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Parameter '$Needed' is needed in CustomFunction parameter!",
+            );
+            return;
+        }
+
+        my $FunctionName = $Param{CustomFunction}->{Name};
+
+        my $CustomFunctionSuccess = $Self->$FunctionName(
+            %Param,
+            CustomFunction => undef,
+            Params         => $Param{CustomFunction}->{Params},
+            FunctionName   => $FunctionName,
+        );
+
+        $Success = $CustomFunctionSuccess if $Success;
+    }
+
+    return $Success;
+}
+
+=head2 ObjectIndexUpdateGroupID()
+
+update tickets group id, do not use nested objects as query params
+
+    my $Success = $SearchTicketESObject->ObjectIndexUpdateGroupID(
+        Params => {
+            NewGroupID => 1,
+        }
+        ConnectObject => $ConnectObject,
+        EngineObject => $EngineObject,
+        MappingObject => $MappingObject,
+    );
+
+=cut
+
+sub ObjectIndexUpdateGroupID {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Needed (qw( ConnectObject EngineObject MappingObject)) {
+        if ( !$Param{$Needed} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Needed!"
+            );
+            return;
+        }
+    }
+
+    if ( !$Param{Params}->{NewGroupID} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need 'NewGroupID'!"
+        );
+        return;
+    }
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
+
+    # filter & prepare correct parameters
+    my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
+        QueryParams   => $Param{QueryParams},
+        NoPermissions => 1,
+        QueryFor      => 'Engine',
+    );
+
+    # build body
+    my %Body = $Param{MappingObject}->_BuildQueryBodyFromParams(
+        QueryParams => $SearchParams,
+        Object      => $Self->{Config}->{IndexName},
+    );
+
+    my $Query = {
+        Method => 'POST',
+        Path   => "$Self->{Config}->{IndexRealName}/_update_by_query",
+        Body   => {
+            %Body,
+            script => {
+                params => {
+                    value => $Param{Params}->{NewGroupID},
+                },
+                source => "ctx._source.GroupID = params.value",
+            },
+        },
+
+        # _update_by_query request can be expensive
+        # for elasticsearch do not wait until it's done
+        # as it can throw request timeout on large data sets,
+        # with wait_for_completion
+        # this operation will be handled by ES internally
+        QS => {
+            wait_for_completion => 'false',
+        }
+    };
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        Operation     => 'Generic',
+        Query         => $Query,
+        ConnectObject => $Param{ConnectObject},
+    );
+
+    return $Param{MappingObject}->ResponseIsSuccess(
+        Response => $Response,
+    );
+}
+
+=head2 ObjectIndexUpdateDFChanged()
+
+update tickets that contains specified dynamic field
+
+    my $Success = $SearchTicketESObject->ObjectIndexUpdateDFChanged(
+        ConnectObject => $ConnectObject,
+        EngineObject => $EngineObject,
+        MappingObject => $MappingObject,
+        Params => {
+            DynamicField => {
+                ObjectType => $ObjectType,
+                Name       => $OldDFName,
+                NewName    => $Param{Data}->{NewData}->{Name},
+                Event      => 'NameChange', # also possible: 'Remove'
+            }
+        }
+    );
+
+=cut
+
+sub ObjectIndexUpdateDFChanged {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    for my $Needed (qw( ConnectObject EngineObject MappingObject)) {
+        if ( !$Param{$Needed} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Need $Needed!"
+            );
+            return;
+        }
+    }
+
+    if ( !$Param{Params}->{DynamicField} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need 'DynamicField' inside Params hash!"
+        );
+        return;
+    }
+
+    NEEDED:
+    for my $Needed (qw(ObjectType Name Event)) {
+
+        next NEEDED if defined $Param{Params}->{DynamicField}->{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed inside Params->{DynamicField} hash!",
+        );
+        return;
+    }
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
+    my %Body;
+
+    my $DynamicFieldType  = $Param{Params}->{DynamicField}->{ObjectType};
+    my $DynamicFieldName  = $Param{Params}->{DynamicField}->{Name};
+    my $DynamicFieldEvent = $Param{Params}->{DynamicField}->{Event};
+
+    if ( $DynamicFieldType eq 'Ticket' ) {
+
+        # filter & prepare correct parameters
+        my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
+            QueryParams   => $Param{QueryParams},
+            NoPermissions => 1,
+            QueryFor      => 'Engine',
+        );
+
+        # build body
+        %Body = (
+            query => {
+                bool => {
+                    should => [
+                        {
+                            exists =>
+                                {
+                                field => "DynamicField_$DynamicFieldName"
+                                },
+                        },
+                        {
+                            exists =>
+                                {
+                                field => "DynamicField_"
+                                    . $Param{Params}->{DynamicField}->{NewName} || '',
+                                }
+                        }
+                    ]
+                }
+            }
+        );
+    }
+    else {
+        # build body
+        %Body = (
+            query => {
+                bool => {
+                    must => [
+                        {
+                            nested => {
+                                path  => 'Articles',
+                                query => {
+                                    bool => {
+                                        should => [
+                                            {
+                                                exists =>
+                                                    {
+                                                    field => "Articles.DynamicField_$DynamicFieldName",
+                                                    },
+                                            },
+                                            {
+                                                exists =>
+                                                    {
+                                                    field => "Articles.DynamicField_"
+                                                        . $Param{Params}->{DynamicField}->{NewName} || '',
+                                                    }
+                                            }
+                                        ],
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        );
+    }
+
+    my $Source;
+
+    # remove dynamic field
+    if ( $DynamicFieldEvent eq 'Remove' ) {
+        if ( $DynamicFieldType eq 'Ticket' ) {
+            $Source = "
+                ctx._source.remove('DynamicField_$DynamicFieldName');
+            ";
+        }
+        elsif ( $DynamicFieldType eq 'Article' ) {
+            $Source = "
+                ArrayList Articles = ctx._source.Articles;
+
+                for(int i=0;i<Articles.size();i++){
+                    if(Articles[i].DynamicField_$DynamicFieldName != null){
+                        ctx._source.Articles[i].remove('DynamicField_$DynamicFieldName');
+                    }
+                }
+            ";
+        }
+        else {
+            return;
+        }
+    }
+
+    # change name of dynamic field
+    elsif ( $DynamicFieldEvent eq 'NameChange' ) {
+        if ( !$Param{Params}->{DynamicField}->{NewName} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Parameter 'NewName' is needed inside Params->{DynamicField} hash!",
+            );
+            return;
+        }
+
+        my $NewDFName = $Param{Params}->{DynamicField}->{NewName};
+        my $OldDFName = $DynamicFieldName;
+
+        if ( $DynamicFieldType eq 'Ticket' ) {
+            $Source = "
+                if(ctx._source.DynamicField_$OldDFName != null){
+                    if(ctx._source.DynamicField_$NewDFName == null){
+                        ctx._source.put('DynamicField_$NewDFName', ctx._source.DynamicField_$OldDFName);
+                    }
+                    ctx._source.remove('DynamicField_$OldDFName');
+                }
+            ";
+        }
+        elsif ( $DynamicFieldType eq 'Article' ) {
+            $Source = "
+                ArrayList Articles = ctx._source.Articles;
+
+                for(int i=0;i<Articles.size();i++){
+                    if(Articles[i].DynamicField_$OldDFName != null){
+                        if(Articles[i].DynamicField_$NewDFName == null){
+                            ctx._source.Articles[i].put('DynamicField_$NewDFName', ctx._source.Articles[i].DynamicField_$OldDFName);
+                        }
+                        ctx._source.Articles[i].remove('DynamicField_$OldDFName');
+                    }
+                }
+            ";
+        }
+        else {
+            return;
+        }
+    }
+    else {
+        return;
+    }
+
+    my $Query = {
+        Method => 'POST',
+        Path   => "$Self->{Config}->{IndexRealName}/_update_by_query",
+        Body   => {
+            %Body,
+            script => {
+                source => $Source,
+            },
+        },
+
+        # _update_by_query request can be expensive
+        # for elasticsearch do not wait until it's done
+        # as it can throw request timeout on large data sets,
+        # with wait_for_completion
+        # this operation will be handled by ES internally
+        QS => {
+            wait_for_completion => 'false',
+        }
+    };
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        Operation     => 'Generic',
+        Query         => $Query,
+        ConnectObject => $Param{ConnectObject},
+    );
+
+    return $Param{MappingObject}->ResponseIsSuccess(
+        Response => $Response,
+    );
+}
+
+=head2 ObjectIndexGeneric()
+
+search for tickets with restrictions, then perform specified operation
+
+    my $Success = $SearchTicketESObject->ObjectIndexGeneric(
+        Index    => 'Ticket',
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            TicketID => [1,2,3],
+            SLAID => {
+                Operator => 'IS NOT EMPTY'
+            },
+        },
+
+        Function => 'FunctionName' # function callback name
+                                   # to which the object data
+                                   # will be sent
         NoPermissions => 1 # optional, skip permissions check
     );
 
 =cut
 
-sub ObjectIndexAdd {
+sub ObjectIndexGeneric {
     my ( $Self, %Param ) = @_;
 
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $Function     = $Param{Function};
 
+    return if !$Function;
     return if !$Self->_BaseCheckIndexOperation(%Param);
 
     my $Identifier = $Self->{Config}->{Identifier};
@@ -930,19 +1344,20 @@ sub ObjectIndexAdd {
 
         if ($DataCount) {
 
-            # no need to object count restrictions
+            # no need to apply object count restrictions
             if ( $DataCount <= $ReindexationStep ) {
                 my $SQLSearchResult = $Self->SQLObjectSearch(
                     %Param,
                     QueryParams => {
                         $Identifier => $SQLDataIDs,
                     },
-                    ResultType     => $Param{SQLSearchResultType} || 'ARRAY',
-                    IgnoreArticles => 1,
-                    NoPermissions  => 1,
+                    ResultType       => $Param{SQLSearchResultType} || 'ARRAY',
+                    IgnoreArticles   => 1,
+                    NoPermissions    => $Param{NoPermissions},
+                    SetEmptyArticles => $Param{SetEmptyArticles},
                 );
 
-                my $SuccessLocal = $Self->_ObjectIndexAddAction(
+                my $SuccessLocal = $Self->$Function(
                     %Param,
                     DataToIndex => $SQLSearchResult,
                     TicketIDs   => $SQLDataIDs,
@@ -963,14 +1378,15 @@ sub ObjectIndexAdd {
                         QueryParams => {
                             $Identifier => $SQLDataIDs,
                         },
-                        ResultType     => $Param{SQLSearchResultType} || 'ARRAY',
-                        IgnoreArticles => 1,
-                        Offset         => $Offset,
-                        Limit          => $ReindexationStep,
-                        NoPermissions  => 1,
+                        ResultType       => $Param{SQLSearchResultType} || 'ARRAY',
+                        IgnoreArticles   => 1,
+                        Offset           => $Offset,
+                        Limit            => $ReindexationStep,
+                        NoPermissions    => $Param{NoPermissions},
+                        SetEmptyArticles => $Param{SetEmptyarticles},
                     );
 
-                    my $PartSuccess = $Self->_ObjectIndexAddAction(
+                    my $PartSuccess = $Self->$Function(
                         %Param,
                         DataToIndex => $SQLSearchResult,
                         TicketIDs   => $SQLDataIDs->[ $Offset .. $Offset + $ReindexationStep - 1 ],
@@ -980,86 +1396,50 @@ sub ObjectIndexAdd {
                 }
             }
 
-            $SearchObject->IndexRefresh(
-                Index => 'Ticket',
-            );
+            # run pipeline if needed
+            if ( $Param{RunPipeline} ) {
+                $SearchObject->IndexRefresh(
+                    Index => 'Ticket',
+                );
 
-            # run attachment pipeline after indexation
-            my $Query = {
-                Method => 'POST',
-                Path   => "$Self->{Config}->{IndexRealName}/_update_by_query",
-                Body   => {
-                    query => {
-                        terms => {
-                            TicketID => $SQLDataIDs,
+                # run attachment pipeline after indexation
+                my $Query = {
+                    Method => 'POST',
+                    Path   => "$Self->{Config}->{IndexRealName}/_update_by_query",
+                    Body   => {
+                        query => {
+                            terms => {
+                                TicketID => $SQLDataIDs,
+                            },
                         },
                     },
-                },
-                QS => { pipeline => 'attachment_nested' },
-            };
+                    QS => { pipeline => 'attachment_nested' },
+                };
 
-            $Param{EngineObject}->QueryExecute(
-                Operation     => 'Generic',
-                Query         => $Query,
-                ConnectObject => $Param{ConnectObject},
-            );
+                $Param{EngineObject}->QueryExecute(
+                    Operation     => 'Generic',
+                    Query         => $Query,
+                    ConnectObject => $Param{ConnectObject},
+                );
+            }
         }
     } while ( $DataCount == $IDLimit );
 
     return $Success;
 }
 
-=head2 _ObjectIndexAddAction()
+=head2 ObjectIndexArticle()
 
-perform add operation on ticket data
+update nested article data on ticket index
 
-    my $FunctionResult = $SearchTicketESObject->_ObjectIndexAddAction(
-        DataToIndex => $DataToIndex,
-        %AdditionalParams,
-    );
-
-=cut
-
-sub _ObjectIndexAddAction {
-    my ( $Self, %Param ) = @_;
-
-    return if !$Param{DataToIndex}->{Success};
-    return if !$Param{TicketIDs};
-
-    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Engine::ES::Article');
-
-    # index ticket base values with dfs
-    my $Success = $Self->SUPER::_ObjectIndexAddAction(
-        %Param
-    );
-
-    # index ticket articles
-    $SearchArticleObject->ObjectIndexAdd(
-        IndexInto   => 'Ticket',
-        QueryParams => {
-            TicketID => $Param{TicketIDs},
-        },
-        Index         => 'Article',
-        MappingObject => $Param{MappingObject},
-        EngineObject  => $Param{EngineObject},
-        ConnectObject => $Param{ConnectObject},
-        Config        => $Param{Config},
-    );
-
-    return $Success;
-}
-
-=head2 ObjectIndexAddArticle()
-
-add nested article data into ticket index
-
-    my $Result = $SearchTicketESObject->ObjectIndexAddArticle(
+    my $Result = $SearchTicketESObject->ObjectIndexArticle(
         ArticleData => $Param{ArticleData},
+        Action => 'UpdateArticle', # also possible: 'AddArticle'
     );
 
 =cut
 
-sub ObjectIndexAddArticle {
+sub ObjectIndexArticle {
     my ( $Self, %Param ) = @_;
 
     my $SearchChildObject         = $Kernel::OM->Get('Kernel::System::Search::Object');
@@ -1087,6 +1467,42 @@ sub ObjectIndexAddArticle {
     my %AttachmentsToIndex;
     my @AllAttachments;
 
+    my $QuerySource =
+        "
+ArrayList ArticlesToIndex = params.Articles;
+ArrayList Articles = ctx._source.Articles;
+";
+
+    $QuerySource .= $Param{Action} eq 'UpdateArticle'
+        ?
+
+        "
+for(int i=0;i<ArticlesToIndex.size();i++){
+    for(int j=0;j<Articles.size();j++){
+        if(Articles[j].ArticleID == ArticlesToIndex[i].ArticleID){
+            ctx._source.Articles[j] = ArticlesToIndex[i];
+            break;
+        }
+    }
+}
+"
+        :
+
+        # add article
+        "
+for(int i=0;i<ArticlesToIndex.size();i++){
+    ctx._source.Articles.add(ArticlesToIndex[i]);
+}
+";
+
+    $QuerySource .=
+        "
+ctx._source.AttachmentStorageClearTemp = params.AttachmentStorageClearTemp;
+ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
+";
+
+    my $Success = 1;
+
     for my $Article ( @{ $ArticleData->{Data} } ) {
 
         # add article dynamic fields
@@ -1098,10 +1514,6 @@ sub ObjectIndexAddArticle {
                 DynamicFieldConfig => $DynamicFieldConfig,
                 ObjectID           => $Article->{ArticleID},
             );
-
-            # set the dynamic field name and value into the ticket hash
-            # only if value is defined
-            next DYNAMICFIELDCONFIG if !defined $Value;
 
             $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
         }
@@ -1162,14 +1574,7 @@ sub ObjectIndexAddArticle {
             Path   => "$Self->{Config}->{IndexRealName}/_update/$TicketID",
             Body   => {
                 script => {
-                    source => "
-                        ArrayList NewArticles = params.Articles;
-                        for(int i=0;i<NewArticles.size();i++){
-                            ctx._source.Articles.add(NewArticles[i]);
-                        }
-                        ctx._source.AttachmentStorageClearTemp = params.AttachmentStorageClearTemp;
-                        ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
-                    ",
+                    source => $QuerySource,
                     params => {
                         Articles              => $ArticlesToIndex{$TicketID}    || [],
                         AttachmentStorageTemp => $AttachmentsToIndex{$TicketID} || [],
@@ -1179,138 +1584,18 @@ sub ObjectIndexAddArticle {
             },
         };
 
-        $Param{EngineObject}->QueryExecute(
+        my $Response = $Param{EngineObject}->QueryExecute(
             Operation     => 'Generic',
             Query         => $Query,
             ConnectObject => $Param{ConnectObject},
         );
 
+        $Success = $Param{MappingObject}->ResponseIsSuccess(
+            Response => $Response,
+        ) if $Success;
     }
 
-    return 1;
-}
-
-=head2 ObjectIndexSet()
-
-set (update if exists or create if not exists) object for specified index
-
-    my $Success = $SearchTicketESObject->ObjectIndexSet(
-        Index    => "Ticket",
-        Refresh  => 1, # optional, define if indexed data needs
-                       # to be refreshed for search call
-                       # not refreshed data could not be found right after
-                       # indexing (for example in elastic search engine)
-
-        ObjectID => 1, # possible:
-                       # - for single object indexing: 1
-                       # - for multiple object indexing: [1,2,3]
-        # or
-        QueryParams => {
-            TicketID => [1,2,3],
-            SLAID => {
-                Operator => 'IS NOT EMPTY'
-            },
-        },
-
-        NoPermissions => 1 # optional, skip permissions check
-    );
-
-=cut
-
-sub ObjectIndexSet {
-    my ( $Self, %Param ) = @_;
-
-    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-
-    my $PreparedQuery = $SearchChildObject->QueryPrepare(
-        %Param,
-        Operation     => 'ObjectIndexSet',
-        Config        => $Param{Config},
-        MappingObject => $Param{MappingObject},
-        NoPermissions => 1,
-    );
-
-    return 0 if !$PreparedQuery;
-
-    my $Response = $Param{EngineObject}->QueryExecute(
-        %Param,
-        Operation            => 'ObjectIndexSet',
-        Query                => $PreparedQuery,
-        ConnectObject        => $Param{ConnectObject},
-        Config               => $Param{Config},
-        AdditionalParameters => {
-            pipeline => 'attachment_nested'
-        }
-    );
-
-    return $Param{MappingObject}->ObjectIndexAddFormat(
-        %Param,
-        Response      => $Response,
-        Config        => $Param{Config},
-        NoPermissions => 1,
-    );
-}
-
-=head2 ObjectIndexUpdate()
-
-update object for specified index
-
-    my $Success = $SearchTicketESObject->ObjectIndexUpdate(
-        Index => "Ticket",
-        Refresh  => 1, # optional, define if indexed data needs
-                       # to be refreshed for search call
-                       # not refreshed data could not be found right after
-                       # indexing (for example in elastic search engine)
-
-        ObjectID => 1, # possible:
-                       # - for single object indexing: 1
-                       # - for multiple object indexing: [1,2,3]
-        # or
-        QueryParams => {
-            TicketID => [1,2,3],
-            SLAID => {
-                Operator => 'IS NOT EMPTY'
-            },
-        },
-
-        NoPermissions => 1 # optional, skip permissions check
-    );
-
-=cut
-
-sub ObjectIndexUpdate {
-    my ( $Self, %Param ) = @_;
-
-    # TODO: restriction
-    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-
-    my $PreparedQuery = $SearchChildObject->QueryPrepare(
-        %Param,
-        Operation     => 'ObjectIndexUpdate',
-        Config        => $Param{Config},
-        MappingObject => $Param{MappingObject},
-        NoPermissions => 1,
-    );
-
-    return 0 if !$PreparedQuery;
-
-    my $Response = $Param{EngineObject}->QueryExecute(
-        %Param,
-        Operation            => 'ObjectIndexUpdate',
-        Query                => $PreparedQuery,
-        ConnectObject        => $Param{ConnectObject},
-        Config               => $Param{Config},
-        AdditionalParameters => {
-            pipeline => 'attachment_nested'
-        }
-    );
-
-    return $Param{MappingObject}->ObjectIndexAddFormat(
-        %Param,
-        Response      => $Response,
-        Config        => $Param{Config},
-        NoPermissions => 1,
-    );
+    return $Success;
 }
 
 =head2 ObjectIndexRemove()
@@ -1534,9 +1819,6 @@ sub SQLObjectSearch {
                         ObjectID           => $Ticket->{TicketID},
                     );
 
-                    # set the dynamic field name and value into the ticket hash
-                    # only if value is defined
-                    next DYNAMICFIELDCONFIG if !defined $Value;
                     $Ticket->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
                 }
             }
@@ -1562,10 +1844,6 @@ sub SQLObjectSearch {
                                 DynamicFieldConfig => $DynamicFieldConfig,
                                 ObjectID           => $Article->{ArticleID},
                             );
-
-                            # set the dynamic field name and value into the ticket hash
-                            # only if value is defined
-                            next DYNAMICFIELDCONFIG if !defined $Value;
 
                             $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
                         }
@@ -1621,7 +1899,7 @@ sub SQLObjectSearch {
 
                 $Ticket->{Articles} = $Articles->{Data};
             }
-            else {
+            elsif ( $Param{SetEmptyArticles} ) {
                 $Ticket->{Articles} = [];
             }
         }
@@ -1870,7 +2148,7 @@ sub ObjectListIDs {
         Fields              => [$Identifier],
         OrderBy             => $Param{OrderBy},
         SortBy              => $Param{SortBy} // $Identifier,
-        ResultType          => $Param{ResultType},
+        ResultType          => $Param{ResultType} || 'ARRAY',
         Limit               => $Param{Limit},
         Offset              => $Param{Offset},
         IgnoreArticles      => 1,
@@ -1892,6 +2170,135 @@ sub ObjectListIDs {
     }
 
     return \@Result;
+}
+
+=head2 ObjectIndexQueueUpdateRule()
+
+apply index object update rule for queries
+
+    my $Success = $SearchBaseObject->ObjectIndexQueueUpdateRule(
+        Queue      => $Queue,
+        QueueToAdd => $QueueToAdd,
+    );
+
+=cut
+
+sub ObjectIndexQueueUpdateRule {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    return if !IsHashRefWithData( $Param{QueueToAdd} );
+
+    my $ObjectIDQueueToAdd    = $Param{QueueToAdd}->{ObjectID};
+    my $QueryParamsQueueToAdd = $Param{QueueToAdd}->{QueryParams};
+
+    # check if ObjectIndexUpdate by object id is to be queued
+    if ($ObjectIDQueueToAdd) {
+        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd};
+        if ($QueuedOperation) {
+
+            # identify what operation was already queued
+            my $PrevQueuedOperationName = $QueuedOperation->{FunctionName};
+
+            # add overwrites update
+            if ( $PrevQueuedOperationName eq 'ObjectIndexAdd' ) {
+                return;
+            }
+
+            # do nothing
+            elsif ( $PrevQueuedOperationName eq 'ObjectIndexUpdate' ) {
+                my $UpdateTicketQueuedBefore = $QueuedOperation->{AdditionalParameters}->{UpdateTicket};
+                my $UpdateTicketQueuedNow    = $Param{QueueToAdd}->{AdditionalParameters}->{UpdateTicket};
+
+                if ( $UpdateTicketQueuedNow && !$UpdateTicketQueuedBefore ) {
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateTicket}
+                        = $UpdateTicketQueuedNow;
+                }
+
+                my $UpdateArticleQueuedBefore = $QueuedOperation->{AdditionalParameters}->{UpdateArticle} || '';
+                my $UpdateArticleQueuedNow    = $Param{QueueToAdd}->{AdditionalParameters}->{UpdateArticle};
+
+                if ( IsArrayRefWithData($UpdateArticleQueuedNow) && $UpdateArticleQueuedBefore ne '*' ) {
+                    my $ArticlesToQueue = $UpdateArticleQueuedNow;
+                    if ( IsArrayRefWithData($UpdateArticleQueuedBefore) ) {
+                        my %QueuedArticleIDsBefore = map { $_ => 1 } @{$UpdateArticleQueuedBefore};
+                        my %QueuedArticleIDsNow    = map { $_ => 1 } @{$ArticlesToQueue};
+                        my %MergedArticleIDs      = ( %QueuedArticleIDsBefore, %QueuedArticleIDsNow );
+                        my @MergedArticleIDsArray = keys %MergedArticleIDs;
+
+                        $ArticlesToQueue = \@MergedArticleIDsArray;
+                    }
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateArticle}
+                        = $ArticlesToQueue;
+                }
+                elsif ( $UpdateArticleQueuedNow && $UpdateArticleQueuedNow eq '*' ) {
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateArticle} = '*';
+                }
+
+                my $AddArticleQueuedBefore = $QueuedOperation->{AdditionalParameters}->{AddArticle} || '';
+                my $AddArticleQueuedNow    = $Param{QueueToAdd}->{AdditionalParameters}->{AddArticle};
+
+                if ( IsArrayRefWithData($AddArticleQueuedNow) ) {
+                    my $ArticlesToQueue = $AddArticleQueuedNow;
+                    if ( IsArrayRefWithData($AddArticleQueuedBefore) ) {
+                        my %QueuedArticleIDsBefore = map { $_ => 1 } @{$AddArticleQueuedBefore};
+                        my %QueuedArticleIDsNow    = map { $_ => 1 } @{$ArticlesToQueue};
+                        my %MergedArticleIDs      = ( %QueuedArticleIDsBefore, %QueuedArticleIDsNow );
+                        my @MergedArticleIDsArray = keys %MergedArticleIDs;
+
+                        $ArticlesToQueue = \@MergedArticleIDsArray;
+                    }
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{AddArticle}
+                        = $ArticlesToQueue;
+                }
+
+                return;
+            }
+
+            # set overwrites update
+            elsif ( $PrevQueuedOperationName eq 'ObjectIndexSet' ) {
+                return;
+            }
+
+            # should never be a case in the system, don't allow it
+            elsif ( $PrevQueuedOperationName eq 'ObjectIndexRemove' ) {
+                return;
+            }
+        }
+        else {
+            $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
+            return 1;
+        }
+    }
+
+    # check if ObjectIndexUpdate by query params is to be queued
+    elsif ($QueryParamsQueueToAdd) {
+
+        my $Context = $Param{QueueToAdd}->{Context};
+        if ( !$Context ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Parameter 'Context' inside 'QueueToAdd' hash is needed!",
+            );
+            return;
+        }
+
+        if ( $Param{Queue}->{QueryParams}->{$Context} ) {
+            return;
+        }
+        else {
+            $Param{Queue}->{QueryParams}->{$Context} = {
+                %{ $Param{QueueToAdd} },
+                Order => $Param{Order},
+            };
+            return 1;
+        }
+    }
+    else {
+        return;
+    }
+
+    return;
 }
 
 =head2 _PostValidFieldsPrepare()
@@ -1921,6 +2328,145 @@ sub _PostValidFieldsPrepare {
     }
 
     return %ValidFields;
+}
+
+sub _ObjectIndexAddAction {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
+
+    # some tickets ids with a data to index should be found
+    return if !$Param{TicketIDs};
+
+    # index ticket base values with dfs
+    my $Success = $Self->SUPER::_ObjectIndexAction(
+        %Param,
+        Function => 'ObjectIndexAdd',
+    );
+
+    return if !$Success;
+
+    # index ticket articles
+    # use article module, but specify index into
+    # "Ticket", so that "ObjectIndexArticle" function will be executed
+    $SearchArticleObject->ObjectIndexAdd(
+        IndexInto   => 'Ticket',
+        QueryParams => {
+            TicketID => $Param{TicketIDs},
+        },
+        Index         => 'Article',
+        MappingObject => $Param{MappingObject},
+        ConnectObject => $Param{ConnectObject},
+        EngineObject  => $Param{EngineObject},
+        Config        => $Param{Config},
+    );
+
+    return $Success;
+}
+
+sub _ObjectIndexUpdateAction {
+    my ( $Self, %Param ) = @_;
+
+    my $Success             = 1;
+    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
+    if ( $Param{UpdateTicket} ) {
+
+        # index ticket base values with dfs
+        $Success = $Self->SUPER::_ObjectIndexAction(
+            %Param,
+            Function => 'ObjectIndexUpdate',
+        );
+    }
+    if ( $Param{AddArticle} ) {
+
+        # add ticket articles
+        $Success = $SearchArticleObject->ObjectIndexUpdateTicketArticles(
+            IndexInto   => 'Ticket',
+            QueryParams => {
+                ArticleID => $Param{AddArticle},
+            },
+            Index         => 'Article',
+            Action        => 'AddArticle',
+            MappingObject => $Param{MappingObject},
+            EngineObject  => $Param{EngineObject},
+            ConnectObject => $Param{ConnectObject},
+            Config        => $Param{Config},
+        ) if $Success;
+    }
+    ARTICLE: {
+        if ( $Param{UpdateArticle} ) {
+            my $QueryParams = {
+                ArticleID => $Param{UpdateArticle}
+            };
+
+            # update all articles
+            if ( $Param{UpdateArticle} eq '*' ) {
+                my @TicketIDs;
+
+                if (
+                    IsHashRefWithData( $Param{DataToIndex} )
+                    &&
+                    IsArrayRefWithData( $Param{DataToIndex}->{Data} )
+                    )
+                {
+                    TICKET:
+                    for my $Ticket ( @{ $Param{DataToIndex}->{Data} } ) {
+                        next TICKET if !IsHashRefWithData($Ticket) || !$Ticket->{TicketID};
+                        push @TicketIDs, $Ticket->{TicketID};
+                    }
+                }
+                last ARTICLE if !scalar @TicketIDs;
+                $QueryParams = {
+                    TicketID => \@TicketIDs,
+                };
+            }
+
+            # update ticket articles
+            $Success = $SearchArticleObject->ObjectIndexUpdateTicketArticles(
+                IndexInto     => 'Ticket',
+                QueryParams   => $QueryParams,
+                Index         => 'Article',
+                Action        => 'UpdateArticle',
+                MappingObject => $Param{MappingObject},
+                EngineObject  => $Param{EngineObject},
+                ConnectObject => $Param{ConnectObject},
+                Config        => $Param{Config},
+            ) if $Success;
+        }
+    }
+
+    return $Success;
+}
+
+sub _ObjectIndexSetAction {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
+
+    return if !$Param{TicketIDs};
+
+    # index ticket base values with dfs
+    my $Success = $Self->SUPER::_ObjectIndexAction(
+        %Param,
+        Function => 'ObjectIndexSet',
+    );
+
+    return if !$Success;
+
+    # index ticket articles
+    $SearchArticleObject->ObjectIndexAdd(
+        IndexInto   => 'Ticket',
+        QueryParams => {
+            TicketID => $Param{TicketIDs},
+        },
+        Index         => 'Article',
+        MappingObject => $Param{MappingObject},
+        ConnectObject => $Param{ConnectObject},
+        EngineObject  => $Param{EngineObject},
+        Config        => $Param{Config},
+    );
+
+    return $Success;
 }
 
 1;

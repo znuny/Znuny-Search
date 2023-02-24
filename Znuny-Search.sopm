@@ -51,9 +51,10 @@
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicFieldValue.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/Queue.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/QueueUpdate.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicField/Ticket.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/DynamicFieldValue.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketDelete.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketMerge.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Article/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/Base.pm"/>

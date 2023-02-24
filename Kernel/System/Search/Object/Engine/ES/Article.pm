@@ -16,8 +16,8 @@ use parent qw( Kernel::System::Search::Object::Default::Article );
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
-    'Kernel::System::Main',
-    'Kernel::System::Search',
+    'Kernel::Config',
+    'Kernel::System::Search::Object::Default::Ticket',
 );
 
 =head1 NAME
@@ -171,13 +171,79 @@ sub new {
     return $Self;
 }
 
-sub ObjectIndexAdd {
+sub ObjectIndexAdd() {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ObjectIndexGeneric(
+        %Param,
+        Function => '_ObjectIndexAddAction',
+    );
+}
+
+sub ObjectIndexSet() {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ObjectIndexGeneric(
+        %Param,
+        Function => '_ObjectIndexSetAction',
+    );
+}
+
+sub ObjectIndexUpdate() {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ObjectIndexGeneric(
+        %Param,
+        Function => '_ObjectIndexUpdateAction',
+    );
+}
+
+sub ObjectIndexUpdateTicketArticles() {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->ObjectIndexGeneric(
+        %Param,
+        Function => '_ObjectIndexUpdateTicketArticlesAction',
+    );
+}
+
+=head2 ObjectIndexGeneric()
+
+search for articles with restrictions, then perform specified operation
+
+    my $Success = $SearchArticleObject->ObjectIndexGeneric(
+        Index    => 'Ticket',
+        Refresh  => 1, # optional, define if indexed data needs
+                       # to be refreshed for search call
+                       # not refreshed data could not be found right after
+                       # indexing (for example in elastic search engine)
+
+        ObjectID => 1, # possible:
+                       # - for single object indexing: 1
+                       # - for multiple object indexing: [1,2,3]
+        # or
+        QueryParams => {
+            ArticleID => [1,2,3],
+            TicketID => [1 .. 500],
+        },
+
+        Function => 'FunctionName' # function callback name
+                                   # to which the object data
+                                   # will be sent
+        # article data can be indexed into ticket or article index
+        IndexInto => 'Ticket', # possible: 'Ticket', 'Article'
+    );
+
+=cut
+
+sub ObjectIndexGeneric {
     my ( $Self, %Param ) = @_;
 
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
     my $IndexInto    = $Param{IndexInto} || 'Article';
+    my $Function     = $Param{Function};
 
+    return if !$Function;
     return if !$Self->_BaseCheckIndexOperation(
         %Param,
     ) && $IndexInto eq 'Article';
@@ -203,7 +269,6 @@ sub ObjectIndexAdd {
     # correctly, otherwise return 0
     my $Success                 = 1;
     my $ArticleOffsetMultiplier = 0;
-
     do {
         my $ArticleOffset = $ArticleOffsetMultiplier++ * $IDLimit;
 
@@ -216,7 +281,6 @@ sub ObjectIndexAdd {
         );
 
         $DataCount = scalar @{$SQLDataIDs};
-
         if ($DataCount) {
 
             # no need to object count restrictions
@@ -229,7 +293,7 @@ sub ObjectIndexAdd {
                     ResultType => $Param{SQLSearchResultType} || 'ARRAY',
                 );
 
-                my $SuccessLocal = $Self->_ObjectIndexAddAction(
+                my $SuccessLocal = $Self->$Function(
                     %Param,
                     DataToIndex => $SQLSearchResult,
                     IndexInto   => $IndexInto,
@@ -255,7 +319,7 @@ sub ObjectIndexAdd {
                         Limit      => $ReindexationStep,
                     );
 
-                    my $PartSuccess = $Self->_ObjectIndexAddAction(
+                    my $PartSuccess = $Self->$Function(
                         %Param,
                         DataToIndex => $SQLSearchResult,
                         IndexInto   => $IndexInto,
@@ -274,13 +338,12 @@ sub ObjectIndexAdd {
 
 =head2 SQLObjectSearch()
 
-Search for article data. Do not pass operators for ticket/article id.
+Search for article data.
 
-    my $FunctionResult = $Object->SQLObjectSearch(
+    my $FunctionResult = $SearchArticleObject->SQLObjectSearch(
         QueryParams => {
-            TicketID => 1, # required, possible: 1, [1,2,3]
-            # OR
-            ArticleID => 1, # required, possible: 1, [1,2,3]
+            TicketID => 1,
+            ArticleID => 1,
         }
     );
 
@@ -296,7 +359,10 @@ sub SQLObjectSearch {
         On    => 'article.id = article_data_mime.article_id',
     };
 
-    my $Fields            = $Param{Fields};
+    my $Fields = $Param{Fields};
+
+    # treat external fields (fields from table article_data_mime) as searchable fields
+    # as there will be inner join performed
     my %CustomIndexFields = ( %{ $Self->{Fields} }, %{ $Self->{ExternalFields} } );
 
     if ( IsArrayRefWithData( $Param{Fields} ) ) {
@@ -304,6 +370,9 @@ sub SQLObjectSearch {
         if ( scalar @ExternalArticleFields ) {
             $ExternalFields = \@ExternalArticleFields;
         }
+
+        # no article_data_mime fields to retrieve found,
+        # meaning join on sql is not needed
         else {
             undef $Join;
         }
@@ -326,7 +395,7 @@ sub SQLObjectSearch {
 
 validates fields for object and return only valid ones
 
-    my %Fields = $SearchChildObject->ValidFieldsPrepare(
+    my %Fields = $SearchArticleObject->ValidFieldsPrepare(
         Fields => $Fields,     # optional
         Object => $ObjectName,
     );
@@ -371,7 +440,7 @@ sub ValidFieldsPrepare {
 
 set fields return type if not specified
 
-    my %Fields = $SearchTicketESObject->_PostValidFieldsPrepare(
+    my %Fields = $SearchArticleObject->_PostValidFieldsPrepare(
         ValidFields => $ValidFields,
     );
 
@@ -397,15 +466,67 @@ sub _ObjectIndexAddAction {
     my ( $Self, %Param ) = @_;
 
     # index article into Article index
-    return $Self->SUPER::_ObjectIndexAddAction(%Param)
-        if $Param{IndexInto} eq 'Article';
+    return $Self->SUPER::_ObjectIndexAction(
+        %Param,
+        Function => 'ObjectIndexAdd',
+    ) if $Param{IndexInto} eq 'Article';
 
     # index article into Ticket index
     my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
-    return $SearchTicketObject->ObjectIndexAddArticle(
+    return $SearchTicketObject->ObjectIndexArticle(
         ArticleData   => $Param{DataToIndex},
         EngineObject  => $Param{EngineObject},
         ConnectObject => $Param{ConnectObject},
+        MappingObject => $Param{MappingObject},
+        Action        => 'AddArticle',
+    );
+}
+
+sub _ObjectIndexSetAction {
+    my ( $Self, %Param ) = @_;
+
+    # index article into Article index
+    return $Self->SUPER::_ObjectIndexAction(
+        %Param,
+        Function => 'ObjectIndexSet',
+    ) if $Param{IndexInto} eq 'Article';
+
+    # index article into Ticket index
+    my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
+    return $SearchTicketObject->ObjectIndexArticle(
+        ArticleData   => $Param{DataToIndex},
+        EngineObject  => $Param{EngineObject},
+        ConnectObject => $Param{ConnectObject},
+        MappingObject => $Param{MappingObject},
+        Action        => 'AddArticle',
+    );
+}
+
+sub _ObjectIndexUpdateAction {
+    my ( $Self, %Param ) = @_;
+
+    # index article into Article index
+    return $Self->SUPER::_ObjectIndexAction(
+        %Param,
+        Function => 'ObjectIndexUpdate',
+    ) if $Param{IndexInto} eq 'Article';
+
+    # index article into Ticket index
+    my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
+    return $SearchTicketObject->ObjectIndexArticle(
+        %Param,
+        ArticleData => $Param{DataToIndex},
+    );
+}
+
+sub _ObjectIndexUpdateTicketArticlesAction {
+    my ( $Self, %Param ) = @_;
+
+    # update/add article on Ticket index
+    my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
+    return $SearchTicketObject->ObjectIndexArticle(
+        %Param,
+        ArticleData => $Param{DataToIndex},
     );
 }
 

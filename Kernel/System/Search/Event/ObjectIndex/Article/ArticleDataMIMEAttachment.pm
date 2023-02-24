@@ -14,7 +14,8 @@ use warnings;
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
-    'Kernel::System::Search::Plugins::ES::Ingest',
+    'Kernel::Config',
+    'Kernel::System::Search::Object',
 );
 
 sub new {
@@ -63,17 +64,21 @@ sub Run {
     my $Success              = 1;
 
     if (
-        $ArticleStorageConfig
+        $Param{Data}->{Disposition} && $Param{Data}->{Disposition} eq 'attachment'
+        && $ArticleStorageConfig
         && $ArticleStorageConfig eq 'Kernel::System::Ticket::Article::Backend::MIMEBase::ArticleStorageDB'
         )
     {
+        my $ArticleID = $Param{Data}->{ArticleID};
         $Success = $SearchChildObject->IndexObjectQueueAdd(
             Index => 'ArticleDataMIMEAttachment',
             Value => {
                 FunctionName => $FunctionName,
                 QueryParams  => {
-                    ArticleID => $Param{Data}->{ArticleID}
+                    ArticleID   => $ArticleID,
+                    Disposition => 'attachment',
                 },
+                Context => "ObjAdd_Attachment_ArticleID_$ArticleID",
             },
         );
     }

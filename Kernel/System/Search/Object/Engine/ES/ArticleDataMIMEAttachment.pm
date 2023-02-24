@@ -20,6 +20,9 @@ our @ObjectDependencies = (
     'Kernel::System::Search',
     'Kernel::System::Encode',
     'Kernel::System::Ticket',
+    'Kernel::System::DB',
+    'Kernel::System::Search::Object',
+    'Kernel::System::Ticket::Article',
 );
 
 =head1 NAME
@@ -166,6 +169,7 @@ sub ObjectIndexAdd {
         $BulkHelper->create(
             {
                 source => $Object,
+                id     => $Object->{ID},
             }
         );
     }
@@ -211,6 +215,7 @@ sub ObjectIndexSet {
         $BulkHelper->index(
             {
                 source => $Object,
+                id     => $Object->{ID},
             }
         );
     }
@@ -333,16 +338,34 @@ sub SQLObjectSearch {
     my $GetTicketID;
     my %Fields;
 
+    my $QueryParams      = $Param{QueryParams};
+    my $SearchByTicketID = delete $QueryParams->{TicketID};
+
     if ( IsHashRefWithData( $Param{Fields} ) ) {
         %Fields      = %{ $Param{Fields} };
         $GetTicketID = delete $Fields{TicketID} && $Fields{ArticleID};
         delete $Fields{AttachmentContent};
     }
 
+    # article_data_mime_attachment does not have ticket id
+    # but it contains article_id so it can be found by this property
+    if ($SearchByTicketID) {
+        my $ArticleObject = $Kernel::OM->Get('Kernel::System::Ticket::Article');
+
+        my @Articles = $ArticleObject->ArticleList(
+            TicketID => $SearchByTicketID,
+        );
+
+        my @ArticleIDs = map { $_->{ArticleID} } @Articles;
+
+        $QueryParams->{ArticleID} = \@ArticleIDs;
+    }
+
     # perform default sql object search
     my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(
         %Param,
-        Fields => \%Fields,
+        QueryParams => $QueryParams,
+        Fields      => \%Fields,
     );
 
     if (

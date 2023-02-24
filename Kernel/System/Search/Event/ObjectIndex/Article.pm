@@ -16,7 +16,6 @@ use Kernel::System::VariableCheck qw(:all);
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
-    'Kernel::System::CommunicationChannel',
     'Kernel::System::Search::Object',
 );
 
@@ -67,77 +66,30 @@ sub Run {
     my $FunctionName           = $Param{Config}->{FunctionName};
     my $ObjectID               = $Param{Data}->{$ObjectIdentifierColumn};
 
-    if ( $FunctionName eq 'ObjectIndexRemove' ) {
-
-        # event didn't send ArticleID in data, but there is TicketID
-        # in that case remove all articles from this ticket
-        if ( !IsArrayRefWithData($ObjectID) && $Param{Data}->{TicketID} ) {
-            $SearchChildObject->IndexObjectQueueAdd(
-                Index => 'Article',
-                Value => {
-                    FunctionName => $FunctionName,
-                    QueryParams  => {
-                        TicketID => $Param{Data}->{TicketID},
-                    },
-                },
-            );
-
-        }
-
-        # event specified article to delete, delete only this article
-        elsif ( IsArrayRefWithData($ObjectID) || IsNumber($ObjectID) ) {
-            $SearchChildObject->IndexObjectQueueAdd(
-                Index => 'Article',
-                Value => {
-                    FunctionName => $FunctionName,
-                    ObjectID     => $ObjectID,
-                },
-            );
-        }
-
-        return 1;
-    }
-
-    if ( $Param{Event} eq 'TicketMerge' ) {
-        $SearchChildObject->IndexObjectQueueAdd(
-            Index => 'Article',
-            Value => {
-                FunctionName => $FunctionName,
-                QueryParams  => {
-                    TicketID => $Param{Data}->{TicketID},
-                },
-            },
-        );
-
-        $SearchChildObject->IndexObjectQueueAdd(
-            Index => 'Article',
-            Value => {
-                FunctionName => $FunctionName,
-                QueryParams  => {
-                    TicketID => $Param{Data}->{MainTicketID},
-                },
-            },
-        );
-
-        return 1;
-    }
-
     $SearchChildObject->IndexObjectQueueAdd(
         Index => 'Article',
         Value => {
             FunctionName => $FunctionName,
-            QueryParams  => {
-                TicketID => $Param{Data}->{TicketID},
-            },
+            ObjectID     => $Param{Data}->{ArticleID},
         },
     );
 
-    # update ticket that contains changed article
+    my $Event = $Param{Event};
+    my $AdditionalParams;
+    if ( $Event eq 'ArticleCreate' ) {
+        $AdditionalParams = { AddArticle => [ $Param{Data}->{ArticleID} ] };
+    }
+    elsif ( $Event eq 'ArticleUpdate' ) {
+        $AdditionalParams = { UpdateArticle => [ $Param{Data}->{ArticleID} ] };
+    }
+
+    # update tickets that contains changed article
     $SearchChildObject->IndexObjectQueueAdd(
         Index => 'Ticket',
         Value => {
-            FunctionName => 'ObjectIndexSet',
-            ObjectID     => $Param{Data}->{TicketID},
+            FunctionName         => 'ObjectIndexUpdate',
+            ObjectID             => $Param{Data}->{TicketID},
+            AdditionalParameters => $AdditionalParams,
         },
     );
 
