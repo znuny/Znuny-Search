@@ -142,7 +142,8 @@ sub ObjectIndexAdd {
         CustomIndexFields => \%CustomIndexFields,
     );
 
-    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+    return   if !$SQLSearchResult->{Success};
+    return 0 if !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexAdd(
@@ -213,7 +214,8 @@ sub ObjectIndexSet {
         CustomIndexFields => \%CustomIndexFields,
     );
 
-    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+    return   if !$SQLSearchResult->{Success};
+    return 0 if !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexSet(

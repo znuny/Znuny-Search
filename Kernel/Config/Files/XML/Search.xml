@@ -42,65 +42,41 @@
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
-                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime|TicketOwnerSet|ArticleWriteAttachment</Item>
+                <Item Key="Event">TicketTitleUpdate|TicketUnlockTimeoutUpdate|TicketQueueUpdate|TicketTypeUpdate|TicketServiceUpdate|TicketSLAUpdate|TicketPendingTimeUpdate|TicketLockUpdate|TicketStateUpdate|TicketOwnerUpdate|TicketResponsibleUpdate|TicketPriorityUpdate|TicketAccountTime|TicketOwnerSet|TicketCustomerUpdate</Item>
                 <Item Key="FunctionName">ObjectIndexUpdate</Item>
+                <Item Key="AdditionalValueParameters">{"UpdateTicket":1}</Item>
                 <Item Key="IndexName">Ticket</Item>
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Ticket::EventModulePost###002-Ticket-ObjectIndex" Required="0" Valid="1">
+    <Setting Name="Queue::EventModulePost###100-QueueUpdate-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
-                <Item Key="Event">TicketCustomerUpdate</Item>
-                <Item Key="FunctionName">ObjectIndexUpdate</Item>
-                <Item Key="AdditionalValueParameters">{"CreateIfNotExists":1}</Item>
-                <Item Key="IndexName">Ticket</Item>
-            </Hash>
-        </Value>
-    </Setting>
-    <Setting Name="Queue::EventModulePost###100-Ticket-Queue-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
-        <Value>
-            <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Ticket::Queue</Item>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::QueueUpdate</Item>
                 <Item Key="Event">QueueUpdate</Item>
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Ticket::EventModulePost###001-Ticket-DynamicFieldValue-ObjectIndex" Required="0" Valid="1">
+    <Setting Name="Ticket::EventModulePost###001-TicketDelete-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Ticket::DynamicFieldValue</Item>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::TicketDelete</Item>
                 <Item Key="Event">TicketDelete</Item>
-            </Hash>
-        </Value>
-    </Setting>
-    <Setting Name="Ticket::EventModulePost###200-Ticket-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
-        <Value>
-            <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
-                <Item Key="Event">TicketDelete</Item>
-                <Item Key="FunctionName">ObjectIndexRemove</Item>
-                <Item Key="IndexName">Ticket</Item>
             </Hash>
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Article-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
+        <Navigation>Core::Event::Article</Navigation>
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Article</Item>
                 <Item Key="Event">ArticleCreate</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
+                <Item Key="FunctionName">ObjectIndexAdd</Item>
             </Hash>
         </Value>
     </Setting>
@@ -110,41 +86,29 @@
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Article</Item>
-                <Item Key="Event">ArticleUpdate|TicketMerge</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
+                <Item Key="Event">ArticleUpdate</Item>
+                <Item Key="FunctionName">ObjectIndexUpdate</Item>
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="Ticket::EventModulePost###002-Article-ObjectIndex" Required="0" Valid="1">
+    <Setting Name="Ticket::EventModulePost###001-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Article</Item>
-                <Item Key="Event">TicketDelete</Item>
-                <Item Key="FunctionName">ObjectIndexRemove</Item>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::TicketMerge</Item>
+                <Item Key="Event">TicketMerge</Item>
             </Hash>
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Article-ArticleDataMIMEAttachment-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
+        <Navigation>Core::Event::Article</Navigation>
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Article::ArticleDataMIMEAttachment</Item>
-                <Item Key="Event">ArticleUpdate|ArticleCreate</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
-            </Hash>
-        </Value>
-    </Setting>
-    <Setting Name="Ticket::EventModulePost###000-Ticket-ArticleDataMIMEAttachment-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
-        <Value>
-            <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Ticket::ArticleDataMIMEAttachment</Item>
-                <Item Key="Event">TicketDelete</Item>
-                <Item Key="FunctionName">ObjectIndexRemove</Item>
+                <Item Key="Event">ArticleWriteAttachment</Item>
+                <Item Key="FunctionName">ObjectIndexAdd</Item>
             </Hash>
         </Value>
     </Setting>
@@ -154,19 +118,7 @@
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::TicketHistory</Item>
-                <Item Key="Event">HistoryAdd|TicketMerge</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
-            </Hash>
-        </Value>
-    </Setting>
-    <Setting Name="Ticket::EventModulePost###001-TicketHistory-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
-        <Value>
-            <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::TicketHistory</Item>
-                <Item Key="Event">HistoryDelete</Item>
-                <Item Key="FunctionName">ObjectIndexRemove</Item>
+                <Item Key="Event">HistoryAdd|TicketMerge|HistoryDelete</Item>
             </Hash>
         </Value>
     </Setting>
@@ -176,18 +128,7 @@
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField</Item>
-                <Item Key="Event">DynamicFieldAdd</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
-            </Hash>
-        </Value>
-    </Setting>
-    <Setting Name="DynamicField::EventModulePost###001-DynamicField-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::DynamicField</Navigation>
-        <Value>
-            <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField</Item>
-                <Item Key="Event">DynamicFieldUpdate</Item>
+                <Item Key="Event">DynamicFieldAdd|DynamicFieldUpdate</Item>
                 <Item Key="FunctionName">ObjectIndexSet</Item>
             </Hash>
         </Value>
@@ -205,7 +146,7 @@
     </Setting>
     <Setting Name="DynamicField::EventModulePost###100-DynamicField-Ticket-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
+        <Navigation>Core::Event::DynamicField</Navigation>
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField::Ticket</Item>
@@ -215,25 +156,12 @@
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-DynamicFieldValue-Ticket-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
+        <Navigation>Core::Event::DynamicField</Navigation>
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
-                <Item Key="Event">TicketDynamicFieldUpdate_*</Item>
+                <Item Key="Event">TicketDynamicFieldUpdate_*|ArticleDynamicFieldUpdate</Item>
                 <Item Key="FunctionName">ObjectIndexSet</Item>
-                <Item Key="Field">TicketID</Item>
-            </Hash>
-        </Value>
-    </Setting>
-    <Setting Name="Ticket::EventModulePost###000-DynamicFieldValue-Article-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
-        <Value>
-            <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
-                <Item Key="Event">ArticleDynamicFieldUpdate</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
-                <Item Key="Field">ArticleID</Item>
             </Hash>
         </Value>
     </Setting>
@@ -327,24 +255,6 @@
         <Navigation>Core::Search</Navigation>
         <Value>
             <Item ValueType="Checkbox">0</Item>
-        </Value>
-    </Setting>
-    <Setting Name="Daemon::SchedulerCronTaskManager::Task###SearchEngineReindex" Required="0" Valid="1">
-        <Description Translatable="1">Cron task for re-indexing active search index cluster with mapping check.</Description>
-        <Navigation>Daemon::SchedulerCronTaskManager::Task</Navigation>
-        <Value>
-            <Hash>
-                <Item Key="TaskName">SearchEngineReindex</Item>
-                <Item Key="Schedule">0 2 * * *</Item> <!-- Every day at 2am -->
-                <Item Key="Module">Kernel::System::Console::Command::Maint::Search::Reindex</Item>
-                <Item Key="Function">Execute</Item>
-                <Item Key="MaximumParallelInstances">1</Item>
-                <Item Key="Params">
-                    <Array>
-                        <Item>--check-data-equality</Item>
-                    </Array>
-                </Item>
-            </Hash>
         </Value>
     </Setting>
     <Setting Name="Daemon::SchedulerCronTaskManager::Task###ES-IndexQueueDataProcess" Required="0" Valid="1">

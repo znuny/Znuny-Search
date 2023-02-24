@@ -456,6 +456,22 @@ sub _QueryFieldDataSet {
 
             $Data = $Info;
         }
+
+        # dynamic field probably does not exists
+        # determine if query is prepared for engine
+        # if yes, then there is no need to get it validated
+        # as at this time Znuny does not contain this dynamic field
+        # but advanced engine have it saved
+        elsif ( $Param{QueryFor} && $Param{QueryFor} eq 'Engine' ) {
+
+            # apply the least restricted data
+            return {
+                ColumnName => 'DynamicField' . $DynamicFieldName,
+                Name       => $DynamicFieldName,
+                ReturnType => 'SCALAR',
+                Type       => 'String',
+            };
+        }
     }
     elsif ( $Param{Name} =~ m{\AArticle_(.+)\z} ) {
 
