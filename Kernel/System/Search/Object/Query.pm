@@ -199,7 +199,8 @@ sub ObjectIndexAdd {
         ResultType  => 'ARRAY',
     );
 
-    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+    return   if !$SQLSearchResult->{Success};
+    return 0 if !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexAdd(
@@ -265,7 +266,8 @@ sub ObjectIndexSet {
         ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
     );
 
-    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+    return   if !$SQLSearchResult->{Success};
+    return 0 if !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexSet(
@@ -329,7 +331,8 @@ sub ObjectIndexUpdate {
         QueryParams => $QueryParams,
     );
 
-    return if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+    return   if !$SQLSearchResult->{Success};
+    return 0 if !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
     # build and return query
     return $Param{MappingObject}->ObjectIndexUpdate(
@@ -637,7 +640,8 @@ sub _QueryParamsPrepare {
             Value            => $Param{QueryParams}->{$SearchParam},
             NoMappingCheck   => $Param{NoMappingCheck},
             SimplifiedMode   => $SimplifiedMode,
-            SearchableFields => $SearchableFields
+            SearchableFields => $SearchableFields,
+            QueryFor         => $Param{QueryFor},
         );
 
         if ( IsArrayRefWithData($Result) ) {
@@ -677,7 +681,8 @@ sub _QueryParamSet {
     my $SearchQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$IndexName");
 
     my $Data = $SearchQueryObject->_QueryFieldDataSet(
-        Name => $Name,
+        Name     => $Name,
+        QueryFor => $Param{QueryFor},
     );
 
     # check if query param should pass

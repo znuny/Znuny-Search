@@ -14,6 +14,7 @@ use warnings;
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
+    'Kernel::System::Search::Object',
 );
 
 sub new {
@@ -50,10 +51,6 @@ sub Run {
         return;
     }
 
-    # ticket index data will need to be set
-    # on any dynamic field operation
-    my $FunctionName = 'ObjectIndexSet';
-
     # check if updated dynamic field is of type Article
     my $PrependToField = '';
     my $ObjectType     = 'Ticket';
@@ -66,58 +63,58 @@ sub Run {
         }
     }
 
-    my $Success   = 1;
-    my $EventData = {
-        Data => {
-            DynamicField => {
-                $ObjectType => {
-                    New => {
-                        Name => $Param{Data}->{NewData}->{Name},
-                    },
-                    Old => {
-                        Name => $Param{Data}->{OldData}->{Name},
-                    }
-                }
-            }
-        },
-        Type => $Param{Event},
-    };
+    my $Success = 1;
 
     if ( $Param{Event} eq 'DynamicFieldDelete' ) {
+        my $OldDFName = $Param{Data}->{NewData}->{Name};
+
         $Success = $SearchChildObject->IndexObjectQueueAdd(
             Index => 'Ticket',
             Value => {
-                FunctionName => $FunctionName,
-                QueryParams  => {
-                    $PrependToField . "DynamicField_$Param{Data}->{NewData}->{Name}" => {
-                        Operator => "IS DEFINED"
+                FunctionName         => 'ObjectIndexUpdate',
+                QueryParams          => {},
+                AdditionalParameters => {
+                    CustomFunction => {
+                        Name   => 'ObjectIndexUpdateDFChanged',
+                        Params => {
+                            DynamicField => {
+                                ObjectType => $ObjectType,
+                                Name       => $OldDFName,
+                                Event      => 'Remove',
+                            }
+                        },
                     }
                 },
-                Event => $EventData,
+                Context => "ObjUpdate_DFDeleted__${OldDFName}_${ObjectType}",
             },
         );
-
         return $Success;
     }
 
-    if ( $Param{Data}->{NewData}->{Name} && $Param{Data}->{OldData}->{Name} ) {
-        my $DynamicFieldNameChanged = $Param{Data}->{NewData}->{Name} ne $Param{Data}->{OldData}->{Name};
-        if ($DynamicFieldNameChanged) {
-            $Success = $SearchChildObject->IndexObjectQueueAdd(
-                Index => 'Ticket',
-                Value => {
-                    FunctionName => $FunctionName,
-                    QueryParams  => {
-                        $PrependToField . "DynamicField_$Param{Data}->{OldData}->{Name}" => {
-                            Operator => "IS DEFINED"
+    my $OldDFName = $Param{Data}->{OldData}->{Name};
+    my $NewDFName = $Param{Data}->{NewData}->{Name};
+
+    if ( $NewDFName && $OldDFName && $NewDFName ne $OldDFName ) {
+        $Success = $SearchChildObject->IndexObjectQueueAdd(
+            Index => 'Ticket',
+            Value => {
+                FunctionName   => 'ObjectIndexUpdate',
+                QueryParams    => {},
+                CustomFunction => {
+                    Name   => 'ObjectIndexUpdateDFChanged',
+                    Params => {
+                        DynamicField => {
+                            ObjectType => $ObjectType,
+                            Name       => $OldDFName,
+                            NewName    => $Param{Data}->{NewData}->{Name},
+                            Event      => 'NameChange',
                         }
                     },
-                    Event => $EventData,
                 },
-            );
-
-            return $Success;
-        }
+                Context => "ObjUpdate_DFNameChanged_${OldDFName}_${ObjectType}",
+            },
+        );
+        return $Success;
     }
 
     return $Success;

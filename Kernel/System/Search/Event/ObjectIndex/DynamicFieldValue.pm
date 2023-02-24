@@ -18,6 +18,7 @@ our @ObjectDependencies = (
     'Kernel::System::Search',
     'Kernel::System::DynamicField',
     'Kernel::System::DynamicField::Backend',
+    'Kernel::System::Search::Object',
 );
 
 sub new {
@@ -65,6 +66,7 @@ sub Run {
     my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
         Name => $Param{Data}->{FieldName},
     );
+
     return if !IsHashRefWithData($DynamicFieldConfig);
 
     # get type of data that are stored in db
@@ -77,6 +79,15 @@ sub Run {
     my $FieldValueType = $FieldValueTypeGet->{ 'DynamicField_' . $DynamicFieldConfig->{Name} };
     my $FunctionName   = $Param{Config}->{FunctionName};
     my $Success;
+
+    # update either ticket or article
+    my $TicketAdditionalParameters = $DynamicFieldConfig->{ObjectType} eq 'Ticket'
+        ? {
+        UpdateTicket => 1,
+        }
+        : {
+        UpdateArticle => [ $Param{Data}->{ArticleID} ],
+        };
 
     # array & scalar fields support
     if (
@@ -94,6 +105,8 @@ sub Run {
         # dynamic_field_value removal is problematic as Znuny won't return
         # ID of record to delete, so instead custom ID is defined for
         # advanced search engine
+        my $UniqueID = 'f' . $DynamicFieldConfig->{ID} . 'o' . $Param{Data}->{TicketID};
+
         $Success = $SearchChildObject->IndexObjectQueueAdd(
             Index => 'DynamicFieldValue',
             Value => {
@@ -101,8 +114,9 @@ sub Run {
 
                 # use customized id which contains of "f*field_id*o*object_id*"
                 QueryParams => {
-                    _id => 'f' . $DynamicFieldConfig->{ID} . 'o' . $Param{Data}->{TicketID},
+                    _id => $UniqueID,
                 },
+                Context => "ObjRemove_DFDelete_$UniqueID",
             },
         );
 
@@ -110,10 +124,9 @@ sub Run {
         $Success = $SearchChildObject->IndexObjectQueueAdd(
             Index => 'Ticket',
             Value => {
-                FunctionName => 'ObjectIndexRemove',
-
-                # use customized id which contains of "f*field_id*o*object_id*"
-                ObjectID => $Param{Data}->{TicketID},
+                FunctionName         => 'ObjectIndexUpdate',
+                ObjectID             => $Param{Data}->{TicketID},
+                AdditionalParameters => $TicketAdditionalParameters,
             },
         );
 
@@ -130,6 +143,8 @@ sub Run {
                 FieldID  => $DynamicFieldConfig->{ID},
                 ObjectID => $ObjectID,
             },
+            Context => "ObjRemove_DF${FunctionName}_f" . $DynamicFieldConfig->{ID}
+                . 'o' . $ObjectID,
         },
     );
 
@@ -137,8 +152,9 @@ sub Run {
     $Success = $SearchChildObject->IndexObjectQueueAdd(
         Index => 'Ticket',
         Value => {
-            FunctionName => 'ObjectIndexSet',
-            ObjectID     => $Param{Data}->{TicketID},
+            FunctionName         => 'ObjectIndexUpdate',
+            ObjectID             => $Param{Data}->{TicketID},
+            AdditionalParameters => $TicketAdditionalParameters,
         },
     );
 

@@ -33,7 +33,7 @@ for fallback or separate engine.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchTicketHistoryObject = $Kernel::OM->Get('Kernel::System::Search::Default::Object::TicketHistory');
+    my $SearchTicketHistoryObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::TicketHistory');
 
 =cut
 

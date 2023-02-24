@@ -145,7 +145,7 @@ search for specified object data
                 Value => 2,
             }
         },
-        AdvancedQueryParams => [ # optional, mostly supported on indexes
+        AdvancedQueryParams => [ # (EXPERIMENTAL), optional, mostly supported on indexes
                                  # with first level of data structure nesting
                                  # advanced structure where an array is passed
                                  # any hashes inside are AND statements

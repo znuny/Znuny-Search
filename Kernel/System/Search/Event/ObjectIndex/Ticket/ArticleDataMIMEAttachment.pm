@@ -14,7 +14,8 @@ use warnings;
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
-    'Kernel::System::Search::Plugins::ES::Ingest',
+    'Kernel::Config',
+    'Kernel::System::Search::Object',
 );
 
 sub new {
@@ -66,8 +67,10 @@ sub Run {
                 Value => {
                     FunctionName => 'ObjectIndexRemove',
                     QueryParams  => {
-                        TicketID => $TicketID,
+                        TicketID    => $TicketID,
+                        Disposition => 'attachment',
                     },
+                    Context => "ObjRemove_TDelete_$TicketID",
                 },
             );
         }

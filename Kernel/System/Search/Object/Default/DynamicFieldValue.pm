@@ -261,7 +261,8 @@ sub SQLObjectSearch {
         ResultType        => $ResultType,
     );
 
-    return $SQLSearchResult if !$SQLSearchResult->{Success} || !IsArrayRefWithData( $SQLSearchResult->{Data} );
+    return   if !$SQLSearchResult->{Success};
+    return 0 if !IsArrayRefWithData( $SQLSearchResult->{Data} );
 
     $SQLSearchResult->{Data} = $QueryDynamicFieldValueObject->_PrepareDFSQLResponse(
         SQLSearchResult => $SQLSearchResult->{Data},
