@@ -745,7 +745,7 @@ sub ObjectListIDs {
                 push @Result, $SQLData->{$Identifier};
             }
         }
-        elsif ( $SQLSearchResult->{Data} ) {
+        elsif ( defined $SQLSearchResult->{Data} ) {
             return $SQLSearchResult->{Data};
         }
     }
@@ -1297,6 +1297,7 @@ sub ObjectIndexQueueAddRule {
         }
 
         if ( $Param{Queue}->{QueryParams}->{$Context} ) {
+            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
             return;
         }
         else {
@@ -1383,6 +1384,7 @@ sub ObjectIndexQueueSetRule {
         }
 
         if ( $Param{Queue}->{QueryParams}->{$Context} ) {
+            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
             return;
         }
         else {
@@ -1447,6 +1449,7 @@ sub ObjectIndexQueueUpdateRule {
         }
 
         if ( $Param{Queue}->{QueryParams}->{$Context} ) {
+            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
             return;
         }
         else {
@@ -1534,6 +1537,7 @@ sub ObjectIndexQueueRemoveRule {
         }
 
         if ( $Param{Queue}->{QueryParams}->{$Context} ) {
+            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
             return;
         }
         else {
@@ -1683,7 +1687,7 @@ sub _ObjectIndexAction {
 
 =head2 _ObjectIndexBaseAction()
 
-perform base operation on ticket data
+perform base operation
 
     my $FunctionResult = $SearchBaseObject->_ObjectIndexBaseAction(
         Function => 'ObjectIndexAdd',
@@ -1732,9 +1736,8 @@ sub _ObjectIndexBaseAction {
 
     return $Param{MappingObject}->$FunctionFormat(
         %Param,
-        Response      => $Response,
-        Config        => $Param{Config},
-        NoPermissions => 1,
+        Response => $Response,
+        Config   => $Param{Config},
     );
 }
 
