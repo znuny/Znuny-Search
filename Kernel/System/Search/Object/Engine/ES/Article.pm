@@ -156,12 +156,6 @@ sub new {
     # get default config
     $Self->DefaultConfigGet();
 
-    # restrict usage of other operators than default one
-    # for SQL search
-    $Self->{SupportedOperators}->{SimplifiedMode} = {
-        SQL => 1,
-    };
-
     # load fields
     $Self->_Load(
         Fields                   => $FieldMapping,
@@ -176,7 +170,7 @@ sub ObjectIndexAdd() {
 
     return $Self->ObjectIndexGeneric(
         %Param,
-        Function => '_ObjectIndexAddAction',
+        Function => $Param{Function} || '_ObjectIndexAddAction',
     );
 }
 
@@ -257,7 +251,7 @@ sub ObjectIndexGeneric {
     my $DataCount;
     my $SQLDataIDs;
 
-    # article id limit to process at once
+    # object id limit to process at once
     my $IDLimit = 100_000;
 
     # additional limit for single request
@@ -269,6 +263,7 @@ sub ObjectIndexGeneric {
     # correctly, otherwise return 0
     my $Success                 = 1;
     my $ArticleOffsetMultiplier = 0;
+
     do {
         my $ArticleOffset = $ArticleOffsetMultiplier++ * $IDLimit;
 

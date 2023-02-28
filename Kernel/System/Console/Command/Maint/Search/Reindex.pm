@@ -292,6 +292,8 @@ sub Run {
             TTL   => 24 * 60 * 60,
         );
 
+        my $IndexCreated;
+
         if ( !$RemoteExists ) {
             my $IndexRealName = $SearchIndexObject->{Config}->{IndexRealName};
 
@@ -304,6 +306,8 @@ sub Run {
             my $AddSuccess = $Self->{SearchObject}->IndexAdd(
                 IndexName => $IndexName,
             );
+
+            $IndexCreated = 1;
         }
         elsif ($Recreate) {
             my $IndexSettings = {};
@@ -339,39 +343,32 @@ sub Run {
                 $Self->Print("<green>Index recreated succesfully.\n</green>");
             }
 
+            $IndexCreated = 1;
         }
-        else {
-            # clear whole index to reindex it correctly
-            my $ClearSuccess = $Self->{SearchObject}->IndexClear(
+
+        if ($IndexCreated) {
+
+            # initialize index
+            my $InitSuccess = $Self->{SearchObject}->IndexInit(
                 Index => $IndexName,
             );
 
-            if ( !$ClearSuccess ) {
-                $Self->Print(
-                    "<red>Could not clear index $IndexName data! Ignoring re-indexation for that index.\n</red>"
-                );
+            if ( !$InitSuccess ) {
+                $Self->PrintError("Can't initialize index $IndexName!\n");
+                $IndexObjectStatus{$IndexName}->{Successful} = 0;
                 next OBJECT;
             }
+
+            $Self->Print("<green>Index initialized.</green>\n");
         }
 
-        # initialize index
-        my $InitSuccess = $Self->{SearchObject}->IndexInit(
-            Index => $IndexName,
-        );
+        $Self->Print("<yellow>Adding index data..</yellow>\n");
 
-        if ( !$InitSuccess ) {
-            $Self->PrintError("Can't initialize index $IndexName!\n");
-            $IndexObjectStatus{$IndexName}->{Successful} = 0;
-            next OBJECT;
-        }
-
-        $Self->Print("<green>Index initialized.</green>\n<yellow>Adding indexes..</yellow>\n");
-
-        my $ObjectCount = $SearchIndexObject->ObjectListIDs(
+        my $SQLObjectCount = $SearchIndexObject->ObjectListIDs(
             ResultType => 'COUNT',
         );
 
-        if ( !($ObjectCount) ) {
+        if ( !($SQLObjectCount) ) {
             $Self->Print(
                 "<yellow>No data to re-index.</yellow>\n\n"
             );
@@ -383,7 +380,7 @@ sub Run {
         my $LastObjectID = $StartFrom ? [$StartFrom] : $SearchIndexObject->ObjectListIDs(
             ResultType => 'ARRAY',
             OrderBy    => 'DESC',
-            Limit      => defined $Limit ? $Limit : 1
+            Limit      => 1
         );
 
         if ( !( IsArrayRefWithData($LastObjectID) ) ) {
@@ -395,11 +392,10 @@ sub Run {
         }
 
         my $GeneralStartTime = Time::HiRes::time();
-        my $ObjectIDs;
 
         my $From;
-        my $Refresh         = 0;
-        my $IterationNumber = 1;
+        my $Refresh = 0;
+        my $Processed;
         my $EndID;
 
         if ($StartFrom) {
@@ -410,87 +406,116 @@ sub Run {
         }
 
         my $StartID = $LastObjectID->[0];
+        $EndID++ if ( defined $Limit );
         $EndID = 1 if ( $EndID < 1 );
 
         my $ReindexationRange = $ReindexationStep > $StartID - $EndID ? $StartID - $EndID + 1 : $ReindexationStep;
+        my $Identifier        = $SearchIndexObject->{Config}->{Identifier};
 
-        my $TotalCount = $StartID - $EndID + 1;
-        STEP:
-        for ( my $i = $StartID; $i >= $EndID; $i = $i - $ReindexationRange ) {
+        my $TotalCount = $SearchIndexObject->ObjectListIDs(
+            QueryParams => {
+                $Identifier => {
+                    Operator => 'BETWEEN',
+                    Value    => {
+                        From => $EndID,
+                        To   => $StartID,
+                    },
+                },
+            },
+            ResultType => 'COUNT',
+        );
 
-            my $From = $i;
-            my $To   = $i - $ReindexationRange + 1;
+        if ($TotalCount) {
+            STEP:
+            for ( my $i = $StartID; $i >= $EndID; $i = $i - $ReindexationRange ) {
 
-            if ( $To < $EndID ) {
-                $To = $EndID;
-                $IterationNumber += $From - $To;
-            }
-            else {
-                $IterationNumber += $ReindexationRange;
-            }
+                my $From = $i;
+                my $To   = $i - $ReindexationRange + 1;
 
-            $To = 1 if ( $To < 1 );
+                if ( $To < $EndID ) {
+                    $To = $EndID;
+                }
 
-            my @ArrayPiece;
-            for ( my $j = $From; $j >= $To; $j-- ) {
-                push @ArrayPiece, $j;
-            }
+                $To = 1 if ( $To < 1 );
 
-            my $Result = $Self->{SearchObject}->ObjectIndexAdd(
-                Index    => $IndexName,
-                ObjectID => \@ArrayPiece,
-                Refresh  => 0,
-                Reindex  => 1,
-            );
+                my @ArrayPiece;
+                for ( my $j = $From; $j >= $To; $j-- ) {
+                    push @ArrayPiece, $j;
+                }
 
-            my $Percent = int( $IterationNumber / ( scalar $TotalCount / 100 ) );
-
-            my $ReindexingQueue = $CacheObject->Get(
-                Type => 'ReindexingProcess',
-                Key  => 'ReindexingQueue',
-            );
-
-            if ( !$ReindexingQueue ) {
-                my $ObjectQueueJSON = $JSONObject->Encode(
-                    Data => \%IndexObjectStatus
+                my $ObjectIDs = $SearchIndexObject->ObjectListIDs(
+                    QueryParams => {
+                        $Identifier => {
+                            Operator => 'BETWEEN',
+                            Value    => {
+                                From => $ArrayPiece[-1],
+                                To   => $ArrayPiece[0],
+                            },
+                        },
+                    },
+                    ResultType => 'ARRAY',
                 );
+
+                next STEP if !IsArrayRefWithData($ObjectIDs);
+
+                my $Result = $Self->{SearchObject}->ObjectIndexAdd(
+                    Index    => $IndexName,
+                    ObjectID => $ObjectIDs,
+                    Refresh  => 0,
+                    Reindex  => 1,
+                );
+
+                $Processed += scalar @{$ObjectIDs};
+
+                my $Percent = int( $Processed / ( $TotalCount / 100 ) );
+
+                my $ReindexingQueue = $CacheObject->Get(
+                    Type => 'ReindexingProcess',
+                    Key  => 'ReindexingQueue',
+                );
+
+                if ( !$ReindexingQueue ) {
+                    my $ObjectQueueJSON = $JSONObject->Encode(
+                        Data => \%IndexObjectStatus
+                    );
+
+                    $CacheObject->Set(
+                        Type  => 'ReindexingProcess',
+                        Key   => 'ReindexingQueue',
+                        Value => $ObjectQueueJSON,
+                        TTL   => 24 * 60 * 60,
+                    );
+
+                    $CacheObject->Set(
+                        Type  => 'ReindexingProcess',
+                        Key   => 'ReindexedIndex',
+                        Value => $IndexName,
+                        TTL   => 24 * 60 * 60,
+                    );
+                }
+
+                my $Seconds = abs( int( $GeneralStartTime - Time::HiRes::time() ) );
+
+                if (
+                    ( ( $Seconds % 5 == 0 && $Refresh != $Seconds ) || $Seconds - $Refresh > 5 )
+                    && $Percent != 100
+                    )
+                {
+                    $Refresh = $Seconds;
+                    $Self->Print(
+                        "<yellow>$Processed</yellow> of <yellow>$TotalCount</yellow> processed (<yellow>$Percent %</yellow> done).\n"
+                    );
+                }
 
                 $CacheObject->Set(
                     Type  => 'ReindexingProcess',
-                    Key   => 'ReindexingQueue',
-                    Value => $ObjectQueueJSON,
+                    Key   => 'Percentage',
+                    Value => $Percent,
                     TTL   => 24 * 60 * 60,
                 );
 
-                $CacheObject->Set(
-                    Type  => 'ReindexingProcess',
-                    Key   => 'ReindexedIndex',
-                    Value => $IndexName,
-                    TTL   => 24 * 60 * 60,
-                );
+                $IndexObjectStatus{$IndexName}->{ObjectFails} += scalar @ArrayPiece if !defined $Result;
             }
-
-            my $Seconds = abs( int( $GeneralStartTime - Time::HiRes::time() ) );
-
-            if (
-                ( ( $Seconds % 5 == 0 && $Refresh != $Seconds ) || $Seconds - $Refresh > 5 )
-                && $Percent != 100
-                )
-            {
-                $Refresh = $Seconds;
-                $Self->Print(
-                    "<yellow>$IterationNumber</yellow> of <yellow>$TotalCount</yellow> processed (<yellow>$Percent %</yellow> done).\n"
-                );
-            }
-
-            $CacheObject->Set(
-                Type  => 'ReindexingProcess',
-                Key   => 'Percentage',
-                Value => $Percent,
-                TTL   => 24 * 60 * 60,
-            );
-
-            $IndexObjectStatus{$IndexName}->{ObjectFails} += scalar @ArrayPiece if !defined $Result;
         }
 
         $Self->Print(

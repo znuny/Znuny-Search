@@ -234,7 +234,6 @@ On executing ticket search by Kernel::System::Search:
             CustomerID => '333',
             CustomerUserID => 'some-customer-user-id',
             UnlockTimeout => 0,
-            UntilTime => 0,
             EscalationTime => 0,
             EscalationUpdateTime => 0,
             EscalationResponseTime => 0,
@@ -831,7 +830,7 @@ sub ObjectIndexAdd() {
 
     return $Self->ObjectIndexGeneric(
         %Param,
-        Function         => '_ObjectIndexAddAction',
+        Function         => $Param{Function} || '_ObjectIndexAddAction',
         SetEmptyArticles => 1,
         RunPipeline      => 1,
         NoPermissions    => 1,
@@ -1014,14 +1013,10 @@ sub ObjectIndexUpdateGroupID {
                 source => "ctx._source.GroupID = params.value",
             },
         },
-
-        # _update_by_query request can be expensive
-        # for elasticsearch do not wait until it's done
-        # as it can throw request timeout on large data sets,
-        # with wait_for_completion
-        # this operation will be handled by ES internally
         QS => {
-            wait_for_completion => 'false',
+            wait_for_completion => 'true',
+            timeout             => '30s',
+            refresh             => 'true',
         }
     };
 
@@ -1246,13 +1241,10 @@ sub ObjectIndexUpdateDFChanged {
             },
         },
 
-        # _update_by_query request can be expensive
-        # for elasticsearch do not wait until it's done
-        # as it can throw request timeout on large data sets,
-        # with wait_for_completion
-        # this operation will be handled by ES internally
         QS => {
-            wait_for_completion => 'false',
+            wait_for_completion => 'true',
+            timeout             => '30s',
+            refresh             => 'true',
         }
     };
 
@@ -1383,13 +1375,15 @@ sub ObjectIndexGeneric {
                         Offset           => $Offset,
                         Limit            => $ReindexationStep,
                         NoPermissions    => $Param{NoPermissions},
-                        SetEmptyArticles => $Param{SetEmptyarticles},
+                        SetEmptyArticles => $Param{SetEmptyArticles},
                     );
+
+                    my @ObjectDataIDsToProcess = @{$SQLDataIDs}[ $Offset .. ( $Offset + $ReindexationStep - 1 ) ];
 
                     my $PartSuccess = $Self->$Function(
                         %Param,
                         DataToIndex => $SQLSearchResult,
-                        TicketIDs   => $SQLDataIDs->[ $Offset .. $Offset + $ReindexationStep - 1 ],
+                        TicketIDs   => \@ObjectDataIDsToProcess,
                     );
 
                     $Success = $PartSuccess if $Success && !$PartSuccess;
@@ -1413,7 +1407,15 @@ sub ObjectIndexGeneric {
                             },
                         },
                     },
-                    QS => { pipeline => 'attachment_nested' },
+                    QS => {
+                        pipeline => 'attachment_nested',
+
+                        # pipeline can be timed out on very large data
+                        # to prevent it make a task inside
+                        # elasticsearch
+                        # to be uncommented if the problem will occur
+                        # wait_for_completion => 'false', # <- uncomment this line
+                    },
                 };
 
                 $Param{EngineObject}->QueryExecute(
@@ -2164,7 +2166,7 @@ sub ObjectListIDs {
                 push @Result, $SQLData->{$Identifier};
             }
         }
-        elsif ( $SQLSearchResult->{Data} ) {
+        elsif ( defined $SQLSearchResult->{Data} ) {
             return $SQLSearchResult->{Data};
         }
     }
@@ -2284,6 +2286,7 @@ sub ObjectIndexQueueUpdateRule {
         }
 
         if ( $Param{Queue}->{QueryParams}->{$Context} ) {
+            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
             return;
         }
         else {
