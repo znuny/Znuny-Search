@@ -20,6 +20,8 @@ our @ObjectDependencies = (
     'Kernel::System::Ticket',
     'Kernel::System::DynamicField',
     'Kernel::System::DynamicField::Backend',
+    'Kernel::System::Main',
+    'Kernel::System::Search',
 );
 
 =head1 NAME
@@ -54,6 +56,15 @@ sub new {
     {
         $Self->{ 'Index' . $Property } = $IndexObject->{$Property};
     }
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $MainObject   = $Kernel::OM->Get('Kernel::System::Main');
+
+    $Self->{ActiveEngine} = $SearchObject->{Config}->{ActiveEngine};
+
+    $MainObject->Require(
+        "Kernel::System::Search::Object::EngineQueryHelper::$Self->{ActiveEngine}",
+    );
 
     bless( $Self, $Type );
 

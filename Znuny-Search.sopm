@@ -2,16 +2,14 @@
 <otrs_package version="1.0">
     <Name>Znuny-Search</Name>
     <Version>6.3.0</Version>
-    <Framework>7.0.x</Framework>
     <Framework>6.5.x</Framework>
-    <Framework>6.4.x</Framework>
-    <Framework>6.3.x</Framework>
     <Vendor>Znuny GmbH</Vendor>
     <URL>http://znuny.com/</URL>
     <License>GNU AFFERO GENERAL PUBLIC LICENSE Version 3, November 2007</License>
-    <Description Lang="en">A package containing functionalities related to search engines.</Description>
+    <Description Lang="en">Functionality related to search engines.</Description>
     <Filelist>
         <File Permission="660" Location="Kernel/Config/Files/XML/Search.xml"/>
+        <File Permission="660" Location="Kernel/Language/de_ZnunySearch.pm"/>
         <File Permission="660" Location="Kernel/Modules/AdminSearch.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Cluster.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Admin/Details.pm"/>
@@ -35,28 +33,33 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Default/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicFieldValue.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/CustomerUser.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/ArticleDataMIMEAttachment.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/CustomerUser.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicFieldValue.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/ArticleDataMIMEAttachment.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Query/CustomerUser.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/EngineQueryHelper/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/Reindex.pm"/>
+        <File Permission="660" Location="Kernel/System/CustomerUser/Elasticsearch.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicFieldValue.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/QueueUpdate.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicField/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketDelete.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketMerge.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Article/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/ArticleDataMIMEAttachment.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/CustomerUser.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Fallback/Default.pm"/>
@@ -84,6 +87,8 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/Pattern/Fallback/Default.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/FullText/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/FullText/Fallback/Default.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Operators/Wildcard/Fallback/Default.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Operators/Wildcard/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Admin/Reindexation.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Plugins/Base.pm"/>
@@ -101,6 +106,7 @@
         <File Permission="660" Location="scripts/test/Search/Ticket.t"/>
         <File Permission="660" Location="scripts/test/Search/Reindex.t"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/ES/IndexQueueDataProcess.pm"/>
+        <File Permission="660" Location="Custom/Kernel/System/DynamicField/ObjectType/CustomerUser.pm"/>
         <File Permission="660" Location="Custom/Kernel/System/Ticket/Article/Backend/MIMEBase/Base.pm"/>
         <File Permission="660" Location="Custom/Kernel/System/Ticket/Article/Backend/MIMEBase/ArticleStorageFS.pm"/>
         <File Permission="660" Location="Custom/Kernel/System/Ticket/Article/Backend/MIMEBase/ArticleStorageDB.pm"/>

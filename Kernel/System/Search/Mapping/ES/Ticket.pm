@@ -62,6 +62,7 @@ sub _ResponseDataFormat {
     my ( $Self, %Param ) = @_;
 
     my @Objects;
+    my $SimpleArray = $Param{ResultType} && $Param{ResultType} eq 'ARRAY_SIMPLE' ? 1 : 0;
 
     my $EncodeObject = $Kernel::OM->Get('Kernel::System::Encode');
 
@@ -77,8 +78,20 @@ sub _ResponseDataFormat {
             )
         {
             # filter scalar/array fields by return type
-            my @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ m{\AARRAY|HASH\z} } @Fields;
-            my @ArrayFields  = grep { $Param{Fields}->{$_}->{ReturnType} eq 'ARRAY' } @Fields;
+            my @ScalarFields;
+            my @ArrayFields;
+            if ($SimpleArray) {
+                for my $Hit ( @{$Hits} ) {
+                    for my $Field ( @{ $Hit->{fields} } ) {
+                        push @Objects, $Hit->{fields}->{$Field};
+                    }
+                }
+                return \@Objects;
+            }
+            else {
+                @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ m{\AARRAY|HASH\z} } @Fields;
+                @ArrayFields  = grep { $Param{Fields}->{$_}->{ReturnType} eq 'ARRAY' } @Fields;
+            }
 
             for my $Hit ( @{$Hits} ) {
                 my %Data;
@@ -98,74 +111,38 @@ sub _ResponseDataFormat {
 
         # ES engine response stores objects inside "_source" key by default
         elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) || $Hits->[0]->{inner_hits} ) {
-
-            # check if there will be a need to look for child objects data
-            if ( $Param{NestedFieldsGet} ) {
+            if (
+                IsArrayRefWithData( $Param{QueryData}->{Query}->{Body}->{_source} )
+                &&
+                grep { $_ eq 'Articles.Attachments.Content' } @{ $Param{QueryData}->{Query}->{Body}->{_source} }
+                )
+            {
                 for my $Hit ( @{$Hits} ) {
-                    my $Data = $Hit->{_source};
-                    if ( $Hit->{inner_hits} ) {
+                    my $Articles = $Hit->{_source}->{Articles};
+                    if ( IsArrayRefWithData($Articles) ) {
+                        for ( my $i = 0; $i < scalar @{$Articles}; $i++ ) {
+                            my $Attachments = $Articles->[$i]->{Attachments};
+                            if ( IsArrayRefWithData($Attachments) ) {
+                                for ( my $j = 0; $j < scalar @{$Attachments}; $j++ ) {
+                                    my $Attachment = $Attachments->[$j];
 
-                        for my $ChildKey ( sort keys %{ $Hit->{inner_hits} } ) {
-                            for my $ChildHit ( @{ $Hit->{inner_hits}->{$ChildKey}->{hits}->{hits} } ) {
-                                if (
-                                    IsHashRefWithData( $ChildHit->{_source} )
-                                    || IsHashRefWithData( $ChildHit->{inner_hits} )
-                                    )
-                                {
-                                    for my $DualNestedChildKey ( sort keys %{ $ChildHit->{inner_hits} } ) {
-                                        $DualNestedChildKey =~ m{$ChildKey\.(.*)};
-                                        my $DualNestedChildRealName = $1;
-                                        for my $DualNestedChildHit (
-                                            @{ $ChildHit->{inner_hits}->{$DualNestedChildKey}->{hits}->{hits} }
-                                            )
-                                        {
-                                            if ( $DualNestedChildHit->{_source}->{Content} ) {
-                                                $DualNestedChildHit->{_source}->{Content}
-                                                    = decode_base64( $DualNestedChildHit->{_source}->{Content} );
-                                            }
-
-                                            push @{ $ChildHit->{_source}->{$DualNestedChildRealName} },
-                                                $DualNestedChildHit->{_source};
-                                        }
+                                    if ( $Attachment->{Content} ) {
+                                        $Hit->{_source}->{Articles}->[$i]->{Attachments}->[$j]->{Content}
+                                            = decode_base64( $Attachment->{Content} );
                                     }
                                 }
-
-                                push @{ $Data->{$ChildKey} }, $ChildHit->{_source};
                             }
                         }
                     }
-                    if ( IsHashRefWithData($Data) ) {
-                        push @Objects, $Data;
-                    }
+                    push @Objects, $Hit->{_source};
                 }
             }
             else {
-                if (
-                    IsArrayRefWithData( $Param{QueryData}->{Query}->{Body}->{_source} )
-                    &&
-                    grep { $_ eq 'Articles.Attachments.Content' } @{ $Param{QueryData}->{Query}->{Body}->{_source} }
-                    )
-                {
+                if ($SimpleArray) {
                     for my $Hit ( @{$Hits} ) {
-                        my $Articles = $Hit->{_source}->{Articles};
-
-                        if ( IsArrayRefWithData($Articles) ) {
-                            for ( my $i = 0; $i < scalar @{$Articles}; $i++ ) {
-                                my $Attachments = $Articles->[$i]->{Attachments};
-
-                                if ( IsArrayRefWithData($Attachments) ) {
-                                    for ( my $j = 0; $j < scalar @{$Attachments}; $j++ ) {
-                                        my $Attachment = $Attachments->[$j];
-
-                                        if ( $Attachment->{Content} ) {
-                                            $Hit->{_source}->{Articles}->[$i]->{Attachments}->[$j]->{Content}
-                                                = decode_base64( $Attachment->{Content} );
-                                        }
-                                    }
-                                }
-                            }
+                        for my $Field ( sort keys %{ $Hit->{_source} } ) {
+                            push @Objects, $Hit->{_source}->{$Field};
                         }
-                        push @Objects, $Hit->{_source};
                     }
                 }
                 else {

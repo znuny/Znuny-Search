@@ -280,7 +280,7 @@ sub SearchFormat {
 
     my $IndexResponse;
 
-    if ( $Param{ResultType} eq "ARRAY" ) {
+    if ( $Param{ResultType} eq "ARRAY" || $Param{ResultType} eq "ARRAY_SIMPLE" ) {
         $IndexResponse->{$IndexName} = $ObjectData;
     }
     elsif ( $Param{ResultType} eq "HASH" ) {

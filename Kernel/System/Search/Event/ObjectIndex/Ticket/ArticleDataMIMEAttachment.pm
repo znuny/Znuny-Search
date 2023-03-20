@@ -70,7 +70,7 @@ sub Run {
                         TicketID    => $TicketID,
                         Disposition => 'attachment',
                     },
-                    Context => "ObjRemove_TDelete_$TicketID",
+                    Context => "ObjectIndexRemove_TicketDelete_$TicketID",
                 },
             );
         }

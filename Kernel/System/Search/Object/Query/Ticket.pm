@@ -20,8 +20,10 @@ our @ObjectDependencies = (
     'Kernel::System::DynamicField',
     'Kernel::System::DynamicField::Backend',
     'Kernel::System::Search::Object::Default::Article',
-    'Kernel::System::Search::Object::Default::ArticleDataMIME',
     'Kernel::System::Group',
+    'Kernel::System::Main',
+    'Kernel::System::Search',
+    'Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment',
 );
 
 =head1 NAME
@@ -56,6 +58,15 @@ sub new {
     {
         $Self->{ 'Index' . $Property } = $IndexObject->{$Property};
     }
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $MainObject   = $Kernel::OM->Get('Kernel::System::Main');
+
+    $Self->{ActiveEngine} = $SearchObject->{Config}->{ActiveEngine};
+
+    $MainObject->Require(
+        "Kernel::System::Search::Object::EngineQueryHelper::$Self->{ActiveEngine}",
+    );
 
     bless( $Self, $Type );
 
@@ -219,6 +230,7 @@ sub LookupTicketFields {
             Operator   => "=",
             Value      => \@IDs,
             ReturnType => 'SCALAR',
+            Type       => 'String',
         };
 
         $LookupQueryParams->{ $Key . 'ID' } = $LookupQueryParam;
@@ -234,6 +246,7 @@ sub LookupTicketFields {
             Operator   => "=",
             Value      => \@Param,
             ReturnType => 'SCALAR',
+            Type       => 'String',
         };
 
         $LookupQueryParams->{CustomerUserID} = $LookupQueryParam;
@@ -282,6 +295,7 @@ sub LookupTicketFields {
             Operator   => "=",
             Value      => \@IDs,
             ReturnType => 'SCALAR',
+            Type       => 'Integer',
         };
 
         $LookupQueryParams->{$AttributeName} = $LookupQueryParam;
@@ -306,11 +320,15 @@ sub _QueryParamsPrepare {
 
     my $GroupObject = $Kernel::OM->Get('Kernel::System::Group');
 
-    my $QueryParams = $Param{QueryParams};
+    my %QueryParams;
+
+    if ( IsHashRefWithData( $Param{QueryParams} ) ) {
+        %QueryParams = %{ $Param{QueryParams} };
+    }
 
     # support lookup fields
     my $LookupQueryParams = $Self->LookupTicketFields(
-        QueryParams => $QueryParams,
+        QueryParams => \%QueryParams,
     ) // {};
 
     # on lookup error there should be no response
@@ -321,34 +339,34 @@ sub _QueryParamsPrepare {
     # query parameter
     # so response would always be empty
     if ( delete $LookupQueryParams->{Error} ) {
-        $QueryParams = {
+        %QueryParams = (
             TicketID => -1,
-        };
+        );
     }
 
     # support permissions
-    if ( $QueryParams->{UserID} ) {
+    if ( $QueryParams{UserID} ) {
 
         # get users groups
         my %GroupList = $GroupObject->PermissionUserGet(
-            UserID => delete $QueryParams->{UserID},
-            Type   => delete $QueryParams->{Permissions} || 'ro',
+            UserID => delete $QueryParams{UserID},
+            Type   => delete $QueryParams{Permissions} || 'ro',
         );
 
-        push @{ $QueryParams->{GroupID} }, keys %GroupList;
+        push @{ $QueryParams{GroupID} }, keys %GroupList;
     }
 
     # additional check if valid groups was specified
     # based on UserID and GroupID params
     # if no, treat it as there is no permissions
     # empty response will be retrieved
-    if ( !$Param{NoPermissions} && !IsArrayRefWithData( $QueryParams->{GroupID} ) ) {
-        $QueryParams->{GroupID} = [-1];
+    if ( !$Param{NoPermissions} && !IsArrayRefWithData( $QueryParams{GroupID} ) ) {
+        $QueryParams{GroupID} = [-1];
     }
 
     my $SearchParams = $Self->SUPER::_QueryParamsPrepare(
         %Param,
-        QueryParams => $QueryParams,
+        QueryParams => \%QueryParams,
     ) // {};
 
     if ( ref $SearchParams eq 'HASH' && $SearchParams->{Error} ) {
@@ -382,12 +400,11 @@ sub _QueryFieldCheck {
     return 1 if $Param{Name} =~ m{\A(DynamicField_.+)|(Article_DynamicField_.+)|(Attachment_.+)};
 
     if ( $Param{Name} =~ m{\AArticle_(.+)} ) {
-        my $SearchArticleObject         = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-        my $SearchArticleDataMIMEObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIME');
+        my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
 
         if ( !$Param{NoMappingCheck} ) {
             return 1 if $SearchArticleObject->{Fields}->{$1};
-            return 1 if $SearchArticleDataMIMEObject->{Fields}->{$1};
+            return 1 if $SearchArticleObject->{ExternalFields}->{$1};
         }
     }
 
@@ -516,68 +533,6 @@ sub _QueryFieldDataSet {
     }
 
     return $Data;
-}
-
-=head2 _QueryDynamicFieldInfoGet()
-
-get info for dynamic field in query params
-
-    my $Result = $SearchQueryTicketObject->_QueryDynamicFieldInfoGet(
-        DynamicFieldConfig => $DynamicFieldConfig,
-    );
-
-=cut
-
-sub _QueryDynamicFieldInfoGet {
-    my ( $Self, %Param ) = @_;
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    NEEDED:
-    for my $Needed (qw(DynamicFieldConfig)) {
-
-        next NEEDED if $Param{$Needed};
-
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Parameter '$Needed' is needed!",
-        );
-        return;
-    }
-
-    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
-    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
-
-    my $DynamicFieldConfig     = $Param{DynamicFieldConfig};
-    my $DynamicFieldColumnName = 'DynamicField_' . $DynamicFieldConfig->{Name};
-
-    # get return type for dynamic field
-    my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
-        DynamicFieldConfig => $DynamicFieldConfig,
-        FieldType          => 'Edit',
-    );
-
-    # set type of field
-    my $Type = 'String';
-
-    if (
-        $DynamicFieldConfig->{FieldType}
-        && (
-            $DynamicFieldConfig->{FieldType} eq 'Date'
-            || $DynamicFieldConfig->{FieldType} eq 'DateTime'
-        )
-        )
-    {
-        $Type = 'Date';
-    }
-
-    # apply properties that are set in object fields mapping
-    return {
-        ColumnName => $DynamicFieldColumnName,
-        Name       => $DynamicFieldConfig->{Name},
-        ReturnType => $FieldValueType->{$DynamicFieldColumnName} || 'SCALAR',
-        Type       => $Type,
-    };
 }
 
 1;

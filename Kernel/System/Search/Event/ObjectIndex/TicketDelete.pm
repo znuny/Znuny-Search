@@ -87,7 +87,7 @@ sub Run {
                     QueryParams  => {
                         _id => \@QueryParamsID,
                     },
-                    Context => "ObjRemove_TDelete_$TicketID",
+                    Context => "ObjectIndexRemove_TicketDelete_$TicketID",
                 },
             );
         }
@@ -114,7 +114,7 @@ sub Run {
                     QueryParams  => {
                         TicketID => $TicketID,
                     },
-                    Context => "ObjRemove_TDelete_$TicketID",
+                    Context => "ObjectIndexRemove_TicketDelete_$TicketID",
                 },
             );
         }
@@ -146,7 +146,7 @@ sub Run {
                     QueryParams  => {
                         TicketID => $TicketID,
                     },
-                    Context => "ObjRemove_TDelete_$TicketID",
+                    Context => "ObjectIndexRemove_TicketDelete_$TicketID",
                 },
             );
         }

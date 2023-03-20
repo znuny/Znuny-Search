@@ -121,7 +121,7 @@
                         <tr class="[% Data.Style.Index | html %]">
                             <td class="[% Data.Style.Name | html %]">[% Translate(Data.Name) | html %]
 [% IF !Data.IndexIsValid %]
-                            <i title="[% Translate("Index is not valid, click for more informations !") | html %]" class="fa fa-exclamation-triangle NotSupportedIcon"></i>
+                            <i title="[% Translate("Index is not valid, click for more information.") | html %]" class="fa fa-exclamation-triangle NotSupportedIcon"></i>
                             <div class="Hidden" id="NotSupportedDialogContainer">
                                 <div id="NotSupportedDialog" class="InnerContent GenericInterfaceDialog">
                                     <span class="WarningDialog ">&nbsp;</span>
@@ -131,11 +131,11 @@
                             </div>
 [% END %]
 [% IF Data.Style.Index == 'Missing' %]
-                            <i title="[% Translate("Index is missing, click for more informations !") | html %]" class="fa fa-exclamation-triangle MissingIcon"></i>
+                            <i title="[% Translate("Index is missing, click for more information.") | html %]" class="fa fa-exclamation-triangle MissingIcon"></i>
                             <div class="Hidden" id="MissingDialogContainer">
                                 <div id="MissingDialog" class="InnerContent GenericInterfaceDialog">
                                     <span class="WarningDialog ">&nbsp;</span>
-                                    <p class="Center Warning">[% Translate("This index is missing on engine side. Please read documentation about 'engine structure'.") | html %]</p>
+                                    <p class="Center Warning">[% Translate("This index is missing on search engine side. Please read documentation about 'engine structure'.") | html %]</p>
                                     <div class="SpacingTop"></div>
                                 </div>
                             </div>
@@ -155,7 +155,7 @@
                             </td>
 [% IF Data.Style.Index != 'Missing' AND Data.Style.Index != 'Removed' %]
                             <td class="Center">
-                                <i title="[% Translate("Click to remove index from engine side") | html %]" class="fa fa-trash-o IndexRemove" value="[% Translate(Data.Name) | html %]"></i>
+                                <i title="[% Translate("Click to remove index from search engine.") | html %]" class="fa fa-trash-o IndexRemove" value="[% Translate(Data.Name) | html %]"></i>
                             </td>
 [% ELSE %]
                             <td class="Center"></td>
@@ -168,7 +168,7 @@
         <div class="Hidden" id="IndexRemoveContainer">
             <div id="IndexRemoveContainer" class="InnerContent GenericInterfaceDialog">
                 <span class="WarningDialog ">&nbsp;</span>
-                <p class="Center Warning">[% Translate("Do you really want to remove the index from engine side?") | html %]</p>
+                <p class="Center Warning">[% Translate("Do you really want to remove the index from search engine?") | html %]</p>
                 <div class="SpacingTop"></div>
             </div>
         </div>
@@ -176,5 +176,5 @@
 </div>
 
 [% ELSE %]
-    [% Translate("Cannot connect to engine.") | html %]
+    [% Translate("Cannot connect to search engine.") | html %]
 [% END %]

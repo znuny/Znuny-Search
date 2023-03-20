@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Event::ObjectIndex::QueueUpdate;
+package Kernel::System::Search::Event::ObjectIndex::CustomerUser;
 
 use strict;
 use warnings;
@@ -46,38 +46,35 @@ sub Run {
         return;
     }
 
-    my $IsValid = $SearchChildObject->IndexIsValid(
-        IndexName => 'Ticket',
-    );
+    my $UserLogin = $Param{Data}->{UserLogin};
 
-    return if !$IsValid;
+    # no complete data is sent in the event data
+    # so there is a need to make an sql statement
+    # by user login
+    if ( $Param{Event} eq 'CustomerUserUpdate' ) {
+        $UserLogin = $Param{Data}->{NewData}->{UserLogin};
 
-    my $OldGroupID = $Param{Data}->{OldQueue}->{GroupID};
-    my $NewGroupID = $Param{Data}->{Queue}->{GroupID};
+        my $QueryParams = {
+            UserLogin => $UserLogin,
+        };
 
-    # execute only on group change
-    return 1 if $OldGroupID == $NewGroupID;
+        return $SearchObject->ObjectIndexUpdate(
+            Index       => 'CustomerUser',
+            Refresh     => 1,
+            QueryParams => $QueryParams,
+        );
+    }
+    elsif ( $Param{Event} eq 'CustomerUserAdd' ) {
+        my $QueryParams = {
+            UserLogin => $UserLogin,
+        };
 
-    my $OldQueueID = $Param{Data}->{OldQueue}->{QueueID};
-
-    $SearchChildObject->IndexObjectQueueAdd(
-        Index => 'Ticket',
-        Value => {
-            FunctionName => 'ObjectIndexUpdate',
-            QueryParams  => {
-                QueueID => $OldQueueID,
-            },
-            AdditionalParameters => {
-                CustomFunction => {
-                    Name   => 'ObjectIndexUpdateGroupID',
-                    Params => {
-                        NewGroupID => $NewGroupID,
-                    }
-                },
-            },
-            Context => "ObjectIndexUpdate_GroupChange_${OldQueueID}_${NewGroupID}",
-        },
-    );
+        return $SearchObject->ObjectIndexAdd(
+            Index       => 'CustomerUser',
+            Refresh     => 1,
+            QueryParams => $QueryParams,
+        );
+    }
 
     return 1;
 }

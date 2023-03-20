@@ -378,9 +378,8 @@ sub Run {
         }
 
         my $LastObjectID = $StartFrom ? [$StartFrom] : $SearchIndexObject->ObjectListIDs(
-            ResultType => 'ARRAY',
-            OrderBy    => 'DESC',
-            Limit      => 1
+            OrderBy => 'DESC',
+            Limit   => 1
         );
 
         if ( !( IsArrayRefWithData($LastObjectID) ) ) {
@@ -453,7 +452,6 @@ sub Run {
                             },
                         },
                     },
-                    ResultType => 'ARRAY',
                 );
 
                 next STEP if !IsArrayRefWithData($ObjectIDs);

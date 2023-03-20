@@ -7,7 +7,7 @@
 # --
 
 <div class="MainBox ARIARoleMain LayoutFixedSidebar SidebarFirst">
-    <h1 class="InvisibleText">[% Translate("Reindexing Management") | html %]</h1>
+    <h1 class="InvisibleText">[% Translate("Re-indexation Management") | html %]</h1>
 
     [% BreadcrumbPath = [
             {
@@ -38,7 +38,7 @@
     <div class="Hidden" id="ReindexConfirmation">
         <div id="ReindexConfirmationContainer" class="InnerContent GenericInterfaceDialog">
             <div class="Content">
-                [% Translate("Are you sure you want to re-index search engine indexes ?") | html %]
+                [% Translate("Are you sure you want to re-index search engine indexes?") | html %]
             </div>
         <div class="SpacingTop"></div>
         </div>
@@ -50,7 +50,7 @@
             [% IF Data.ClusterID || Data.NodeID %]
                 <div class="WidgetSimple">
                     <div class="Header">
-                         <h2>[% Translate("Re-indexing section") | html %]</h2>
+                         <h2>[% Translate("Re-indexation") | html %]</h2>
                     </div>
                     <div class="Content">
                         <div class="LayoutGrid ColumnsWithSpacing CommunicationNode">
@@ -92,7 +92,7 @@
                             <div class="Field SpacingTop">
 [% IF !Data.ReindexingOngoing && Data.ActiveCluster && Data.EngineConnection %]
                             <div class="ActionButtons" style="margin-top:20px">
-                                <button class="CallForAction Primary" id="Reindex" type="submit" value="[% Translate("Reindex") | html %]"><span>[% Translate("Reindex") | html %]</span></button>
+                                <button class="CallForAction Primary" id="Reindex" type="submit" value="[% Translate("Re-index") | html %]"><span>[% Translate("Re-index") | html %]</span></button>
 
                                 [% Translate("or") | html %]
 
@@ -105,10 +105,10 @@
 [% ELSIF !Data.ActiveCluster %]
                                 [% Translate("Cluster is not active. Cannot perform any action on invalid cluster.") | html %]
 [% ELSIF !Data.EngineConnection %]
-                                [% Translate("Cannot connect to engine. Please check your connection.") | html %]
+                                [% Translate("Cannot connect to search engine. Please check your connection.") | html %]
 [% ELSE %]
                                 <div id="ReindexationProcessContainer">
-                                    [% Translate("Re-indexing is already ongoing. Please wait for the end of the process.") | html %]
+                                    [% Translate("Re-indexation is already ongoing. Please wait for the end of the process.") | html %]
                                     <fieldset class="GridTable">
 [% RenderBlockStart("ProgressBar") %]
                                         <div style="height:10px;width:380px;background-color:#d9d7d7;text-align:center">
@@ -120,7 +120,7 @@
                                             [% Translate("Preparing...") | html %]
 [% END %]
                                             </div>
-                                        <button class="CallForAction Primary" id="StopReindexation" type="submit" style="text-align:center"><span>Stop reindexation</span></button>
+                                        <button class="CallForAction Primary" id="StopReindexation" type="submit" style="text-align:center"><span>[% Translate("Stop reindexation") |html %]</span></button>
                                     </div>
 [% RenderBlockEnd("ProgressBar") %]
                                 </fieldset>
@@ -131,7 +131,7 @@
                     </div>
                 </div>
             [% ELSE %]
-                [% Translate("Need ClusterID") | html %]
+                [% Translate("Need cluster ID") | html %]
             [% END %]
         </form>
     </div>

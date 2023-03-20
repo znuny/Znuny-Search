@@ -367,6 +367,48 @@ sub IndexMappingSet {
     );
 }
 
+=head2 IndexBaseInit()
+
+perform initialization for index
+
+    my $Result = $SearchObject->IndexBaseInit(
+        Index         => $Index,
+        Config        => $Config,
+        MappingObject => $MappingObject,
+        EngineObject  => $EngineObject,
+        ConnectObject => $ConnectObject,
+    );
+
+=cut
+
+sub IndexBaseInit {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $PreparedQuery = $SearchObject->QueryPrepare(
+        %Param,
+        Operation     => "IndexBaseInit",
+        Config        => $Param{Config},
+        MappingObject => $Param{MappingObject},
+    );
+
+    return 0 if !$PreparedQuery;
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        %Param,
+        Query         => $PreparedQuery,
+        Operation     => "IndexBaseInit",
+        ConnectObject => $Param{ConnectObject},
+    );
+
+    return $Param{MappingObject}->IndexBaseInitFormat(
+        %Param,
+        Result => $Response,
+        Config => $Param{Config},
+    );
+}
+
 =head2 SQLObjectSearch()
 
 search in sql database for objects index related
@@ -479,6 +521,7 @@ sub SQLObjectSearch {
         my $SearchParams = $QueryObject->_QueryParamsPrepare(
             QueryParams   => $Param{QueryParams},
             NoPermissions => $Param{NoPermissions},
+            Strict        => $Param{Strict},
             QueryFor      => 'SQL',
         );
 
@@ -613,14 +656,26 @@ sub SQLObjectSearch {
     }
 
     my @Result;
-    while ( my @Row = $DBObject->FetchrowArray() ) {
-        my %Data;
-        my $DataCounter = 0;
-        for my $ColumnName (@TableColumns) {
-            $Data{$ColumnName} = $Row[$DataCounter];
-            $DataCounter++;
+
+    if ( $ResultType eq 'ARRAY_SIMPLE' ) {
+        while ( my @Row = $DBObject->FetchrowArray() ) {
+            my $DataCounter = 0;
+            for my $ColumnName (@TableColumns) {
+                push @Result, $Row[$DataCounter];
+                $DataCounter++;
+            }
         }
-        push @Result, \%Data;
+    }
+    else {
+        while ( my @Row = $DBObject->FetchrowArray() ) {
+            my %Data;
+            my $DataCounter = 0;
+            for my $ColumnName (@TableColumns) {
+                $Data{$ColumnName} = $Row[$DataCounter];
+                $DataCounter++;
+            }
+            push @Result, \%Data;
+        }
     }
 
     return {
@@ -634,7 +689,7 @@ sub SQLObjectSearch {
 format result specifically for index
 
     my $FormattedResult = $SearchBaseObject->SearchFormat(
-        ResultType => 'ARRAY|HASH|COUNT' (optional, default: 'ARRAY')
+        ResultType => 'ARRAY|ARRAY_SIMPLE|HASH|COUNT' (optional, default: 'ARRAY')
         IndexName  => "Ticket",
         GloballyFormattedResult => $GloballyFormattedResult,
     )
@@ -674,7 +729,7 @@ sub SearchFormat {
 
     my $IndexResponse;
 
-    if ( $Param{ResultType} eq "ARRAY" ) {
+    if ( $Param{ResultType} eq 'ARRAY' || $Param{ResultType} eq 'ARRAY_SIMPLE' ) {
         $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData} // [];
     }
     elsif ( $Param{ResultType} eq "HASH" ) {
@@ -732,22 +787,14 @@ sub ObjectListIDs {
         Fields      => [$Identifier],
         OrderBy     => $Param{OrderBy},
         SortBy      => $Param{SortBy} // $Identifier,
-        ResultType  => $Param{ResultType} || 'ARRAY',
+        ResultType  => $Param{ResultType} || 'ARRAY_SIMPLE',
         Limit       => $Param{Limit},
         Offset      => $Param{Offset},
     );
 
-    # push hash data into array
     my @Result;
     if ( $SQLSearchResult->{Success} ) {
-        if ( IsArrayRefWithData( $SQLSearchResult->{Data} ) ) {
-            for my $SQLData ( @{ $SQLSearchResult->{Data} } ) {
-                push @Result, $SQLData->{$Identifier};
-            }
-        }
-        elsif ( defined $SQLSearchResult->{Data} ) {
-            return $SQLSearchResult->{Data};
-        }
+        return $SQLSearchResult->{Data} if defined $SQLSearchResult->{Data};
     }
 
     return \@Result;
@@ -813,15 +860,25 @@ sub DefaultConfigGet {
     $Self->{SupportedResultTypes} = {
 
         # key defines if result type is supported
+        # result type with array of objects
         'ARRAY' => {
 
             # sortable defines if sql/engine can use
             # OrderBy, SortBy parameters in queries
             Sortable => 1,
         },
+
+        # result type with array of scalars
+        'ARRAY_SIMPLE' => {
+            Sortable => 1,
+        },
+
+        # result type with keys as id and values as object
         'HASH' => {
             Sortable => 0,
         },
+
+        # result type as scalar
         'COUNT' => {
             Sortable => 0,
         }
@@ -842,9 +899,9 @@ sub DefaultConfigGet {
                 "BETWEEN"        => 1,
                 "IS DEFINED"     => 1,
                 "IS NOT DEFINED" => 1,
+                "WILDCARD"       => 1,
             },
             String => {
-
                 "="              => 1,
                 "!="             => 1,
                 ">="             => 1,
@@ -857,6 +914,7 @@ sub DefaultConfigGet {
                 "IS NOT DEFINED" => 1,
                 "FULLTEXT"       => 1,
                 "PATTERN"        => 1,
+                "WILDCARD"       => 1,
             },
             Integer => {
                 ">="             => 1,
@@ -870,6 +928,7 @@ sub DefaultConfigGet {
                 "IS NOT EMPTY"   => 1,
                 "IS DEFINED"     => 1,
                 "IS NOT DEFINED" => 1,
+                "WILDCARD"       => 1,
             },
             Long => {
                 ">="             => 1,
@@ -883,6 +942,7 @@ sub DefaultConfigGet {
                 "IS NOT EMPTY"   => 1,
                 "IS DEFINED"     => 1,
                 "IS NOT DEFINED" => 1,
+                "WILDCARD"       => 1,
             },
             Textarea => {
                 "FULLTEXT"       => 1,
@@ -890,6 +950,7 @@ sub DefaultConfigGet {
                 "IS NOT EMPTY"   => 1,
                 "IS DEFINED"     => 1,
                 "IS NOT DEFINED" => 1,
+                "WILDCARD"       => 1,
             },
             Blob => {
                 "IS EMPTY"       => 1,
@@ -924,8 +985,9 @@ sub IsSortableResultType {
 apply sort param if it's valid
 
     my $Result = $SearchBaseObject->SortParamApply(
-        SortBy => 'TicketID',
-        Silent => 1 # optional, possible: 0, 1
+        SortBy     => 'TicketID',
+        ResultType => $ResultType,
+        Silent     => 1 # optional, possible: 0, 1
     );
 
 =cut
@@ -948,6 +1010,7 @@ sub SortParamApply {
         my $SortBy = {
             Name       => $Param{SortBy},
             Properties => $Self->{Fields}->{ $Param{SortBy} },
+            OrderBy    => $Param{OrderBy},
         };
 
         return $SortBy;
@@ -1553,6 +1616,73 @@ sub ObjectIndexQueueRemoveRule {
     }
 
     return;
+}
+
+=head2 FieldsInvertedFormat()
+
+format fields hash to be inverted by column name
+
+    my $InvertedFields = $SearchBaseObject->FieldsInvertedFormat();
+
+=cut
+
+sub FieldsInvertedFormat {
+    my ( $Self, %Param ) = @_;
+
+    return $Self->{InvertedFields} if $Self->{InvertedFields};
+
+    my $Fields = $Self->{Fields};
+    my %InvertedFields;
+
+    if ( IsHashRefWithData($Fields) ) {
+        for my $Field ( sort keys %{$Fields} ) {
+            $InvertedFields{ $Fields->{$Field}->{ColumnName} } = {
+                %{ $Fields->{$Field} },
+                FieldName => $Field,
+            };
+        }
+
+        $Self->{InvertedFields} = \%InvertedFields;
+    }
+
+    return $Self->{InvertedFields} // {};
+}
+
+=head2 CustomFunction()
+
+execute custom function
+
+    my $Success = $SearchBaseObject->CustomFunction(%Param);
+
+=cut
+
+sub CustomFunction {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Name Params)) {
+
+        next NEEDED if defined $Param{CustomFunction}->{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed in CustomFunction parameter!",
+        );
+        return;
+    }
+
+    my $FunctionName = $Param{CustomFunction}->{Name};
+
+    my $Result = $Self->$FunctionName(
+        %Param,
+        CustomFunction => undef,
+        Params         => $Param{CustomFunction}->{Params},
+        FunctionName   => $FunctionName,
+    );
+
+    return $Result;
 }
 
 =head2 _Load()

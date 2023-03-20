@@ -302,7 +302,7 @@ sub UserInfoStrgBuild {
 
 clean reserved characters from query string
 
-    my $Result = $SearchMappingESObject->QueryStringReservedCharactersClean(
+    my $Result = $SearchEngineESObject->QueryStringReservedCharactersClean(
         String => "<username>",
     );
 
@@ -461,6 +461,27 @@ sub _QueryExecuteObjectIndexSet {
     }
 
     return $BulkHelper->flush();
+}
+
+=head2 _QueryExecuteIndexBaseInit()
+
+executes query for active engine to apply initialization of index
+
+    my $Result = $SearchEngineESObject->_QueryExecuteIndexBaseInit(
+        ConnectObject   => $ConnectObject,
+        Query           => $Query,
+    );
+
+=cut
+
+sub _QueryExecuteIndexBaseInit {
+    my ( $Self, %Param ) = @_;
+
+    my $Result = $Self->_QueryExecuteGeneric(
+        %Param,
+    );
+
+    return $Result;
 }
 
 =head2 _QueryExecuteIndexAdd()

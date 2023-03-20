@@ -15,7 +15,6 @@ use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::System::Search::Object::Operators::Base',
-    'Kernel::System::Log',
 );
 
 =head1 NAME
@@ -68,10 +67,7 @@ sub OperatorQueryGet {
     );
 
     my $Result = $IndexOperatorModule->OperatorQueryBuild(
-        Field              => $Param{Field},
-        Value              => $Param{Value},
-        Fallback           => $Param{Fallback},
-        ReturnType         => $Param{ReturnType},
+        %Param,
         OperatorModuleName => $IndexModule->{IndexOperatorMapping}->{ $Param{Operator} }
     );
 

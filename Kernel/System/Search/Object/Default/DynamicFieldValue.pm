@@ -253,6 +253,9 @@ sub SQLObjectSearch {
         push @SQLSearchFields, 'FieldID';
         push @SQLSearchFields, 'ObjectID';
     }
+    elsif ( $ResultType eq 'ARRAY_SIMPLE' ) {
+        @SQLSearchFields = ( $Self->{Config}->{Identifier} );
+    }
 
     my $SQLSearchResult = $Self->SUPER::SQLObjectSearch(
         %Param,
@@ -267,7 +270,7 @@ sub SQLObjectSearch {
     $SQLSearchResult->{Data} = $QueryDynamicFieldValueObject->_PrepareDFSQLResponse(
         SQLSearchResult => $SQLSearchResult->{Data},
         Index           => 'DynamicFieldValue',
-    );
+    ) if $Param{ResultType} ne 'ARRAY_SIMPLE';
 
     if ( IsHashRefWithData( $Param{Fields} ) ) {
         for my $ValueColumn (qw(ValueText ValueDate ValueInt)) {

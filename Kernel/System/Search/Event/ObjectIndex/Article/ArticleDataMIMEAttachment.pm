@@ -78,7 +78,7 @@ sub Run {
                     ArticleID   => $ArticleID,
                     Disposition => 'attachment',
                 },
-                Context => "ObjAdd_Attachment_ArticleID_$ArticleID",
+                Context => "${FunctionName}_Attachment_ArticleID_$ArticleID",
             },
         );
     }

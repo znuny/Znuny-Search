@@ -73,28 +73,13 @@ sub Search {
         # set sorting field
         if ( $Param{SortBy} ) {
 
-            # not specified
-            my $OrderBy     = $Param{OrderBy} || "Up";
-            my $OrderByStrg = $OrderBy eq 'Up' ? 'asc' : 'desc';
+            my $SortByQuery = $Self->SortByQueryBuild(
+                SortBy => {
+                    %{ $Param{SortBy} },
+                },
+            );
 
-            # supported sorting types: integer, datetime, string
-            if (
-                $Param{SortBy}->{Properties}->{Type}
-                && (
-                    $Param{SortBy}->{Properties}->{Type} eq 'Integer'
-                    || $Param{SortBy}->{Properties}->{Type} eq 'Date'
-                )
-                )
-            {
-                $Body{sort}->[0]->{ $Param{SortBy}->{Name} } = {
-                    order => $OrderByStrg,
-                };
-            }
-            else {
-                $Body{sort}->[0]->{ $Param{SortBy}->{Name} . ".keyword" } = {
-                    order => $OrderByStrg,
-                };
-            }
+            $Body{sort} = $SortByQuery->{Query} if ( IsHashRefWithData($SortByQuery) );
         }
 
         if ( $Param{Limit} ) {
@@ -184,7 +169,6 @@ globally formats search result of specified engine
 
     my $FormatResult = $SearchMappingESObject->SearchFormat(
         Result      => $ResponseResult,
-        Config      => $Config,
         IndexName   => $IndexName,
     );
 
@@ -549,6 +533,21 @@ returns query for engine to add specified index
 sub IndexAdd {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject   = $Kernel::OM->Get('Kernel::System::Log');
+    my $IndexConfig = $Param{IndexConfig};
+
+    NEEDED:
+    for my $Needed (qw(Fields IndexConfig)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
     my %Settings = IsHashRefWithData( $Param{Settings} ) ? %{ $Param{Settings} } : $Self->DefaultRemoteSettingsGet(
         RoutingAllocation => $Param{SetRoutingAllocation} ? $Param{IndexRealName} : undef,
     );
@@ -557,6 +556,23 @@ sub IndexAdd {
         Path => $Param{IndexRealName},
         Body => \%Settings
     };
+
+    # create email uax url analyzer for index
+    my $CreateEmailUaxURLAnalyzer;
+    FIELD:
+    for my $Field ( sort keys %{ $Param{Fields} } ) {
+        if ( $Param{Fields}->{$Field}->{Type} eq 'Email' ) {
+            $CreateEmailUaxURLAnalyzer = 1;
+            last FIELD;
+        }
+    }
+
+    if ($CreateEmailUaxURLAnalyzer) {
+        $Query->{Body}->{settings}->{analysis}->{analyzer}->
+            {email_uax_url_analyzer}->{tokenizer} = 'email_uax_url_tokenizer';
+        $Query->{Body}->{settings}->{analysis}->{tokenizer}->
+            {email_uax_url_tokenizer}->{type} = 'uax_url_email';
+    }
 
     return $Query;
 }
@@ -851,7 +867,24 @@ sub IndexMappingSet {
     FIELD:
     for my $FieldName ( sort keys %{$Fields} ) {
         next FIELD if $ExternalFields->{$FieldName};
-        $Body{$FieldName} = $DataTypes->{ $Fields->{$FieldName}->{Type} };
+        my $FieldType = $Fields->{$FieldName}->{Type};
+        $Body{$FieldName} = $DataTypes->{$FieldType};
+
+        if ( $Fields->{$FieldName}->{Alias} ) {
+            $Body{ $Fields->{$FieldName}->{ColumnName} } = {
+                type => 'alias',
+                path => $FieldName,
+            };
+            if ( $FieldType =~ 'Long|String|Integer|Date|Email' ) {
+
+                # dot is not supported as body name for alias
+                # keyword mapping - use instead "_" character
+                $Body{ $Fields->{$FieldName}->{ColumnName} . '_keyword' } = {
+                    type => 'alias',
+                    path => $FieldName . '.keyword',
+                };
+            }
+        }
     }
 
     # set custom aliases & mapping for external fields
@@ -884,6 +917,43 @@ sub IndexMappingSet {
     };
 
     return $Query;
+}
+
+=head2 IndexBaseInit()
+
+returns query for engine mapping data types
+
+    my $Result = $SearchMappingESObject->IndexBaseInit(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexBaseInit {
+    my ( $Self, %Param ) = @_;
+
+    return;
+}
+
+=head2 IndexBaseInitFormat()
+
+format response from Elasticsearch engine
+
+    my $Result = $SearchMappingESObject->IndexBaseInitFormat(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexBaseInitFormat {
+    my ( $Self, %Param ) = @_;
+
+    my $Success = $Self->ResponseIsSuccess(
+        Response => $Param{Response},
+    );
+
+    return 1 if $Success;
+    return;
 }
 
 =head2 MappingDataTypesGet()
@@ -938,6 +1008,18 @@ sub MappingDataTypesGet {
         },
         Blob => {
             type => "binary",
+        },
+        Email => {
+            type   => "text",
+            fields => {
+                keyword => {
+                    type => "keyword",
+                },
+                email_uax_url_analyzer => {
+                    type     => 'text',
+                    analyzer => 'email_uax_url_analyzer',
+                }
+            }
         }
     };
 }
@@ -1159,7 +1241,146 @@ sub IndexRefresh {
     };
 }
 
-=head2  _ResponseDataFormat()
+=head2 QueryFieldNameBuild()
+
+build sort by field name
+
+    my $FieldName = $SearchMappingESObject->QueryFieldNameBuild(
+        Type => $Param{SortBy}->{Properties}->{Type},
+        Name => $Param{SortBy}->{Name},
+    );
+
+=cut
+
+sub QueryFieldNameBuild {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Type Name)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    # _id is reserved in elastic search as identifier of documents
+    # this can't get keyword if we want to search by it
+    if ( $Param{Name} eq '_id' ) {
+        return $Param{Name};
+    }
+
+    # any email field will need to use email analyzer
+    # it is needed so that elasticsearch will not separate
+    # an email into couple of words
+    if ( $Param{Type} eq 'Email' ) {
+        return $Param{Name} . '.email_uax_url_analyzer';
+    }
+    if ( $Param{Type} ne 'Integer' && $Param{Type} ne 'Date' ) {
+        return $Param{Name} . '.keyword';
+    }
+
+    return $Param{Name};
+}
+
+=head2 SortByQueryBuild()
+
+build sort by query part
+
+    my $SortByField = $SearchMappingESObject->SortByQueryBuild(
+        SortBy =>
+        {
+            Properties => {
+                Type => 'String',
+            }
+            Name => 'TicketID',
+            OrderBy => 'Up',
+        }
+    );
+
+=cut
+
+sub SortByQueryBuild {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !IsHashRefWithData( $Param{SortBy} ) ) {
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter 'SortBy' is needed!",
+        );
+        return;
+    }
+
+    my $SortByFieldName = $Self->QueryFieldNameBuild(
+        Type    => $Param{SortBy}->{Properties}->{Type},
+        Name    => $Param{SortBy}->{Name},
+        OrderBy => $Param{SortBy}->{OrderBy},
+    );
+
+    return if ( !$SortByFieldName && $Param{Strict} );
+
+    my %OrderByMap = (
+        'Up'   => 'asc',
+        'Down' => 'desc',
+    );
+
+    my $OrderBy = $Param{SortBy}->{OrderBy} || 'Up';
+    my $Query   = {
+        $SortByFieldName => {
+            order => $OrderByMap{$OrderBy} || 'asc',
+        }
+    };
+
+    return {
+        Query   => $Query,
+        Success => 1,
+    };
+}
+
+=head2 LimitQueryBuild()
+
+build query limit
+
+    my $LimitQuery = $SearchMappingESObject->LimitQueryBuild(
+        Limit => 1000,
+    );
+
+=cut
+
+sub LimitQueryBuild {
+    my ( $Self, %Param ) = @_;
+
+    if ( IsPositiveInteger( $Param{Limit} ) ) {
+        return {
+            Query => {
+                size => $Param{Limit},
+            },
+            Success => 1,
+        };
+    }
+    else {
+        return if !$Param{IndexName};
+        my $QueryObject  = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{IndexName}");
+        my $DefaultLimit = $QueryObject->{IndexDefaultSearchLimit};
+        return if !IsPositiveInteger($DefaultLimit);
+        return {
+            Query => {
+                size => $DefaultLimit,
+            },
+            Success => 2,
+        };
+    }
+}
+
+=head2 _ResponseDataFormat()
 
 globally formats response data from engine
 
@@ -1174,6 +1395,7 @@ sub _ResponseDataFormat {
     my ( $Self, %Param ) = @_;
 
     my @Objects;
+    my $SimpleArray = $Param{ResultType} && $Param{ResultType} eq 'ARRAY_SIMPLE' ? 1 : 0;
 
     if ( IsArrayRefWithData( $Param{Result}->{hits}->{hits} ) ) {
         my $Hits   = $Param{Result}->{hits}->{hits};
@@ -1187,8 +1409,23 @@ sub _ResponseDataFormat {
             )
         {
             # filter scalar/array fields by return type
-            my @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ m{\AARRAY|HASH\z} } @Fields;
-            my @ArrayFields  = grep { $Param{Fields}->{$_}->{ReturnType} eq 'ARRAY' } @Fields;
+            my @ScalarFields;
+            my @ArrayFields;
+
+            # decide if array format with one field is needed
+            # othwersie it will be an array of objects
+            if ($SimpleArray) {
+                for my $Hit ( @{$Hits} ) {
+                    for my $Field ( @{ $Hit->{fields} } ) {
+                        push @Objects, $Hit->{fields}->{$Field};
+                    }
+                }
+                return \@Objects;
+            }
+            else {
+                @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ m{\AARRAY|HASH\z} } @Fields;
+                @ArrayFields  = grep { $Param{Fields}->{$_}->{ReturnType} eq 'ARRAY' } @Fields;
+            }
 
             for my $Hit ( @{$Hits} ) {
                 my %Data;
@@ -1207,60 +1444,9 @@ sub _ResponseDataFormat {
         }
 
         # ES engine response stores objects inside "_source" key by default
-        elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) || $Hits->[0]->{inner_hits} ) {
-
-            # check if there will be a need to look for child objects data
-            if ( $Param{NestedFieldsGet} ) {
-                for my $Hit ( @{$Hits} ) {
-                    my $Data = $Hit->{_source};
-                    if ( $Hit->{inner_hits} ) {
-                        for my $ChildKey ( sort keys %{ $Hit->{inner_hits} } ) {
-                            for my $ChildHit ( @{ $Hit->{inner_hits}->{$ChildKey}->{hits}->{hits} } ) {
-                                if (
-                                    IsHashRefWithData( $ChildHit->{_source} )
-                                    || IsHashRefWithData( $ChildHit->{inner_hits} )
-                                    )
-                                {
-                                    for my $DualNestedChildKey ( sort keys %{ $ChildHit->{inner_hits} } ) {
-                                        $DualNestedChildKey =~ m{$ChildKey\.(.*)};
-                                        my $DualNestedChildRealName = $1;
-                                        for my $DualNestedChildHit (
-                                            @{ $ChildHit->{inner_hits}->{$DualNestedChildKey}->{hits}->{hits} }
-                                            )
-                                        {
-                                            push @{ $ChildHit->{_source}->{$DualNestedChildRealName} },
-                                                $DualNestedChildHit->{_source};
-                                        }
-                                    }
-
-                                    push @{ $Data->{$ChildKey} }, $ChildHit->{_source};
-                                }
-                                elsif ( IsHashRefWithData( $ChildHit->{inner_hits} ) ) {
-                                    for my $DualNestedChildKey ( sort keys %{ $ChildHit->{inner_hits} } ) {
-                                        $DualNestedChildKey =~ m{$ChildKey\.(.*)};
-                                        my $DualNestedChildRealName = $1;
-                                        for my $DualNestedChildHit (
-                                            @{ $ChildHit->{inner_hits}->{$DualNestedChildKey}->{hits}->{hits} }
-                                            )
-                                        {
-                                            push @{ $ChildHit->{_source}->{$DualNestedChildRealName} },
-                                                $DualNestedChildHit->{_source};
-                                        }
-                                    }
-                                    push @{ $Data->{$ChildKey} }, $ChildHit->{_source};
-                                }
-                            }
-                        }
-                    }
-                    if ( IsHashRefWithData($Data) ) {
-                        push @Objects, $Data;
-                    }
-                }
-            }
-            else {
-                for my $Hit ( @{$Hits} ) {
-                    push @Objects, $Hit->{_source};
-                }
+        elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
+            for my $Hit ( @{$Hits} ) {
+                push @Objects, $Hit->{_source};
             }
         }
     }
@@ -1305,6 +1491,7 @@ sub _BuildQueryBodyFromParams {
                 ReturnType => $OperatorData->{ReturnType},
                 Value      => $OperatorValue,
                 Operator   => $OperatorData->{Operator},
+                FieldType  => $OperatorData->{Type},
                 Object     => $Param{Object},
             );
 
@@ -1315,6 +1502,50 @@ sub _BuildQueryBodyFromParams {
     }
 
     return %Query;
+}
+
+=head2 _AppendQueryBodyFromParams()
+
+append to query from params
+
+    my $Success = $SearchMappingESObject->_AppendQueryBodyFromParams(
+        QueryParams     => $QueryParams,
+        Query           => $Query,
+    );
+
+=cut
+
+sub _AppendQueryBodyFromParams {
+    my ( $Self, %Param ) = @_;
+
+    return if !$Param{Query};
+
+    my $SearchParams = $Param{QueryParams};
+    my $Success      = 1;
+
+    # build query from parameters
+    for my $FieldName ( sort keys %{$SearchParams} ) {
+        for my $OperatorData ( @{ $SearchParams->{$FieldName}->{Query} } ) {
+            my $OperatorValue  = $OperatorData->{Value};
+            my $OperatorModule = $Kernel::OM->Get("Kernel::System::Search::Object::Operators");
+
+            my $Result = $OperatorModule->OperatorQueryGet(
+                Field      => $FieldName,
+                ReturnType => $OperatorData->{ReturnType},
+                Value      => $OperatorValue,
+                Operator   => $OperatorData->{Operator},
+                FieldType  => $OperatorData->{Type},
+                Object     => $Param{Object},
+            );
+
+            my $Query = $Result->{Query};
+
+            push @{ $Param{Query}->{Body}->{query}->{bool}->{ $Result->{Section} } }, $Query;
+            $Success = $Query ? 1 : 0 if $Success;
+        }
+    }
+
+    return $Success;
 }
 
 1;

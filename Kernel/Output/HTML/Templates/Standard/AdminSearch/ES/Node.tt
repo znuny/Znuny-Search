@@ -195,7 +195,7 @@
                     </div>
                 </div>
             [% ELSE %]
-                [% Translate("Need ClusterID or NodeID") | html %]
+                [% Translate("Cluster or node ID are needed.") | html %]
             [% END %]
         </form>
     </div>

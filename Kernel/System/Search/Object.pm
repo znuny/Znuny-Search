@@ -60,6 +60,7 @@ sub new {
         "IS NOT DEFINED" => 'IsNotDefined',
         "FULLTEXT"       => 'FullText',
         "PATTERN"        => 'Pattern',
+        "WILDCARD"       => 'Wildcard',
     };
 
     return $Self;
@@ -912,6 +913,52 @@ sub _QueryPrepareIndexMappingSet {
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
 
     my $Data = $IndexQueryObject->IndexMappingSet(
+        %Param,
+    );
+
+    return $Data;
+}
+
+=head2 _QueryPrepareIndexBaseInit()
+
+prepares query for index initialization
+
+    my $Result = $SearchChildObject->_QueryPrepareIIndexBaseInit(
+        MappingObject   => $MappingObject,
+        Index           => $Index,
+        Config          => $Config
+    );
+
+=cut
+
+sub _QueryPrepareIndexBaseInit {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $MainObject = $Kernel::OM->Get('Kernel::System::Main');
+
+    NEEDED:
+    for my $Needed (qw( Index MappingObject Config )) {
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Need $Needed!"
+        );
+        return;
+    }
+
+    my $Index = $Param{Index};
+
+    my $IndexIsValid = $Self->IndexIsValid(
+        IndexName => $Index,
+    );
+
+    return if !$IndexIsValid;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Param{Index}");
+
+    my $Data = $IndexQueryObject->IndexBaseInit(
         %Param,
     );
 

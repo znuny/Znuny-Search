@@ -58,7 +58,7 @@ sub Run {
                 QueryParams  => {
                     TicketID => $Param{Data}->{$Ticket},
                 },
-                Context => "ObjSet_TMerge_$Param{Data}->{$Ticket}",
+                Context => "ObjectIndexSet_TicketMerge_$Param{Data}->{$Ticket}",
             },
         );
 
@@ -80,7 +80,7 @@ sub Run {
                     TicketID    => $Param{Data}->{$Ticket},
                     Disposition => 'attachment'
                 },
-                Context => "ObjSet_TMerge_$Param{Data}->{$Ticket}",
+                Context => "ObjectIndexSet_TicketMerge_$Param{Data}->{$Ticket}",
             },
         );
     }

@@ -296,8 +296,12 @@ sub Run {
 
         my @Params;
         for my $Index (@IndexArray) {
-            push @Params, '--index';
-            push @Params, $Index;
+            push @Params, (
+                '--index',
+                $Index,
+                '--recreate',
+                'latest',
+            );
         }
 
         my $ReindexationObject = $Kernel::OM->Get('Kernel::System::Search::Admin::Reindexation');
