@@ -20,12 +20,12 @@
                 <Item Key="ArticleDataMIMEAttachment">article_data_mime_attachment</Item>
                 <Item Key="DynamicField">dynamic_field</Item>
                 <Item Key="DynamicFieldValue">dynamic_field_value</Item>
-
+                <Item Key="CustomerUser">customer_user</Item>
             </Hash>
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Ticket-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -37,7 +37,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###001-Ticket-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -50,8 +50,8 @@
         </Value>
     </Setting>
     <Setting Name="Queue::EventModulePost###100-QueueUpdate-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::Queue</Navigation>
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::QueueUpdate</Item>
@@ -60,7 +60,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###001-TicketDelete-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -70,8 +70,8 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Article-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Article</Navigation>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Article</Item>
@@ -81,8 +81,8 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###001-Article-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Article</Navigation>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Article</Item>
@@ -92,7 +92,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###001-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -102,8 +102,8 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-Article-ArticleDataMIMEAttachment-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::Article</Navigation>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Article::ArticleDataMIMEAttachment</Item>
@@ -113,7 +113,7 @@
         </Value>
     </Setting>
     <Setting Name="Ticket::EventModulePost###000-TicketHistory-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
@@ -123,7 +123,7 @@
         </Value>
     </Setting>
     <Setting Name="DynamicField::EventModulePost###000-DynamicField-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::DynamicField</Navigation>
         <Value>
             <Hash>
@@ -134,7 +134,7 @@
         </Value>
     </Setting>
     <Setting Name="DynamicField::EventModulePost###002-DynamicField-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::DynamicField</Navigation>
         <Value>
             <Hash>
@@ -144,24 +144,35 @@
             </Hash>
         </Value>
     </Setting>
-    <Setting Name="DynamicField::EventModulePost###100-DynamicField-Ticket-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::DynamicField</Navigation>
-        <Value>
-            <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicField::Ticket</Item>
-                <Item Key="Event">DynamicFieldDelete|DynamicFieldUpdate</Item>
-            </Hash>
-        </Value>
-    </Setting>
-    <Setting Name="Ticket::EventModulePost###000-DynamicFieldValue-Ticket-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation into search engine indexing queue.</Description>
-        <Navigation>Core::Event::DynamicField</Navigation>
+    <Setting Name="Ticket::EventModulePost###000-DynamicFieldValue-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
         <Value>
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
                 <Item Key="Event">TicketDynamicFieldUpdate_*|ArticleDynamicFieldUpdate</Item>
                 <Item Key="FunctionName">ObjectIndexSet</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="CustomerUser::EventModulePost###000-DynamicFieldValue-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::CustomerUser</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
+                <Item Key="Event">CustomerUserDynamicFieldUpdate</Item>
+                <Item Key="FunctionName">ObjectIndexSet</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="CustomerUser::EventModulePost###000-CustomerUser-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::CustomerUser</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::CustomerUser</Item>
+                <Item Key="Event">CustomerUserAdd|CustomerUserUpdate</Item>
             </Hash>
         </Value>
     </Setting>
@@ -206,7 +217,7 @@
         </Value>
     </Setting>
     <Setting Name="SearchEngine::Loader::Fields::Ticket###000-Framework" Required="0" Valid="0">
-        <Description Translatable="1">Registers example custom mapping for search index Ticket. Priority is used to define which configuration of the same attribute should be taken.</Description>
+        <Description Translatable="1">Registers example custom mapping for search index 'Ticket'. Priority is used to define which configuration of the same attribute should be taken.</Description>
         <Navigation>Core::Search::Ticket</Navigation>
         <Value>
             <Hash>
@@ -229,7 +240,7 @@
         </Value>
     </Setting>
     <Setting Name="Frontend::NavigationModule###AdminSearch" Required="0" Valid="1">
-        <Description Translatable="1">Admin area navigation for the admin search engine configuration interface.</Description>
+        <Description Translatable="1">Search engine admin interface.</Description>
         <Navigation>Frontend::Admin::ModuleRegistration::AdminOverview</Navigation>
         <Value>
             <Hash>
@@ -251,7 +262,7 @@
         </Value>
     </Setting>
     <Setting Name="SearchEngine###Enabled" Required="1" Valid="1">
-        <Description Translatable="1">Defines if search engine feature should be enabled.</Description>
+        <Description Translatable="1">Enables search engine feature.</Description>
         <Navigation>Core::Search</Navigation>
         <Value>
             <Item ValueType="Checkbox">0</Item>
@@ -263,14 +274,14 @@
         <Value>
             <Hash>
                 <Item Key="TaskName">IndexQueueDataProcess</Item>
-                <Item Key="Schedule">* * * * *</Item> <!-- Every 1 min -->
+                <Item Key="Schedule">* * * * *</Item> <!-- Every minute -->
                 <Item Key="Module">Kernel::System::Console::Command::Maint::Search::ES::IndexQueueDataProcess</Item>
                 <Item Key="Function">Execute</Item>
             </Hash>
         </Value>
     </Setting>
     <Setting Name="SearchEngine::IndexationQueue###Settings" Required="0" Valid="1">
-        <Description Translatable="1">Defines settings used in indexation queue.</Description>
+        <Description Translatable="1">Settings used in indexation queue.</Description>
         <Navigation>Core::Search</Navigation>
         <Value>
             <Hash>
@@ -279,7 +290,7 @@
         </Value>
     </Setting>
     <Setting Name="SearchEngine::Reindexation###Settings" Required="1" Valid="1">
-        <Description Translatable="1">Defines settings used in re-indexation command.</Description>
+        <Description Translatable="1">Settings used for re-indexation command.</Description>
         <Navigation>Core::Search</Navigation>
         <Value>
             <Hash>
@@ -297,7 +308,7 @@
         </Value>
     </Setting>
     <Setting Name="SearchEngine::ES::TicketSearchFields###Fulltext" Required="0" Valid="1">
-        <Description Translatable="1">Searchable fields of Ticket index for fulltext search. Use name of ticket, article or attachment field. Dynamic fields can be specified for articles and tickets by setting a value in either Ticket or Article key with a pattern: "DynamicField_NameOfDynamicField".</Description>
+        <Description Translatable="1">Searchable fields of "Ticket" index for full-text search. Use the field name of a ticket, article or attachment. Dynamic fields can be specified for articles and tickets by setting a value either in key "Ticket" or "Article" with the pattern "DynamicField_NameOfDynamicField".</Description>
         <Navigation>Core::Search</Navigation>
         <Value>
             <Hash>
@@ -325,6 +336,17 @@
                     </Array>
                 </Item>
             </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="Events###CustomerUser" Required="1" Valid="1">
+        <Description Translatable="1">List of all CustomerUser events to be displayed in the GUI.</Description>
+        <Navigation>Frontend::Admin</Navigation>
+        <Value>
+            <Array>
+                <Item>CustomerUserAdd</Item>
+                <Item>CustomerUserUpdate</Item>
+                <Item>CustomerUserDynamicFieldUpdate</Item>
+            </Array>
         </Value>
     </Setting>
 </otrs_config>

@@ -364,7 +364,6 @@ sub Search {
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     my $UserObject        = $Kernel::OM->Get('Kernel::System::User');
 
-    # copy standard param to avoid overwriting on standarization
     my %Params     = %Param;
     my $IndexName  = 'Ticket';
     my $ObjectData = $Params{Objects}->{$IndexName};
@@ -395,6 +394,7 @@ sub Search {
         %Param,
         SortBy     => $ObjectData->{SortBy},
         ResultType => $ValidResultType,
+        OrderBy    => $OrderBy,
     );
 
     return $Self->ExecuteSearch(
@@ -404,7 +404,6 @@ sub Search {
         Fields        => $Fields,
         QueryParams   => $Param{QueryParams},
         SortBy        => $SortBy,
-        OrderBy       => $OrderBy,
         RealIndexName => $Self->{Config}->{IndexRealName},
         ResultType    => $ValidResultType,
     );
@@ -463,6 +462,7 @@ sub ExecuteSearch {
         QueryParams   => $QueryParams,
         NoPermissions => $Param{NoPermissions},
         QueryFor      => 'Engine',
+        Strict        => 1,
     );
 
     return $Self->SearchEmptyResponse(%Param)
@@ -639,6 +639,7 @@ sub ExecuteSearch {
                     ReturnType => $OperatorData->{ReturnType},
                     Value      => $OperatorValue,
                     Operator   => $OperatorData->{Operator},
+                    FieldType  => $OperatorData->{Type},
                     Object     => 'Ticket',
                 );
 
@@ -691,6 +692,7 @@ sub ExecuteSearch {
                     ReturnType => $OperatorData->{ReturnType},
                     Value      => $OperatorValue,
                     Operator   => $OperatorData->{Operator},
+                    FieldType  => $OperatorData->{Type},
                     Object     => 'Ticket',
                 );
 
@@ -732,6 +734,7 @@ sub ExecuteSearch {
                     ReturnType => $ReturnType,
                     Value      => $OperatorValue,
                     Operator   => $OperatorData->{Operator},
+                    FieldType  => $OperatorData->{Type},
                     Object     => 'Ticket',
                 );
 
@@ -804,8 +807,9 @@ sub FallbackExecuteSearch {
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
     # TODO support for fallback
-    # disable fallback functionality
-    return $Self->SearchEmptyResponse(%Param) if 1 == 1;
+    # disable fallback functionality (unlock search by count for re-indexing equality set)
+    return $Self->SearchEmptyResponse(%Param)
+        if !$Param{ResultType} || ( $Param{ResultType} && $Param{ResultType} ne 'COUNT' );
 
     my $Result = {
         Ticket => $Self->Fallback( %Param, Fields => $Param{Fields}->{Ticket} ) // []
@@ -920,29 +924,7 @@ sub ObjectIndexUpdate {
 
     # custom handling of update
     if ( IsHashRefWithData( $Param{CustomFunction} ) ) {
-
-        NEEDED:
-        for my $Needed (qw(Name Params)) {
-
-            next NEEDED if defined $Param{CustomFunction}->{$Needed};
-
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Parameter '$Needed' is needed in CustomFunction parameter!",
-            );
-            return;
-        }
-
-        my $FunctionName = $Param{CustomFunction}->{Name};
-
-        my $CustomFunctionSuccess = $Self->$FunctionName(
-            %Param,
-            CustomFunction => undef,
-            Params         => $Param{CustomFunction}->{Params},
-            FunctionName   => $FunctionName,
-        );
-
-        $Success = $CustomFunctionSuccess if $Success;
+        $Success = $Self->CustomFunction(%Param) if $Success;
     }
 
     return $Success;
@@ -1094,13 +1076,7 @@ sub ObjectIndexUpdateDFChanged {
     my $DynamicFieldEvent = $Param{Params}->{DynamicField}->{Event};
 
     if ( $DynamicFieldType eq 'Ticket' ) {
-
-        # filter & prepare correct parameters
-        my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
-            QueryParams   => $Param{QueryParams},
-            NoPermissions => 1,
-            QueryFor      => 'Engine',
-        );
+        my $NewName = $Param{Params}->{DynamicField}->{NewName} || '';
 
         # build body
         %Body = (
@@ -1117,7 +1093,7 @@ sub ObjectIndexUpdateDFChanged {
                             exists =>
                                 {
                                 field => "DynamicField_"
-                                    . $Param{Params}->{DynamicField}->{NewName} || '',
+                                    . $NewName,
                                 }
                         }
                     ]
@@ -1327,7 +1303,6 @@ sub ObjectIndexGeneric {
         $SQLDataIDs = $Self->ObjectListIDs(
             QueryParams => $QueryParams,
             Fields      => [$Identifier],
-            ResultType  => 'ARRAY',
             Limit       => $IDLimit,
             Offset      => $TicketOffset,
         );
@@ -2150,7 +2125,7 @@ sub ObjectListIDs {
         Fields              => [$Identifier],
         OrderBy             => $Param{OrderBy},
         SortBy              => $Param{SortBy} // $Identifier,
-        ResultType          => $Param{ResultType} || 'ARRAY',
+        ResultType          => $Param{ResultType} || 'ARRAY_SIMPLE',
         Limit               => $Param{Limit},
         Offset              => $Param{Offset},
         IgnoreArticles      => 1,
@@ -2158,17 +2133,9 @@ sub ObjectListIDs {
         NoPermissions       => 1,
     );
 
-    # push hash data into array
     my @Result;
     if ( $SQLSearchResult->{Success} ) {
-        if ( IsArrayRefWithData( $SQLSearchResult->{Data} ) ) {
-            for my $SQLData ( @{ $SQLSearchResult->{Data} } ) {
-                push @Result, $SQLData->{$Identifier};
-            }
-        }
-        elsif ( defined $SQLSearchResult->{Data} ) {
-            return $SQLSearchResult->{Data};
-        }
+        return $SQLSearchResult->{Data};
     }
 
     return \@Result;

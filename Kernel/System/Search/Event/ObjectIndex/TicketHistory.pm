@@ -67,7 +67,7 @@ sub Run {
                 QueryParams  => {
                     TicketID => $TicketID,
                 },
-                Context => "ObjSet_TMerge_$TicketID",
+                Context => "ObjectIndexSet_TicketMerge_$TicketID",
             },
         );
 
@@ -78,7 +78,7 @@ sub Run {
                 QueryParams  => {
                     TicketID => $MergedIntoTicketID,
                 },
-                Context => "ObjSet_TMerge_$MergedIntoTicketID",
+                Context => "ObjectIndexSet_TicketMerge_$MergedIntoTicketID",
             },
         );
     }
@@ -90,7 +90,7 @@ sub Run {
                 QueryParams  => {
                     TicketID => $TicketID,
                 },
-                Context => "ObjRemove_HDelete_$TicketID",
+                Context => "ObjectIndexRemove_HistoryDelete_$TicketID",
             },
         );
     }

@@ -270,7 +270,6 @@ sub ObjectIndexGeneric {
         $SQLDataIDs = $Self->ObjectListIDs(
             QueryParams => $QueryParams,
             Fields      => [$Identifier],
-            ResultType  => 'ARRAY',
             Limit       => $IDLimit,
             Offset      => $ArticleOffset,
         );

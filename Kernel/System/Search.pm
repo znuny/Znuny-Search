@@ -181,7 +181,7 @@ search for specified object data
                 ],
             ],
         ],
-        ResultType => $ResultType, # optional, default: 'ARRAY', possible: ARRAY,HASH,COUNT or more if extended,
+        ResultType => $ResultType, # optional, default: 'ARRAY', possible: ARRAY,ARRAY_SIMPLE,HASH,COUNT or more if extended,
         SortBy => ['TicketID', 'TicketHistoryID'], # possible: any object field
         OrderBy => ['Down', 'Up'],
             # optional, possible: Down,Up
@@ -816,11 +816,17 @@ sub IndexInit {
         return;
     }
 
-    # set mapping
-    my $Success = $Self->IndexMappingSet(
+    # base initialization
+    my $Success = defined $Self->IndexBaseInit(
         %Param,
         Index => $Param{Index},
-    );
+    ) ? 1 : undef;
+
+    # set mapping
+    $Success = $Self->IndexMappingSet(
+        %Param,
+        Index => $Param{Index},
+    ) if $Success;
 
     if ( !$Success ) {
         $LogObject->Log(
@@ -918,6 +924,45 @@ sub IndexMappingSet {
     my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
 
     return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->IndexMappingSet(
+        %Param,
+        Config        => $Self->{Config},
+        MappingObject => $MappingObject,
+        EngineObject  => $Self->{EngineObject},
+        ConnectObject => $Self->{ConnectObject},
+    );
+}
+
+=head2 IndexBaseInit()
+
+init index if needed
+
+    my $Result = $SearchObject->IndexBaseInit(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexBaseInit {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    return if $Self->{Fallback};
+
+    NEEDED:
+    for my $Needed (qw(Index)) {
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->IndexBaseInit(
         %Param,
         Config        => $Self->{Config},
         MappingObject => $MappingObject,
