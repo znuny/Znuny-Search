@@ -17,6 +17,8 @@ our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Ticket',
     'Kernel::System::Search::Object::Operators',
+    'Kernel::System::DynamicField',
+    'Kernel::System::DynamicField::Backend',
 );
 
 =head1 NAME
@@ -57,6 +59,10 @@ create query for specified operation
     my $Result = $SearchQueryObject->Search(
         MappingObject   => $Config,
         QueryParams     => $QueryParams,
+        Fields          => $Fields,
+        MappingObject   => $MappingObject,
+        NoPermissions   => 0,
+        %SearchParams,
     );
 
 =cut
@@ -196,7 +202,7 @@ sub ObjectIndexAdd {
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         %Param,
         QueryParams => $QueryParams,
-        ResultType  => 'ARRAY',
+        Strict      => 1,
     );
 
     return   if !$SQLSearchResult->{Success};
@@ -263,7 +269,7 @@ sub ObjectIndexSet {
     my $SQLSearchResult = $IndexObject->SQLObjectSearch(
         %Param,
         QueryParams => $QueryParams,
-        ResultType  => $Param{SQLSearchResultType} || 'ARRAY',
+        Strict      => 1,
     );
 
     return   if !$SQLSearchResult->{Success};
@@ -326,10 +332,20 @@ sub ObjectIndexUpdate {
         $Identifier => $Param{ObjectID},
     };
 
-    my $SQLSearchResult = $IndexObject->SQLObjectSearch(
-        %Param,
-        QueryParams => $QueryParams,
-    );
+    my $SQLSearchResult;
+    if ( $Param{Data} ) {
+        $SQLSearchResult = {
+            Success => 1,
+            Data    => $Param{Data},
+        };
+    }
+    else {
+        $SQLSearchResult = $IndexObject->SQLObjectSearch(
+            %Param,
+            QueryParams => $QueryParams,
+            Strict      => 1,
+        );
+    }
 
     return   if !$SQLSearchResult->{Success};
     return 0 if !IsArrayRefWithData( $SQLSearchResult->{Data} );
@@ -414,7 +430,10 @@ sub IndexAdd {
     # build and return query
     return $Param{MappingObject}->IndexAdd(
         %Param,
-        IndexRealName => $Self->{IndexConfig}->{IndexRealName},
+        IndexRealName  => $Self->{IndexConfig}->{IndexRealName},
+        Fields         => $Self->{IndexFields},
+        IndexConfig    => $Self->{IndexConfig},
+        ExternalFields => $Self->{IndexExternalFields},
     );
 }
 
@@ -552,6 +571,30 @@ sub IndexMappingSet {
     );
 }
 
+=head2 IndexBaseInit()
+
+create query for index init operation
+
+    my $Result = $SearchQueryObject->IndexBaseInit(
+        MappingObject   => $MappingObject,
+    );
+
+=cut
+
+sub IndexBaseInit {
+    my ( $Self, %Param ) = @_;
+
+    return if !$Param{MappingObject};
+
+    # returns the query
+    return $Param{MappingObject}->IndexBaseInit(
+        %Param,
+        Fields         => $Self->{IndexFields},
+        IndexConfig    => $Self->{IndexConfig},
+        ExternalFields => $Self->{IndexExternalFields},
+    );
+}
+
 =head2 IndexInitialSettingsGet()
 
 create query for index initial setting receive
@@ -598,6 +641,32 @@ sub IndexRefresh {
     );
 }
 
+=head2 EngineQueryHelperObjCreate()
+
+create object that can build queries for active engine
+
+    my $SearchQueryObject = $SearchQueryObject->EngineQueryHelperObjCreate(
+        IndexName => 'Ticket',
+        Query     => {
+            Body => {'query' => {}},
+            Method => 'POST',
+        },
+    )
+);
+
+=cut
+
+sub EngineQueryHelperObjCreate {
+    my ( $Self, %Param ) = @_;
+
+    my $QueryEngineHelperObj = "Kernel::System::Search::Object::EngineQueryHelper::$Self->{ActiveEngine}"->new(
+        IndexName => $Param{IndexName},
+        Query     => $Param{Query},
+    );
+
+    return $QueryEngineHelperObj;
+}
+
 =head2 _QueryParamsPrepare()
 
 prepare valid structure output for query params
@@ -642,6 +711,7 @@ sub _QueryParamsPrepare {
             SimplifiedMode   => $SimplifiedMode,
             SearchableFields => $SearchableFields,
             QueryFor         => $Param{QueryFor},
+            Strict           => $Param{Strict},
         );
 
         if ( IsArrayRefWithData($Result) ) {
@@ -686,12 +756,21 @@ sub _QueryParamSet {
     );
 
     # check if query param should pass
-    return if !$Self->_QueryFieldCheck(
+    my $ParamIsValid = $Self->_QueryFieldCheck(
         Name           => $Name,
         Value          => $Value,
         Data           => $Data,
         NoMappingCheck => $Param{NoMappingCheck},
     );
+
+    if ( !$ParamIsValid ) {
+        if ( $Param{Strict} ) {
+            return { Error => 1 };
+        }
+        else {
+            return;
+        }
+    }
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
@@ -987,5 +1066,67 @@ sub _QueryAdvancedParamBuildSQL {
     }
 
     return $AdvancedSQLQuery;
+}
+
+=head2 _QueryDynamicFieldInfoGet()
+
+get info for dynamic field in query params
+
+    my $Result = $SearchQueryObject->_QueryDynamicFieldInfoGet(
+        DynamicFieldConfig => $DynamicFieldConfig,
+    );
+
+=cut
+
+sub _QueryDynamicFieldInfoGet {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(DynamicFieldConfig)) {
+
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
+    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
+
+    my $DynamicFieldConfig     = $Param{DynamicFieldConfig};
+    my $DynamicFieldColumnName = 'DynamicField_' . $DynamicFieldConfig->{Name};
+
+    # get return type for dynamic field
+    my $FieldValueType = $DynamicFieldBackendObject->TemplateValueTypeGet(
+        DynamicFieldConfig => $DynamicFieldConfig,
+        FieldType          => 'Edit',
+    );
+
+    # set type of field
+    my $Type = 'String';
+
+    if (
+        $DynamicFieldConfig->{FieldType}
+        && (
+            $DynamicFieldConfig->{FieldType} eq 'Date'
+            || $DynamicFieldConfig->{FieldType} eq 'DateTime'
+        )
+        )
+    {
+        $Type = 'Date';
+    }
+
+    # apply properties that are set in object fields mapping
+    return {
+        ColumnName => $DynamicFieldColumnName,
+        Name       => $DynamicFieldConfig->{Name},
+        ReturnType => $FieldValueType->{$DynamicFieldColumnName} || 'SCALAR',
+        Type       => $Type,
+    };
 }
 1;

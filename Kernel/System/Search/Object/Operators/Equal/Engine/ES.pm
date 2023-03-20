@@ -13,7 +13,9 @@ use warnings;
 
 use Kernel::System::VariableCheck qw(:all);
 
-our @ObjectDependencies = ();
+our @ObjectDependencies = (
+    'Kernel::System::Search::Mapping::ES'
+);
 
 sub new {
     my ( $Type, %Param ) = @_;
@@ -27,17 +29,16 @@ sub new {
 sub QueryBuild {
     my ( $Self, %Param ) = @_;
 
+    my $SearchMappingESObject = $Kernel::OM->Get('Kernel::System::Search::Mapping::ES');
+
     if ( ref $Param{Value} ne "ARRAY" ) {
         $Param{Value} = [ $Param{Value} ];
     }
 
-    my $Keyword = '';
-
-    # _id is reserved in elastic search as identifier of documents
-    # this can't get keyword if we want to search by it
-    if ( $Param{Field} ne '_id' ) {
-        $Keyword = '.keyword';
-    }
+    my $FieldName = $SearchMappingESObject->QueryFieldNameBuild(
+        Type => $Param{FieldType},
+        Name => $Param{Field},
+    );
 
     # if expected response is an array, then search by arrays
     if ( $Param{ReturnType} && $Param{ReturnType} eq 'ARRAY' ) {
@@ -46,7 +47,7 @@ sub QueryBuild {
             for my $Values ( @{ $Param{Value} } ) {
                 push @{ $Query->{bool}->{should} }, {
                     terms_set => {
-                        $Param{Field} . '.keyword' => {
+                        $FieldName => {
                             terms                       => $Values,
                             minimum_should_match_script => {
                                 source => "Math.max(params.num_terms, doc['$Param{Field}.keyword'].size())"
@@ -80,7 +81,7 @@ sub QueryBuild {
     return {
         Query => {
             terms => {
-                $Param{Field} . $Keyword => $Param{Value}
+                $FieldName => $Param{Value}
             }
         },
         Section => 'must'

@@ -141,3 +141,25 @@ As a pattern use e.g. the TicketHistory module.
 
 1. Index will work only if there is a representation of its SQL table.
 2. If first point is not met, custom support can be done using new module for functions, that is: Kernel/System/Search/Object/Engine/*ActiveEngine*/*IndexName*.pm
+
+### CustomerUser configuration
+
+Usage of CustomerUser backend can be set by changing configuration in
+file "Kernel/Config/Defaults.pm":
+- copy/override your configuration for DB backend,
+that is $Self->{CustomerUser}, $Self->{CustomerUser1}, etc. in a way that it
+will have higher priority,
+- change inside new config ($Self->{CustomerUser}) "Name" to "Elasticsearch Backend" (optional),
+- additionally change "Module" to "Kernel::System::CustomerUser::Elasticsearch",
+- add "CustomerUserEmailTypeFields" as a list
+of fields that are supposed to be an emails, example:
+    ..
+    CustomerUserEmailTypeFields => {
+        'email' => 1,
+    },
+    ..
+
+Elasticsearch should work for CustomerSearch in the system, if it's not enabled/connected
+it will fallback to DB module.
+
+Standard Search API (Kernel::System::Search->Search(..)) for CustomerUser will work regardless of this configuration.

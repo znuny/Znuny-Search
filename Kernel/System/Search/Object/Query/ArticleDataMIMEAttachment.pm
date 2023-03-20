@@ -17,6 +17,8 @@ use parent qw( Kernel::System::Search::Object::Query );
 
 our @ObjectDependencies = (
     'Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment',
+    'Kernel::System::Main',
+    'Kernel::System::Search',
 );
 
 =head1 NAME
@@ -51,6 +53,15 @@ sub new {
     {
         $Self->{ 'Index' . $Property } = $IndexObject->{$Property};
     }
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $MainObject   = $Kernel::OM->Get('Kernel::System::Main');
+
+    $Self->{ActiveEngine} = $SearchObject->{Config}->{ActiveEngine};
+
+    $MainObject->Require(
+        "Kernel::System::Search::Object::EngineQueryHelper::$Self->{ActiveEngine}",
+    );
 
     bless( $Self, $Type );
 

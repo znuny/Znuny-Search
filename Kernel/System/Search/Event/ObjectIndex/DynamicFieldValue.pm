@@ -79,17 +79,50 @@ sub Run {
     my $FieldValueType = $FieldValueTypeGet->{ 'DynamicField_' . $DynamicFieldConfig->{Name} };
     my $FunctionName   = $Param{Config}->{FunctionName};
     my $Success;
+    my $AdditionalParameters;
+    my $IndexToUpdate;
+    my $SearchQuery;
+    my $ObjectID;
 
-    # update either ticket or article
-    my $TicketAdditionalParameters = $DynamicFieldConfig->{ObjectType} eq 'Ticket'
-        ? {
-        UpdateTicket => 1,
-        }
-        : {
-        UpdateArticle => [ $Param{Data}->{ArticleID} ],
+    # update ticket or customer user
+    if ( $DynamicFieldConfig->{ObjectType} eq 'Ticket' ) {
+        $AdditionalParameters = {
+            UpdateTicket => 1,
         };
+        $IndexToUpdate = 'Ticket';
+        $ObjectID      = $Param{Data}->{TicketID};
+        $SearchQuery   = {
+            ObjectID => $ObjectID,
+        };
+    }
+    elsif ( $DynamicFieldConfig->{ObjectType} eq 'Article' ) {
+        $AdditionalParameters = {
+            UpdateArticle => [ $Param{Data}->{ArticleID} ],
+        };
+        $IndexToUpdate = 'Ticket';
+        $ObjectID      = $Param{Data}->{ArticleID};
+        $SearchQuery   = {
+            ObjectID => $Param{Data}->{TicketID},
+        };
+    }
+    elsif ( $DynamicFieldConfig->{ObjectType} eq 'CustomerUser' ) {
+        $IndexToUpdate = 'CustomerUser';
+        $ObjectID      = $Param{Data}->{ObjectName};
+        $SearchQuery   = {
+            QueryParams => {
+                UserLogin => $ObjectID,
+            }
+        };
+    }
 
-    # array & scalar fields support
+    # dynamic_field_value removal is problematic as Znuny won't return
+    # ID of record to delete, so instead custom ID is defined for
+    # advanced search engine
+    # additionally it is used as context in queries that uses "QueryParams"
+    # parameter
+    my $UniqueID = 'f' . $DynamicFieldConfig->{ID} . 'o' . $ObjectID;
+
+    # value was deleted - array & scalar fields support
     if (
         ( $Param{Data}->{OldValue} && !( $Param{Data}->{Value} ) )
         ||
@@ -101,12 +134,7 @@ sub Run {
         )
         )
     {
-
-        # dynamic_field_value removal is problematic as Znuny won't return
-        # ID of record to delete, so instead custom ID is defined for
-        # advanced search engine
-        my $UniqueID = 'f' . $DynamicFieldConfig->{ID} . 'o' . $Param{Data}->{TicketID};
-
+        # delete whole entry from DynamicFieldValue index
         $Success = $SearchChildObject->IndexObjectQueueAdd(
             Index => 'DynamicFieldValue',
             Value => {
@@ -116,25 +144,33 @@ sub Run {
                 QueryParams => {
                     _id => $UniqueID,
                 },
-                Context => "ObjRemove_DFDelete_$UniqueID",
+                Context => "ObjectIndexRemove_DFDelete_$UniqueID",
             },
         );
 
-        # update "Ticket" index as it also have dynamic fields as denormalized values
-        $Success = $SearchChildObject->IndexObjectQueueAdd(
-            Index => 'Ticket',
-            Value => {
-                FunctionName         => 'ObjectIndexUpdate',
-                ObjectID             => $Param{Data}->{TicketID},
-                AdditionalParameters => $TicketAdditionalParameters,
-            },
-        );
-
-        return $Success;
+        # update ticket/customer user index as it also have dynamic fields as denormalized values
+        # ticket does not need context as it does not use "QueryParams" parameter
+        if ( $IndexToUpdate eq 'CustomerUser' ) {
+            return $SearchObject->ObjectIndexUpdate(
+                Index   => 'CustomerUser',
+                Refresh => 1,
+                %{$SearchQuery},
+            );
+        }
+        else {
+            return $SearchChildObject->IndexObjectQueueAdd(
+                Index => $IndexToUpdate,
+                Value => {
+                    FunctionName         => 'ObjectIndexUpdate',
+                    AdditionalParameters => $AdditionalParameters,
+                    Context              => "ObjectIndexUpdate_DFDelete_$UniqueID",
+                    %{$SearchQuery},
+                },
+            );
+        }
     }
 
-    my $ObjectID = $Param{Data}->{ArticleID} || $Param{Data}->{TicketID};
-
+    # dynamic field value was updates/added
     $Success = $SearchChildObject->IndexObjectQueueAdd(
         Index => 'DynamicFieldValue',
         Value => {
@@ -143,20 +179,32 @@ sub Run {
                 FieldID  => $DynamicFieldConfig->{ID},
                 ObjectID => $ObjectID,
             },
-            Context => "ObjRemove_DF${FunctionName}_f" . $DynamicFieldConfig->{ID}
-                . 'o' . $ObjectID,
+            Context => "${FunctionName}_DFValueChanged_$UniqueID",
         },
     );
 
-    # update "Ticket" index as it also have dynamic fields as denormalized values
-    $Success = $SearchChildObject->IndexObjectQueueAdd(
-        Index => 'Ticket',
-        Value => {
-            FunctionName         => 'ObjectIndexUpdate',
-            ObjectID             => $Param{Data}->{TicketID},
-            AdditionalParameters => $TicketAdditionalParameters,
-        },
-    );
+    # update ticket/customer user index as it also have dynamic fields as denormalized values
+    my $ParentIndexSuccess;
+    if ( $IndexToUpdate eq 'CustomerUser' ) {
+        $ParentIndexSuccess = $SearchObject->ObjectIndexUpdate(
+            Index   => 'CustomerUser',
+            Refresh => 1,
+            %{$SearchQuery},
+        );
+    }
+    else {
+        $ParentIndexSuccess = $SearchChildObject->IndexObjectQueueAdd(
+            Index => $IndexToUpdate,
+            Value => {
+                FunctionName         => 'ObjectIndexUpdate',
+                AdditionalParameters => $AdditionalParameters,
+                Context              => "ObjectIndexUpdate_DFValueChanged_$UniqueID",
+                %{$SearchQuery},
+            },
+        );
+    }
+
+    $Success = $ParentIndexSuccess if $Success;
 
     return $Success;
 }

@@ -25,6 +25,12 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
+    $Self->{SupportedDynamicFieldTypes} = {
+        Ticket       => 1,
+        Article      => 1,
+        CustomerUser => 1,
+    };
+
     return $Self;
 }
 
@@ -69,12 +75,13 @@ sub Run {
         },
     );
 
+    my $FieldID = $Param{Data}->{NewData}->{ID};
+
     # deleting dynamic field definition triggers event
     # dynamic field delete but does not trigger dynamic field value delete
     # even when sql engine delete them
     # delete dynamic field with dynamic field value data from advanced engine
     if ( $FunctionName eq 'ObjectIndexRemove' ) {
-        my $FieldID = $Param{Data}->{NewData}->{ID};
         $SearchChildObject->IndexObjectQueueAdd(
             Index => 'DynamicFieldValue',
             Value => {
@@ -82,9 +89,75 @@ sub Run {
                 QueryParams  => {
                     FieldID => $FieldID,
                 },
-                Context => "ObjRemove_DFDelete_$FieldID",
+                Context => "ObjectIndexRemove_DFDelete_$FieldID",
             },
         );
+    }
+
+    my $ObjectType = $Param{Data}->{NewData}->{ObjectType};
+
+    return if ( !$Self->{SupportedDynamicFieldTypes}->{$ObjectType} );
+
+    my $UpdateIndex;
+    if ( $ObjectType eq 'Article' || $ObjectType eq 'Ticket' ) {
+        $UpdateIndex = 'Ticket';
+    }
+    else {
+        $UpdateIndex = $ObjectType;
+    }
+    my $Success = 1;
+
+    if ( $Param{Event} eq 'DynamicFieldDelete' ) {
+        my $OldDFName = $Param{Data}->{NewData}->{Name};
+
+        $Success = $SearchChildObject->IndexObjectQueueAdd(
+            Index => $UpdateIndex,
+            Value => {
+                FunctionName         => 'ObjectIndexUpdate',
+                QueryParams          => {},
+                AdditionalParameters => {
+                    CustomFunction => {
+                        Name   => 'ObjectIndexUpdateDFChanged',
+                        Params => {
+                            DynamicField => {
+                                ObjectType => $ObjectType,
+                                Name       => $OldDFName,
+                                Event      => 'Remove',
+                            }
+                        },
+                    }
+                },
+                Context => "ObjectIndexUpdate_DFDelete_${FieldID}",
+            },
+        );
+        return $Success;
+    }
+
+    my $OldDFName = $Param{Data}->{OldData}->{Name};
+    my $NewDFName = $Param{Data}->{NewData}->{Name};
+
+    if ( $NewDFName && $OldDFName && $NewDFName ne $OldDFName ) {
+
+        $Success = $SearchChildObject->IndexObjectQueueAdd(
+            Index => $UpdateIndex,
+            Value => {
+                FunctionName   => 'ObjectIndexUpdate',
+                QueryParams    => {},
+                CustomFunction => {
+                    Name   => 'ObjectIndexUpdateDFChanged',
+                    Params => {
+                        DynamicField => {
+                            ObjectType => $ObjectType,
+                            Name       => $OldDFName,
+                            NewName    => $Param{Data}->{NewData}->{Name},
+                            Event      => 'NameChange',
+                        }
+                    },
+                },
+                Context => "ObjectIndexUpdate_DFNameChanged_${OldDFName}_${ObjectType}",
+            },
+        );
+        return $Success;
     }
 
     return 1;
