@@ -89,6 +89,16 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="Ticket::EventModulePost###001-Attachment-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Attachment</Item>
+                <Item Key="Event">ArticleWriteAttachment|ArticleDeleteAttachment</Item>
+            </Hash>
+        </Value>
+    </Setting>
     <Setting Name="Ticket::EventModulePost###001-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>

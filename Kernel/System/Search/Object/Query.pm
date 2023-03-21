@@ -742,6 +742,10 @@ sub _QueryParamSet {
     my ( $Self, %Param ) = @_;
 
     my $Name = $Param{Name};
+
+    # prevent using query parameter that is not supposed to be searched by
+    # this feature is not used in any of core indexes
+    # meaning that any fields in the index mapping can be used as a query parameter
     return { Error => 1 }
         if $Param{SearchableFields} && $Param{SearchableFields} ne '*' && !$Param{SearchableFields}->{$Name};
 
@@ -764,9 +768,16 @@ sub _QueryParamSet {
     );
 
     if ( !$ParamIsValid ) {
+
+        # if param is supposed to pass
+        # and it failed, then return error
+        # response which can identify usage of
+        # wrong query parameter
         if ( $Param{Strict} ) {
             return { Error => 1 };
         }
+
+        # otherwise simply ignore this parameter
         else {
             return;
         }
@@ -780,6 +791,11 @@ sub _QueryParamSet {
             Message  => "Data is needed!",
         );
         return { Error => 1 };
+    }
+
+    # if no value is defined ignore query parameter
+    if ( !defined $Value ) {
+        return;
     }
 
     NEEDED:

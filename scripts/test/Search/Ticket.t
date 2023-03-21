@@ -245,7 +245,7 @@ my $UserResponsibleID = $UserObject->UserAdd(
     UserFirstname => 'Huber',
     UserLastname  => 'Manfred',
     UserLogin     => $Object->{Basic}->{Responsible}->{Login},
-    UserEmail     => 'email@mail.com',
+    UserEmail     => 'email2@mail.com',
     ValidID       => 1,
     ChangeUserID  => 1,
 );
@@ -329,7 +329,7 @@ my $UserLogin = $CustomerUserObject->CustomerUserAdd(
     UserCustomerID => $Object->{Basic}->{CustomerUser}->{ID},
     UserLogin      => 'some-customeruser',
     UserPassword   => 'some-pass',                              # not required
-    UserEmail      => 'email@mail.com',
+    UserEmail      => 'email3@mail.com',
     ValidID        => 1,
     UserID         => $Object->{Basic}->{User}->{ID},
 );
@@ -435,16 +435,19 @@ $Self->True(
 
 $StartQueuedIndexation->();
 
-# refresh Ticket index as live-indexing is asynchronous
+# refresh Ticket index
 $SearchObject->IndexRefresh(
     Index => 'Ticket',
 );
+
+my %ESCompatibleQueryParams = %{ $QueryParams->{BasicTicket} };
+$ESCompatibleQueryParams{TicketNumber} = delete $ESCompatibleQueryParams{TN};
 
 # search for basic ticket in elasticsearch
 my $Search = $SearchObject->Search(
     Objects     => ["Ticket"],
     QueryParams => {
-        %{ $QueryParams->{BasicTicket} },
+        %ESCompatibleQueryParams,
         UserID => $Object->{Basic}->{User}->{ID},
     },
     Limit        => 1,
@@ -457,7 +460,7 @@ my $Search = $SearchObject->Search(
 my $SearchLookup = $SearchObject->Search(
     Objects     => ["Ticket"],
     QueryParams => {
-        %{ $QueryParams->{BasicTicketLookup} },
+        %ESCompatibleQueryParams,
         UserID => $Object->{Basic}->{User}->{ID},
     },
     Limit        => 1,
@@ -575,7 +578,7 @@ $Self->False(
 my $SearchNoPermissions = $SearchObject->Search(
     Objects     => ["Ticket"],
     QueryParams => {
-        %{ $QueryParams->{BasicTicket} },
+        %ESCompatibleQueryParams,
     },
     Limit        => 1,
     UseSQLSearch => 0,
@@ -598,7 +601,7 @@ $Self->False(
 my $SearchPermissionsGroup = $SearchObject->Search(
     Objects     => ["Ticket"],
     QueryParams => {
-        %{ $QueryParams->{BasicTicket} },
+        %ESCompatibleQueryParams,
         GroupID => [ $Object->{Basic}->{Queue}->{GroupID} ],
     },
     Limit        => 1,
@@ -648,7 +651,7 @@ $SearchObject->IndexRefresh(
 my $TicketAfterQueueUpdate = $SearchObject->Search(
     Objects     => ["Ticket"],
     QueryParams => {
-        %{ $QueryParams->{BasicTicket} },
+        %ESCompatibleQueryParams,
         UserID => $Object->{Basic}->{User}->{ID},
     },
     Limit        => 1,
@@ -797,7 +800,7 @@ for my $Index ( 0 .. 4 ) {
 
 $StartQueuedIndexation->();
 
-# refresh Ticket index as live-indexing is asynchronous
+# refresh Ticket index
 $SearchObject->IndexRefresh(
     Index => 'Ticket',
 );
@@ -805,14 +808,14 @@ $SearchObject->IndexRefresh(
 my $TicketWithAttachmentIndexed = $SearchObject->Search(
     Objects     => ["Ticket"],
     QueryParams => {
-        %{ $QueryParams->{BasicTicket} },
+        %ESCompatibleQueryParams,
         UserID              => $Object->{Basic}->{User}->{ID},
         Attachment_Filename => {
             Operator => '=',
             Value    => $Tests[0]->{Data}->{Attachment}->[0]->{Filename},
         },
-        TicketID => \@TicketIDsContainsAttachments,
-        TN       => undef,
+        TicketID     => \@TicketIDsContainsAttachments,
+        TicketNumber => undef,
     },
     Fields       => [ ['Attachment_*'] ],
     Limit        => 1,
