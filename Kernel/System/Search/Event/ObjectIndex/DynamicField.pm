@@ -77,23 +77,6 @@ sub Run {
 
     my $FieldID = $Param{Data}->{NewData}->{ID};
 
-    # deleting dynamic field definition triggers event
-    # dynamic field delete but does not trigger dynamic field value delete
-    # even when sql engine delete them
-    # delete dynamic field with dynamic field value data from advanced engine
-    if ( $FunctionName eq 'ObjectIndexRemove' ) {
-        $SearchChildObject->IndexObjectQueueAdd(
-            Index => 'DynamicFieldValue',
-            Value => {
-                FunctionName => $FunctionName,
-                QueryParams  => {
-                    FieldID => $FieldID,
-                },
-                Context => "ObjectIndexRemove_DFDelete_$FieldID",
-            },
-        );
-    }
-
     my $ObjectType = $Param{Data}->{NewData}->{ObjectType};
 
     return if ( !$Self->{SupportedDynamicFieldTypes}->{$ObjectType} );

@@ -50,7 +50,7 @@ sub PreRun {
 sub Run {
     my ( $Self, %Param ) = @_;
 
-    my $ObjectToTest = 'ArticleDataMIME';
+    my $ObjectToTest = 'Ticket';
 
     my %Params = (
         Objects     => [$ObjectToTest],

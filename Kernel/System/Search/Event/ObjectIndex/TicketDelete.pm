@@ -61,7 +61,7 @@ sub Run {
 
     # ticket is an entity related to many indexes
     # all of those needs to be updated
-    for my $Index (qw(DynamicFieldValue Ticket Article ArticleDataMIMEAttachment)) {
+    for my $Index (qw(Ticket Article)) {
         my $IsValid = $SearchChildObject->IndexIsValid(
             IndexName => $Index,
         );
@@ -69,29 +69,6 @@ sub Run {
         $ValidIndexes{$Index} = $IsValid;
     }
 
-    if ( $ValidIndexes{DynamicFieldValue} ) {
-        my $DynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
-            ObjectType => 'Ticket',
-        );
-
-        my @QueryParamsID;
-        for my $DynamicField ( @{$DynamicFieldList} ) {
-            push @QueryParamsID, 'f' . $DynamicField->{ID} . 'o' . $TicketID;
-        }
-        if ( scalar @QueryParamsID ) {
-
-            $SearchChildObject->IndexObjectQueueAdd(
-                Index => 'DynamicFieldValue',
-                Value => {
-                    FunctionName => 'ObjectIndexRemove',
-                    QueryParams  => {
-                        _id => \@QueryParamsID,
-                    },
-                    Context => "ObjectIndexRemove_TicketDelete_$TicketID",
-                },
-            );
-        }
-    }
     if ( $ValidIndexes{Ticket} ) {
         $SearchChildObject->IndexObjectQueueAdd(
             Index => 'Ticket',
@@ -126,27 +103,6 @@ sub Run {
                 Value => {
                     FunctionName => 'ObjectIndexRemove',
                     ObjectID     => $ArticleID,
-                },
-            );
-        }
-    }
-    if ( $ValidIndexes{ArticleDataMIMEAttachment} ) {
-        my $ArticleStorageConfig = $ConfigObject->Get("Ticket::Article::Backend::MIMEBase::ArticleStorage");
-        my $TicketID             = $Param{Data}->{TicketID};
-
-        if (
-            $ArticleStorageConfig
-            && $ArticleStorageConfig eq 'Kernel::System::Ticket::Article::Backend::MIMEBase::ArticleStorageDB'
-            )
-        {
-            $SearchChildObject->IndexObjectQueueAdd(
-                Index => 'ArticleDataMIMEAttachment',
-                Value => {
-                    FunctionName => 'ObjectIndexRemove',
-                    QueryParams  => {
-                        TicketID => $TicketID,
-                    },
-                    Context => "ObjectIndexRemove_TicketDelete_$TicketID",
                 },
             );
         }
