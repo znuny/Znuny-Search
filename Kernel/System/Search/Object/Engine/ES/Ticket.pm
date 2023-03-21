@@ -516,6 +516,8 @@ sub ExecuteSearch {
     my @QueryParamsKey = keys %{ $Param{QueryParams} };
     my $QueryParams    = $Param{QueryParams};
 
+    my $Fulltext = delete $QueryParams->{Fulltext};
+
     # filter & prepare correct parameters
     my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
         QueryParams   => $QueryParams,
@@ -573,19 +575,19 @@ sub ExecuteSearch {
     my $FulltextAttachmentQuery;
 
     # fulltext search
-    if ( defined $QueryParams->{Fulltext} ) {
+    if ( defined $Fulltext ) {
         my $FulltextValue;
         my $FulltextQueryOperator = 'AND';
         my $StatementOperator     = 'OR';
-        if ( ref $QueryParams->{Fulltext} eq 'HASH' && $QueryParams->{Fulltext}->{Text} ) {
-            $FulltextValue         = $QueryParams->{Fulltext}->{Text};
-            $FulltextQueryOperator = $QueryParams->{Fulltext}->{QueryOperator}
-                if $QueryParams->{Fulltext}->{QueryOperator};
-            $StatementOperator = $QueryParams->{Fulltext}->{StatementOperator}
-                if $QueryParams->{Fulltext}->{StatementOperator};
+        if ( ref $Fulltext eq 'HASH' && $Fulltext->{Text} ) {
+            $FulltextValue         = $Fulltext->{Text};
+            $FulltextQueryOperator = $Fulltext->{QueryOperator}
+                if $Fulltext->{QueryOperator};
+            $StatementOperator = $Fulltext->{StatementOperator}
+                if $Fulltext->{StatementOperator};
         }
         else {
-            $FulltextValue = $QueryParams->{Fulltext};
+            $FulltextValue = $Fulltext;
         }
         if ( IsArrayRefWithData($FulltextValue) ) {
             $FulltextValue = join " $StatementOperator ", @{$FulltextValue};
@@ -2233,36 +2235,68 @@ sub ObjectIndexQueueUpdateRule {
                         = $UpdateTicketQueuedNow;
                 }
 
+                my $AddArticleQueuedBefore    = $QueuedOperation->{AdditionalParameters}->{AddArticle}    || '';
                 my $UpdateArticleQueuedBefore = $QueuedOperation->{AdditionalParameters}->{UpdateArticle} || '';
                 my $UpdateArticleQueuedNow    = $Param{QueueToAdd}->{AdditionalParameters}->{UpdateArticle};
 
+                # check if articles to update has been queued now
                 if ( IsArrayRefWithData($UpdateArticleQueuedNow) && $UpdateArticleQueuedBefore ne '*' ) {
-                    my $ArticlesToQueue = $UpdateArticleQueuedNow;
+                    my $ArticlesToQueue     = $UpdateArticleQueuedNow;
+                    my %QueuedArticleIDsNow = map { $_ => 1 } @{$ArticlesToQueue};
+
+                    # if there was any article add queued before
+                    # then check if any of the same ids was also
+                    # queued to update and prevent it as add operation
+                    # have higher priority
+                    if ( IsArrayRefWithData($AddArticleQueuedBefore) ) {
+                        my %QueuedArticleAddIDsBefore = map { $_ => 1 } @{$AddArticleQueuedBefore};
+                        for my $QueuedArticleAddBefore ( sort keys %QueuedArticleAddIDsBefore ) {
+                            delete $QueuedArticleIDsNow{$QueuedArticleAddBefore};
+                        }
+                        @{$ArticlesToQueue} = keys %QueuedArticleIDsNow;
+                    }
                     if ( IsArrayRefWithData($UpdateArticleQueuedBefore) ) {
                         my %QueuedArticleIDsBefore = map { $_ => 1 } @{$UpdateArticleQueuedBefore};
-                        my %QueuedArticleIDsNow    = map { $_ => 1 } @{$ArticlesToQueue};
-                        my %MergedArticleIDs      = ( %QueuedArticleIDsBefore, %QueuedArticleIDsNow );
-                        my @MergedArticleIDsArray = keys %MergedArticleIDs;
+                        my %MergedArticleIDs       = ( %QueuedArticleIDsBefore, %QueuedArticleIDsNow );
+                        my @MergedArticleIDsArray  = keys %MergedArticleIDs;
 
                         $ArticlesToQueue = \@MergedArticleIDsArray;
                     }
-                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateArticle}
-                        = $ArticlesToQueue;
+                    if ( IsArrayRefWithData($ArticlesToQueue) ) {
+                        $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateArticle}
+                            = $ArticlesToQueue;
+                    }
                 }
                 elsif ( $UpdateArticleQueuedNow && $UpdateArticleQueuedNow eq '*' ) {
                     $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateArticle} = '*';
                 }
 
-                my $AddArticleQueuedBefore = $QueuedOperation->{AdditionalParameters}->{AddArticle} || '';
-                my $AddArticleQueuedNow    = $Param{QueueToAdd}->{AdditionalParameters}->{AddArticle};
+                my $AddArticleQueuedNow = $Param{QueueToAdd}->{AdditionalParameters}->{AddArticle};
 
+                # check if articles to add has been queued now
                 if ( IsArrayRefWithData($AddArticleQueuedNow) ) {
-                    my $ArticlesToQueue = $AddArticleQueuedNow;
+                    my $ArticlesToQueue     = $AddArticleQueuedNow;
+                    my %QueuedArticleIDsNow = map { $_ => 1 } @{$ArticlesToQueue};
+
+                    # if there was any article update queued before
+                    # then check if any of the same ids was also
+                    # queued to add and override it as add operation
+                    # have higher priority
+                    if ( IsArrayRefWithData($UpdateArticleQueuedBefore) ) {
+                        my %QueuedArticleUpdateIDsBefore = map { $_ => 1 } @{$UpdateArticleQueuedBefore};
+                        for my $QueuedArticleAddNow ( sort keys %QueuedArticleIDsNow ) {
+                            delete $QueuedArticleUpdateIDsBefore{$QueuedArticleAddNow};
+                        }
+                        my @ArticlesToUpdate = keys %QueuedArticleUpdateIDsBefore;
+
+                        $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateArticle}
+                            = \@ArticlesToUpdate;
+                    }
+
                     if ( IsArrayRefWithData($AddArticleQueuedBefore) ) {
                         my %QueuedArticleIDsBefore = map { $_ => 1 } @{$AddArticleQueuedBefore};
-                        my %QueuedArticleIDsNow    = map { $_ => 1 } @{$ArticlesToQueue};
-                        my %MergedArticleIDs      = ( %QueuedArticleIDsBefore, %QueuedArticleIDsNow );
-                        my @MergedArticleIDsArray = keys %MergedArticleIDs;
+                        my %MergedArticleIDs       = ( %QueuedArticleIDsBefore, %QueuedArticleIDsNow );
+                        my @MergedArticleIDsArray  = keys %MergedArticleIDs;
 
                         $ArticlesToQueue = \@MergedArticleIDsArray;
                     }
