@@ -70,19 +70,6 @@ sub Run {
                 ObjectID     => $Param{Data}->{$Ticket},
             },
         );
-
-        # update tickets that contains changed articles
-        $SearchChildObject->IndexObjectQueueAdd(
-            Index => 'ArticleDataMIMEAttachment',
-            Value => {
-                FunctionName => 'ObjectIndexSet',
-                QueryParams  => {
-                    TicketID    => $Param{Data}->{$Ticket},
-                    Disposition => 'attachment'
-                },
-                Context => "ObjectIndexSet_TicketMerge_$Param{Data}->{$Ticket}",
-            },
-        );
     }
 
     return 1;

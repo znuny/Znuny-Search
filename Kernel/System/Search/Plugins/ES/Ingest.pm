@@ -63,21 +63,6 @@ sub ClusterInit {
     my $SearchObject  = $Kernel::OM->Get('Kernel::System::Search');
     my $ConnectObject = $SearchObject->{ConnectObject};
 
-    my $AttachmentPipeline = $ConnectObject->transport()->perform_request(
-        method => "PUT",
-        path   => "_ingest/pipeline/attachment",
-        body   => {
-            description => "Extract attachment information",
-            processors  => [
-                {
-                    attachment => {
-                        field => "Content",
-                    }
-                }
-            ]
-        },
-    );
-
     my $AttachmentNestedPipeline = $ConnectObject->transport()->perform_request(
         method => "PUT",
         path   => "_ingest/pipeline/attachment_nested",

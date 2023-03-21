@@ -23,7 +23,6 @@ our @ObjectDependencies = (
     'Kernel::System::Group',
     'Kernel::System::Main',
     'Kernel::System::Search',
-    'Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment',
 );
 
 =head1 NAME
@@ -53,7 +52,7 @@ sub new {
 
     for my $Property (
         qw(Fields SupportedOperators OperatorMapping DefaultSearchLimit
-        SupportedResultTypes Config ExternalFields SearchableFields )
+        SupportedResultTypes Config ExternalFields SearchableFields AttachmentFields )
         )
     {
         $Self->{ 'Index' . $Property } = $IndexObject->{$Property};
@@ -510,22 +509,17 @@ sub _QueryFieldDataSet {
         }
     }
     elsif ( $Param{Name} =~ m{\AAttachment_(.+)\z} ) {
-        my $SearchArticleDataMIMEAttachmentObject
-            = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
 
         my $AttachmentParam = $1;
         if ($AttachmentParam) {
-            for my $FieldStructure (qw(Fields ExternalFields)) {
-                if ( $SearchArticleDataMIMEAttachmentObject->{$FieldStructure}->{$AttachmentParam} ) {
-                    for my $Property (qw(Type ReturnType)) {
-                        if (
-                            $SearchArticleDataMIMEAttachmentObject->{$FieldStructure}->{$AttachmentParam}->{$Property}
-                            )
-                        {
-                            $Data->{$Property}
-                                = $SearchArticleDataMIMEAttachmentObject->{$FieldStructure}->{$AttachmentParam}
-                                ->{$Property};
-                        }
+            if ( $Self->{IndexAttachmentFields}->{$AttachmentParam} ) {
+                for my $Property (qw(Type ReturnType)) {
+                    if (
+                        $Self->{IndexAttachmentFields}->{$AttachmentParam}->{$Property}
+                        )
+                    {
+                        $Data->{$Property} = $Self->{IndexAttachmentFields}->{$AttachmentParam}
+                            ->{$Property};
                     }
                 }
             }
