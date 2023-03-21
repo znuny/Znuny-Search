@@ -115,11 +115,7 @@ sub Run {
         };
     }
 
-    # dynamic_field_value removal is problematic as Znuny won't return
-    # ID of record to delete, so instead custom ID is defined for
-    # advanced search engine
-    # additionally it is used as context in queries that uses "QueryParams"
-    # parameter
+    # create unique id
     my $UniqueID = 'f' . $DynamicFieldConfig->{ID} . 'o' . $ObjectID;
 
     # value was deleted - array & scalar fields support
@@ -134,21 +130,7 @@ sub Run {
         )
         )
     {
-        # delete whole entry from DynamicFieldValue index
-        $Success = $SearchChildObject->IndexObjectQueueAdd(
-            Index => 'DynamicFieldValue',
-            Value => {
-                FunctionName => 'ObjectIndexRemove',
-
-                # use customized id which contains of "f*field_id*o*object_id*"
-                QueryParams => {
-                    _id => $UniqueID,
-                },
-                Context => "ObjectIndexRemove_DFDelete_$UniqueID",
-            },
-        );
-
-        # update ticket/customer user index as it also have dynamic fields as denormalized values
+        # update ticket/customer user index as it have dynamic fields stored as denormalized values
         # ticket does not need context as it does not use "QueryParams" parameter
         if ( $IndexToUpdate eq 'CustomerUser' ) {
             return $SearchObject->ObjectIndexUpdate(
@@ -170,20 +152,7 @@ sub Run {
         }
     }
 
-    # dynamic field value was updates/added
-    $Success = $SearchChildObject->IndexObjectQueueAdd(
-        Index => 'DynamicFieldValue',
-        Value => {
-            FunctionName => $FunctionName,
-            QueryParams  => {
-                FieldID  => $DynamicFieldConfig->{ID},
-                ObjectID => $ObjectID,
-            },
-            Context => "${FunctionName}_DFValueChanged_$UniqueID",
-        },
-    );
-
-    # update ticket/customer user index as it also have dynamic fields as denormalized values
+    # update ticket/customer user index as it have dynamic fields stored as denormalized values
     my $ParentIndexSuccess;
     if ( $IndexToUpdate eq 'CustomerUser' ) {
         $ParentIndexSuccess = $SearchObject->ObjectIndexUpdate(

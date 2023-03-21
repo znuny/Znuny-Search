@@ -34,7 +34,6 @@ our @ObjectDependencies = (
     'Kernel::System::Ticket::Article',
     'Kernel::System::Search::Object::Operators',
     'Kernel::System::Encode',
-    'Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment',
 );
 
 =head1 NAME
@@ -179,6 +178,66 @@ sub new {
         },
     };
 
+    $Self->{AttachmentFields} = {
+        ID => {
+            ColumnName => 'id',
+            Type       => 'Integer'
+        },
+        ArticleID => {
+            ColumnName => 'article_id',
+            Type       => 'Integer'
+        },
+        Filename => {
+            ColumnName => 'filename',
+            Type       => 'String'
+        },
+        ContentSize => {
+            ColumnName => 'content_size',
+            Type       => 'String'
+        },
+        ContentType => {
+            ColumnName => 'content_type',
+            Type       => 'String'
+        },
+        ContentID => {
+            ColumnName => 'content_id',
+            Type       => 'String'
+        },
+        ContentAlternative => {
+            ColumnName => 'content_alternative',
+            Type       => 'String'
+        },
+        Disposition => {
+            ColumnName => 'disposition',
+            Type       => 'String'
+        },
+        Content => {
+            ColumnName => 'content',
+            Type       => 'Blob'
+        },
+        CreateTime => {
+            ColumnName => 'create_time',
+            Type       => 'Date'
+        },
+        CreateBy => {
+            ColumnName => 'create_by',
+            Type       => 'Integer'
+        },
+        ChangeTime => {
+            ColumnName => 'change_time',
+            Type       => 'Date'
+        },
+        ChangeBy => {
+            ColumnName => 'change_by',
+            Type       => 'Integer'
+        },
+        AttachmentContent => {
+            ColumnName => 'attachment.content',
+            Type       => 'Textarea',
+            Alias      => 1,
+        },
+    };
+
     # define searchable fields
     # that can be used as query parameters
     # for either indexing or searching
@@ -254,7 +313,7 @@ On executing ticket search by Kernel::System::Search:
             Article_Cc => 'value',
             Article_Subject => 'value',
             Article_Body => 'value',
-            Article_*OtherArticleDataMIMEValues* => 'value',
+            Article_*OtherArticleValues* => 'value',
             Article_SenderTypeID => 'value',
             Article_CommunicationChannelID => 'value',
             Article_IsVisibleForCustomer => 1/0
@@ -1637,10 +1696,8 @@ sub IndexMappingSet {
     my $DataTypes = $Param{MappingObject}->MappingDataTypesGet();
 
     my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    my $SearchArticleDataMIMEAttachmentObject
-        = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
-    my %ArticleFields = ( %{ $SearchArticleObject->{Fields} }, %{ $SearchArticleObject->{ExternalFields} } );
-    my $ArticleDataMIMEAttachmentFields = $SearchArticleDataMIMEAttachmentObject->{Fields};
+    my %ArticleFields       = ( %{ $SearchArticleObject->{Fields} }, %{ $SearchArticleObject->{ExternalFields} } );
+    my $AttachmentFields    = $Self->{AttachmentFields};
 
     # add nested type relation for articles
     if ( keys %ArticleFields ) {
@@ -1657,10 +1714,10 @@ sub IndexMappingSet {
             $MappingQuery->{Body}->{properties}->{Articles}->{properties}->{$ArticleFieldName}
                 = $DataTypes->{ $ArticleFields{$ArticleFieldName}->{Type} };
         }
-        for my $ArticleFieldName ( sort keys %{$ArticleDataMIMEAttachmentFields} ) {
+        for my $ArticleFieldName ( sort keys %{$AttachmentFields} ) {
 
             $MappingQuery->{Body}->{properties}->{Articles}->{properties}->{Attachments}->{properties}
-                ->{$ArticleFieldName} = $DataTypes->{ $ArticleDataMIMEAttachmentFields->{$ArticleFieldName}->{Type} };
+                ->{$ArticleFieldName} = $DataTypes->{ $AttachmentFields->{$ArticleFieldName}->{Type} };
         }
     }
 
@@ -1709,8 +1766,6 @@ sub SQLObjectSearch {
     my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
     my $ArticleObject             = $Kernel::OM->Get('Kernel::System::Ticket::Article');
     my $SearchArticleObject       = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    my $SearchArticleDataMIMEAttachmentObject
-        = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
 
     my $QueryParams = $Param{QueryParams};
     my $Fields      = $Param{Fields};
@@ -1991,16 +2046,11 @@ sub ValidFieldsPrepare {
 
     my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
     my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
-    my $ArticleDataMIMEAttachmentObject
-        = $Kernel::OM->Get('Kernel::System::Search::Object::Default::ArticleDataMIMEAttachment');
 
     my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
     my %AllArticleFields    = ( %{ $SearchArticleObject->{Fields} }, %{ $SearchArticleObject->{ExternalFields} } );
 
-    my $AttachmentBasicFields    = $ArticleDataMIMEAttachmentObject->{Fields};
-    my $AttachmentExternalFields = $ArticleDataMIMEAttachmentObject->{ExternalFields};
-
-    my %AllAttachmentFields = ( %{$AttachmentBasicFields}, %{$AttachmentExternalFields} );
+    my $AllAttachmentFields = $Self->{AttachmentFields};
 
     PARAMFIELD:
     for my $ParamField ( @{ $Param{Fields} } ) {
@@ -2089,12 +2139,12 @@ sub ValidFieldsPrepare {
             my $AttachmentField = $1;
 
             if ( $AttachmentField && $AttachmentField eq '*' ) {
-                for my $AttachmentFieldName ( sort keys %AllAttachmentFields ) {
-                    $ValidFields{Attachment}->{$AttachmentFieldName} = $AllAttachmentFields{$AttachmentFieldName};
+                for my $AttachmentFieldName ( sort keys %{$AllAttachmentFields} ) {
+                    $ValidFields{Attachment}->{$AttachmentFieldName} = $AllAttachmentFields->{$AttachmentFieldName};
                 }
             }
             else {
-                $ValidFields{Attachment}->{$AttachmentField} = $AllAttachmentFields{$AttachmentField};
+                $ValidFields{Attachment}->{$AttachmentField} = $AllAttachmentFields->{$AttachmentField};
             }
         }
     }
@@ -2174,7 +2224,6 @@ sub ObjectIndexQueueUpdateRule {
                 return;
             }
 
-            # do nothing
             elsif ( $PrevQueuedOperationName eq 'ObjectIndexUpdate' ) {
                 my $UpdateTicketQueuedBefore = $QueuedOperation->{AdditionalParameters}->{UpdateTicket};
                 my $UpdateTicketQueuedNow    = $Param{QueueToAdd}->{AdditionalParameters}->{UpdateTicket};

@@ -17,9 +17,7 @@
                 <Item Key="Ticket">ticket</Item>
                 <Item Key="TicketHistory">ticket_history</Item>
                 <Item Key="Article">article</Item>
-                <Item Key="ArticleDataMIMEAttachment">article_data_mime_attachment</Item>
                 <Item Key="DynamicField">dynamic_field</Item>
-                <Item Key="DynamicFieldValue">dynamic_field_value</Item>
                 <Item Key="CustomerUser">customer_user</Item>
             </Hash>
         </Value>
@@ -98,17 +96,6 @@
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::TicketMerge</Item>
                 <Item Key="Event">TicketMerge</Item>
-            </Hash>
-        </Value>
-    </Setting>
-    <Setting Name="Ticket::EventModulePost###000-Article-ArticleDataMIMEAttachment-ObjectIndex" Required="0" Valid="1">
-        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
-        <Navigation>Core::Event::Ticket</Navigation>
-        <Value>
-            <Hash>
-                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::Article::ArticleDataMIMEAttachment</Item>
-                <Item Key="Event">ArticleWriteAttachment</Item>
-                <Item Key="FunctionName">ObjectIndexAdd</Item>
             </Hash>
         </Value>
     </Setting>

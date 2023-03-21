@@ -32,19 +32,14 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Extensions/Ticket/CustomPackage.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicField.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicFieldValue.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/CustomerUser.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Default/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Article.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/CustomerUser.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicField.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicFieldValue.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Object/Query/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/CustomerUser.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/EngineQueryHelper/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/Reindex.pm"/>
@@ -57,8 +52,6 @@
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/QueueUpdate.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketDelete.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketMerge.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Article/ArticleDataMIMEAttachment.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Ticket/ArticleDataMIMEAttachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/CustomerUser.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Engine/ES.pm"/>
