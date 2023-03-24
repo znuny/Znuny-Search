@@ -7,6 +7,7 @@
     <URL>http://znuny.com/</URL>
     <License>GNU AFFERO GENERAL PUBLIC LICENSE Version 3, November 2007</License>
     <Description Lang="en">Functionality related to search engines.</Description>
+    <ChangeLog Version="6.5.0" Date="2023-03-24 14:23:12 +0100">Initial release for Znuny 6.5.</ChangeLog>
     <Filelist>
         <File Permission="660" Location="Kernel/Config/Files/XML/Search.xml"/>
         <File Permission="660" Location="Kernel/Language/de_ZnunySearch.pm"/>
@@ -106,7 +107,6 @@
         <File Permission="660" Location="Custom/Kernel/System/Ticket/Article/Backend/MIMEBase/ArticleStorageDB.pm"/>
         <File Permission="660" Location="Custom/Kernel/System/Ticket/Article/Backend/MIMEBase.pm"/>
     </Filelist>
-
     <CodeInstall Type="post"><![CDATA[
         $Kernel::OM->Get('var::packagesetup::ZnunySearch')->CodeInstall();
     ]]></CodeInstall>
