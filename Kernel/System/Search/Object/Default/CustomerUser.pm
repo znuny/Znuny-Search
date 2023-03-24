@@ -17,7 +17,6 @@ use Kernel::System::VariableCheck qw(:all);
 our @ObjectDependencies = (
     'Kernel::System::Main',
     'Kernel::System::Search',
-    'Kernel::System::CustomerUser',
 );
 
 =head1 NAME

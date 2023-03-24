@@ -49,9 +49,10 @@ sub new {
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'article',      # index name on the engine/sql side
-        IndexName     => 'Article',      # index name on the api side
-        Identifier    => 'ArticleID',    # column name that represents object id in the field mapping
+        IndexRealName        => 'article',       # index name on the engine/sql side
+        IndexName            => 'Article',       # index name on the api side
+        Identifier           => 'ArticleID',     # column name that represents object id in the field mapping
+        ChangeTimeColumnName => 'ChangeTime',    # column representing time of updated data entry
     };
 
     # define schema for data
@@ -361,13 +362,19 @@ sub SQLObjectSearch {
 
     if ( IsArrayRefWithData( $Param{Fields} ) ) {
         my @ExternalArticleFields = grep { $Self->{ExternalFields}->{$_} } @{ $Param{Fields} };
-        if ( scalar @ExternalArticleFields ) {
-            $ExternalFields = \@ExternalArticleFields;
-        }
 
         # no article_data_mime fields to retrieve found,
         # meaning join on sql is not needed
-        else {
+        if ( !scalar @ExternalArticleFields ) {
+            undef $Join;
+        }
+    }
+    elsif ( IsHashRefWithData( $Param{Fields} ) ) {
+        my @ExternalArticleFields = grep { $Self->{ExternalFields}->{$_} } keys %{ $Param{Fields} };
+
+        # no article_data_mime fields to retrieve found,
+        # meaning join on sql is not needed
+        if ( !scalar @ExternalArticleFields ) {
             undef $Join;
         }
     }
@@ -405,7 +412,7 @@ sub ValidFieldsPrepare {
 
     my %AllArticleFields = ( %{$ArticleBasicFields}, %{$ArticleExternalFields} );
 
-    if ( !IsArrayRefWithData( $Param{Fields} ) || $Param{Param}->{UseSQLSearch} ) {
+    if ( !IsArrayRefWithData( $Param{Fields} ) ) {
         $Fields = \%AllArticleFields;
     }
     else {

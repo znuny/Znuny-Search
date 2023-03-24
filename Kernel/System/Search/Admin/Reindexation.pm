@@ -88,8 +88,11 @@ sub BuildReindexationSection {
         Queued  => 'fa-hourglass-half',
     );
 
-    my $DataEquality = $Self->DataEqualityGet();
     for my $IndexName ( sort keys %{ $SearchObject->{Config}->{RegisteredIndexes} } ) {
+        my $DataEquality = $Self->DataEqualityGet(
+            ClusterID => $ClusterConfig->{ClusterID},
+            IndexName => $IndexName,
+        );
         my $Percentage = $DataEquality->{$IndexName}->{Percentage};
         my $Date       = $DataEquality->{$IndexName}->{Date};
 
@@ -157,6 +160,7 @@ get newest information about data equality for given cluster
 
     my $Details = $ReindexationObject->DataEqualityGet(
         ClusterID => $ClusterID,
+        IndexName => $IndexName,
     );
 
 =cut
@@ -166,26 +170,42 @@ sub DataEqualityGet {
 
     my $DBObject     = $Kernel::OM->Get('Kernel::System::DB');
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(ClusterID IndexName)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
 
     $DBObject->Prepare(
         SQL => '
-            SELECT   index_name, percentage, create_time
+            SELECT   index_name, percentage, create_time, last_reindexation
             FROM     search_cluster_data_equality
-            ORDER BY create_time DESC
+            WHERE    cluster_id = ? AND index_name = ?
         ',
+        Bind  => [ \$Param{ClusterID}, \$Param{IndexName} ],
+        Limit => 1,
     );
 
-    my $IndexEqualityPercentage;
+    my $Data;
     ROW:
     while ( my @Row = $DBObject->FetchrowArray() ) {
-        next ROW if $IndexEqualityPercentage->{ $Row[0] };
-        $IndexEqualityPercentage->{ $Row[0] } = {
-            Percentage => $Row[1],
-            Date       => $Row[2],
+        next ROW if $Data->{ $Row[0] };
+        $Data->{ $Row[0] } = {
+            Percentage           => $Row[1],
+            Date                 => $Row[2],
+            LastReindexationTime => $Row[3],
         };
     }
 
-    return $IndexEqualityPercentage;
+    return $Data;
 }
 
 =head2 DataEqualitySet()
@@ -193,9 +213,10 @@ sub DataEqualityGet {
 set information about data equality for given cluster
 
     my $Details = $ReindexationObject->DataEqualitySet(
-        ClusterID => $ClusterID,
-        Indexes => $Indexes,
-        NoPermissions => 1, # optional
+        ClusterID                        => $ClusterID,
+        Indexes                          => $Indexes,
+        NoPermissions                    => 1, # optional
+        UpdateReindexationTimeForIndexes => ['Ticket', 'Article'], # optional
     );
 
 =cut
@@ -214,6 +235,10 @@ sub DataEqualitySet {
 
     return if $Param{ClusterID} && $ClusterConfig->{ClusterID} != $Param{ClusterID};
 
+    my %IndexesToUpdateReindexTime;
+    %IndexesToUpdateReindexTime = map { $_ => 1 } @{ $Param{UpdateReindexationTimeForIndexes} }
+        if IsArrayRefWithData( $Param{UpdateReindexationTimeForIndexes} );
+
     my @IndexList = $SearchObject->IndexList();
 
     my @ActiveIndexes;
@@ -231,14 +256,44 @@ sub DataEqualitySet {
             next INDEX;
         }
 
-        # cannot find index on engine side, set it percentage on 0%
-        return if !$DBObject->Do(
-            SQL => '
-                INSERT INTO search_cluster_data_equality (cluster_id, index_name, percentage, create_time)
-                       VALUES (?, ?, 0, current_timestamp)
-            ',
-            Bind => [ \$Param{ClusterID}, \$Index, ]
+        my $EntryExists = $Self->DataEqualityGet(
+            ClusterID => $ClusterConfig->{ClusterID},
+            IndexName => $Index,
         );
+
+        my $ReindexationTimeUpdateSQL  = '';
+        my $ReindexationTimeUpdateSQL2 = '';
+
+        if ($EntryExists) {
+            if ( $IndexesToUpdateReindexTime{$Index} ) {
+                $ReindexationTimeUpdateSQL = ', last_reindexation = current_timestamp';
+            }
+
+            return if !$DBObject->Do(
+                SQL => '
+                    UPDATE   search_cluster_data_equality
+                    SET      percentage = 0, change_time = current_timestamp ' . $ReindexationTimeUpdateSQL . '
+                    WHERE    cluster_id = ? AND index_name = ?
+                ',
+                Bind => [ \$Param{ClusterID}, \$Index, ]
+            );
+        }
+        else {
+            if ( $IndexesToUpdateReindexTime{$Index} ) {
+                $ReindexationTimeUpdateSQL  = ', last_reindexation';
+                $ReindexationTimeUpdateSQL2 = ', current_timestamp';
+            }
+
+            # cannot find index on engine side, set it percentage on 0%
+            return if !$DBObject->Do(
+                SQL => '
+                    INSERT INTO   search_cluster_data_equality (cluster_id, index_name, percentage, create_time, change_time'
+                    . $ReindexationTimeUpdateSQL . ')
+                    VALUES        (?, ?, 0, current_timestamp, current_timestamp' . $ReindexationTimeUpdateSQL2 . ')
+                ',
+                Bind => [ \$Param{ClusterID}, \$Index, ]
+            );
+        }
     }
 
     my %QueryParams = (
@@ -249,7 +304,6 @@ sub DataEqualitySet {
 
     my $EngineResponse = $SearchObject->Search(
         %QueryParams,
-        Fields        => [ [] ],
         NoPermissions => $Param{NoPermissions},
     ) || {};
 
@@ -258,10 +312,6 @@ sub DataEqualitySet {
         UseSQLSearch  => 1,
         NoPermissions => $Param{NoPermissions},
     ) || {};
-
-    $Kernel::OM->ObjectsDiscard(
-        Objects => ['Kernel::System::Search'],
-    );
 
     my $IndexEqualityPercentage;
     INDEX:
@@ -277,13 +327,66 @@ sub DataEqualitySet {
                 = sprintf( "%.2f", ( $EngineResponse->{$Index} * 100 ) / $DBResponse->{$Index} );
         }
 
-        return if !$DBObject->Do(
-            SQL => '
-                INSERT INTO search_cluster_data_equality (cluster_id, index_name, percentage, create_time)
-                       VALUES (?, ?, ?, current_timestamp)
-            ',
-            Bind => [ \$Param{ClusterID}, \$Index, \$IndexEqualityPercentage->{$Index} ]
+        my $EntryExists = $Self->DataEqualityGet(
+            ClusterID => $ClusterConfig->{ClusterID},
+            IndexName => $Index,
         );
+
+        my $ReindexationTimeUpdateSQL  = '';
+        my $ReindexationTimeUpdateSQL2 = '';
+
+        if ($EntryExists) {
+            if ( $IndexesToUpdateReindexTime{$Index} ) {
+                $ReindexationTimeUpdateSQL = ', last_reindexation = current_timestamp';
+            }
+
+            return if !$DBObject->Do(
+                SQL => '
+                    UPDATE   search_cluster_data_equality
+                    SET      percentage = ?, change_time = current_timestamp' . $ReindexationTimeUpdateSQL . '
+                    WHERE    cluster_id = ? AND index_name = ?
+                ',
+                Bind => [ \$IndexEqualityPercentage->{$Index}, \$Param{ClusterID}, \$Index ]
+            );
+        }
+        else {
+            if ( $IndexesToUpdateReindexTime{$Index} ) {
+                $ReindexationTimeUpdateSQL  = ', last_reindexation';
+                $ReindexationTimeUpdateSQL2 = ', current_timestamp';
+            }
+            return if !$DBObject->Do(
+                SQL => '
+                    INSERT INTO   search_cluster_data_equality (cluster_id, index_name, percentage, create_time, change_time'
+                    . $ReindexationTimeUpdateSQL . ')
+                    VALUES        (?, ?, ?, current_timestamp, current_timestamp' . $ReindexationTimeUpdateSQL2 . ')
+                ',
+                Bind => [ \$Param{ClusterID}, \$Index, \$IndexEqualityPercentage->{$Index} ]
+            );
+        }
+    }
+
+    if ( $Param{GetEqualityData} ) {
+        my $Result = {};
+        for my $Index ( sort keys %{$EngineResponse} ) {
+            my $IDsCount = defined $EngineResponse->{$Index}
+                ?
+                $EngineResponse->{$Index}
+                : 0;
+
+            $Result->{$Index}->{CustomEngine}->{Count} = $IDsCount;
+        }
+
+        for my $Index ( sort keys %{$DBResponse} ) {
+            my $IDsCount = defined $DBResponse->{$Index}
+                ?
+                $DBResponse->{$Index}
+                : 0;
+
+            $Result->{$Index}->{DBEngine}->{Count} = $IDsCount;
+            $Result->{$Index}->{EqualityPercentage} = $IndexEqualityPercentage->{$Index};
+        }
+
+        return $Result;
     }
 
     return 1;
