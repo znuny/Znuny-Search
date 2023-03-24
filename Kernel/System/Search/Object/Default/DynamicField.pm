@@ -61,9 +61,10 @@ sub new {
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'dynamic_field',    # index name on the engine/sql side
-        IndexName     => 'DynamicField',     # index name on the api side
-        Identifier    => 'ID',               # column name that represents object id in the field mapping
+        IndexRealName        => 'dynamic_field',    # index name on the engine/sql side
+        IndexName            => 'DynamicField',     # index name on the api side
+        Identifier           => 'ID',               # column name that represents object id in the field mapping
+        ChangeTimeColumnName => 'ChangeTime',       # column representing time of updated data entry
     };
 
     # define schema for data

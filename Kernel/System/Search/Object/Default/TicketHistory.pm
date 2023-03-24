@@ -60,9 +60,10 @@ sub new {
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'ticket_history',     # index name on the engine/sql side
-        IndexName     => 'TicketHistory',      # index name on the api side
-        Identifier    => 'TicketHistoryID',    # column name that represents object id in the field mapping
+        IndexRealName        => 'ticket_history',     # index name on the engine/sql side
+        IndexName            => 'TicketHistory',      # index name on the api side
+        Identifier           => 'TicketHistoryID',    # column name that represents object id in the field mapping
+        ChangeTimeColumnName => 'Changed',            # column representing time of updated data entry
     };
 
     # define schema for data

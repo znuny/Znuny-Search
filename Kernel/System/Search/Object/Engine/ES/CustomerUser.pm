@@ -74,9 +74,10 @@ sub new {
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'customer_user',    # index name on the engine/sql side
-        IndexName     => 'CustomerUser',     # index name on the api side
-        Identifier    => 'ID',               # column name that represents object id in the field mapping
+        IndexRealName        => 'customer_user',    # index name on the engine/sql side
+        IndexName            => 'CustomerUser',     # index name on the api side
+        Identifier           => 'ID',               # column name that represents object id in the field mapping
+        ChangeTimeColumnName => 'ChangeTime',       # column representing time of updated data entry
     };
 
     my $CustomerUserObject = $Kernel::OM->Get('Kernel::System::CustomerUser');
@@ -258,6 +259,7 @@ sub Search {
         %Param,
         SortBy     => $ObjectData->{SortBy},
         ResultType => $ValidResultType,
+        OrderBy    => $OrderBy,
     );
 
     return $Self->ExecuteSearch(
@@ -267,7 +269,6 @@ sub Search {
         Fields        => $Fields,
         QueryParams   => $Param{QueryParams},
         SortBy        => $SortBy,
-        OrderBy       => $OrderBy,
         RealIndexName => $Self->{Config}->{IndexRealName},
         ResultType    => $ValidResultType,
     );
@@ -276,7 +277,16 @@ sub Search {
 sub ObjectIndexAdd() {
     my ( $Self, %Param ) = @_;
 
-    return if !$Self->{ActiveDBBackend}->{ValidBackend};
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !$Self->{ActiveDBBackend}->{ValidBackend} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'Valid backend for Elasticsearch engine was not found!' . "\n" .
+                'Configure Elasticsearch module for CustomerUser backend and reindex data or disable CustomerUser index.',
+        );
+        return;
+    }
 
     return $Self->SUPER::ObjectIndexAdd(
         %Param,
@@ -286,7 +296,16 @@ sub ObjectIndexAdd() {
 sub ObjectIndexSet() {
     my ( $Self, %Param ) = @_;
 
-    return if !$Self->{ActiveDBBackend}->{ValidBackend};
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !$Self->{ActiveDBBackend}->{ValidBackend} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'Valid backend for Elasticsearch engine was not found!' . "\n" .
+                'Configure Elasticsearch module for CustomerUser backend and reindex data or disable CustomerUser index.',
+        );
+        return;
+    }
 
     return $Self->SUPER::ObjectIndexSet(
         %Param,
@@ -296,7 +315,16 @@ sub ObjectIndexSet() {
 sub ObjectIndexUpdate() {
     my ( $Self, %Param ) = @_;
 
-    return if !$Self->{ActiveDBBackend}->{ValidBackend};
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !$Self->{ActiveDBBackend}->{ValidBackend} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'Valid backend for Elasticsearch engine was not found!' . "\n" .
+                'Configure Elasticsearch module for CustomerUser backend and reindex data or disable CustomerUser index.',
+        );
+        return;
+    }
 
     # custom handling of update
     if ( IsHashRefWithData( $Param{CustomFunction} ) ) {
@@ -311,6 +339,17 @@ sub ObjectIndexUpdate() {
 
 sub ObjectIndexRemove() {
     my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( !$Self->{ActiveDBBackend}->{ValidBackend} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'Valid backend for Elasticsearch engine was not found!' . "\n" .
+                'Configure Elasticsearch module for CustomerUser backend and reindex data or disable CustomerUser index.',
+        );
+        return;
+    }
 
     return if !$Self->{ActiveDBBackend}->{ValidBackend};
 
@@ -423,7 +462,7 @@ sub FallbackExecuteSearch {
 
     # TODO: support for fallback
     return $Self->SearchEmptyResponse(%Param)
-        if !$Param{ResultType} || ( $Param{ResultType} && $Param{ResultType} ne 'COUNT' );
+        if !$Param{ResultType} || ( $Param{ResultType} && $Param{ResultType} ne 'COUNT' ) && !$Param{Force};
 
     my $Result = {
         CustomerUser => $Self->Fallback( %Param, Fields => $Param{Fields}->{CustomerUser} ) // []
@@ -639,18 +678,18 @@ sub ValidFieldsPrepare {
 
             # get single "CustomerUser" field
             if ( $Fields->{$CustomerUserField} ) {
-                $ValidFields{CustomerUser}->{$CustomerUserField} = $Fields->{$CustomerUserField};
+                $ValidFields{$CustomerUserField} = $Fields->{$CustomerUserField};
             }
 
             # get single field from external fields
             elsif ( $ExternalFields->{$CustomerUserField} ) {
-                $ValidFields{CustomerUser}->{$CustomerUserField} = $ExternalFields->{$CustomerUserField};
+                $ValidFields{$CustomerUserField} = $ExternalFields->{$CustomerUserField};
             }
 
             # get all "CustomerUser" fields
             elsif ( $CustomerUserField eq '*' ) {
                 my $CustomerUserFields = $ValidFields{CustomerUser} // {};
-                %{ $ValidFields{CustomerUser} } = ( %{$Fields}, %{$ExternalFields}, %{$CustomerUserFields} );
+                %ValidFields = ( %{$Fields}, %{$ExternalFields}, %{$CustomerUserFields} );
             }
         }
     }

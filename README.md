@@ -118,10 +118,11 @@ Retrieve information about each node (their shards (p - primary/r - replicas)) a
 - "SearchEngine::Loader::Fields::Ticket", extension config to define new Fields into the index,
 - "Daemon::SchedulerCronTaskManager::Task###SearchEngineReindex", cron task which re-indexes data at specified time when there is a mismatch between sql and elasticsearch object count,
 - "Daemon::SchedulerCronTaskManager::Task###ES-IndexQueueDataProcess", cron task that checks (by default every 1 minute) cached queue of data to index,
+- "Daemon::SchedulerCronTaskManager::Task###CustomEngineSynchronizeData", cron task that synchronizes "CustomerUser" index data with SQL data (turned off by default),
 - "SearchEngine::IndexationQueue###Settings", contains any settings for cached indexation queue,
 - "SearchEngine::Reindexation###Settings", contains any settings for reindexation,
 - "SearchEngine::Loader::Index::ES::Plugins###000-Framework", registers "Ingest" plugin for Elasticsearch,
-- "SearchEngine::ES::TicketSearchFields###Fulltext", list of ticket properties that fulltext search will use. Ticket, article, attachment and dynamic fields columns can be used as a fields.
+- "SearchEngine::ES::TicketSearchFields###Fulltext", list of ticket properties that fulltext search will use. Ticket, article, attachment and dynamic fields columns can be used as a fields,
 
 ### Adding new index
 
@@ -162,4 +163,6 @@ of fields that are supposed to be an emails, example:
 Elasticsearch should work for CustomerSearch in the system, if it's not enabled/connected
 it will fallback to DB module.
 
-Standard Search API (Kernel::System::Search->Search(..)) for CustomerUser will work regardless of this configuration.
+Standard Search API (Kernel::System::Search->Search(..)) for CustomerUser also needs this configuration.
+
+If event handlers for "CustomerUser" data is not used in the system, it is possible to synchronize data with daemon task: "Daemon::SchedulerCronTaskManager::Task###CustomEngineSynchronizeData" which is disabled by default.

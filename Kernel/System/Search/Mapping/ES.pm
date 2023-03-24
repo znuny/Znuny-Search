@@ -1394,8 +1394,9 @@ globally formats response data from engine
 sub _ResponseDataFormat {
     my ( $Self, %Param ) = @_;
 
-    my @Objects;
+    my $Objects;
     my $SimpleArray = $Param{ResultType} && $Param{ResultType} eq 'ARRAY_SIMPLE' ? 1 : 0;
+    my $SimpleHash  = $Param{ResultType} && $Param{ResultType} eq 'HASH_SIMPLE'  ? 1 : 0;
 
     if ( IsArrayRefWithData( $Param{Result}->{hits}->{hits} ) ) {
         my $Hits   = $Param{Result}->{hits}->{hits};
@@ -1412,15 +1413,23 @@ sub _ResponseDataFormat {
             my @ScalarFields;
             my @ArrayFields;
 
-            # decide if array format with one field is needed
+            # decide if simple format is needed
             # othwersie it will be an array of objects
             if ($SimpleArray) {
                 for my $Hit ( @{$Hits} ) {
-                    for my $Field ( @{ $Hit->{fields} } ) {
-                        push @Objects, $Hit->{fields}->{$Field};
+                    for my $Field ( sort keys %{ $Hit->{fields} } ) {
+                        push @{$Objects}, $Hit->{fields}->{$Field}->[0];
                     }
                 }
-                return \@Objects;
+                return $Objects;
+            }
+            elsif ($SimpleHash) {
+                for my $Hit ( @{$Hits} ) {
+                    for my $Field ( sort keys %{ $Hit->{fields} } ) {
+                        $Objects->{ $Hit->{fields}->{$Field}->[0] } = 1;
+                    }
+                }
+                return $Objects;
             }
             else {
                 @ScalarFields = grep { $Param{Fields}->{$_}->{ReturnType} !~ m{\AARRAY|HASH\z} } @Fields;
@@ -1439,14 +1448,35 @@ sub _ResponseDataFormat {
                     $Data{$Field} = $Hit->{fields}->{$Field};
                 }
 
-                push @Objects, \%Data;
+                push @{$Objects}, \%Data;
             }
         }
 
         # ES engine response stores objects inside "_source" key by default
         elsif ( IsHashRefWithData( $Hits->[0]->{_source} ) ) {
-            for my $Hit ( @{$Hits} ) {
-                push @Objects, $Hit->{_source};
+            if ($SimpleArray) {
+                for my $Hit ( @{$Hits} ) {
+                    if ( IsHashRefWithData( $Hit->{_source} ) ) {
+                        for my $Value ( values %{ $Hit->{_source} } ) {
+                            push @{$Objects}, $Value;
+                        }
+                    }
+                }
+            }
+            elsif ($SimpleHash) {
+                for my $Hit ( @{$Hits} ) {
+                    if ( IsHashRefWithData( $Hit->{_source} ) ) {
+                        for my $Value ( values %{ $Hit->{_source} } ) {
+                            $Objects->{$Value} = 1;
+                        }
+                    }
+                }
+                return $Objects;
+            }
+            else {
+                for my $Hit ( @{$Hits} ) {
+                    push @{$Objects}, $Hit->{_source};
+                }
             }
         }
     }
@@ -1456,11 +1486,11 @@ sub _ResponseDataFormat {
             for ( my $i = 0; $i < scalar @{ $Param{Result}->{columns} }; $i++ ) {
                 $Data{ $Param{Result}->{columns}->[$i]->{name} } = $Param{Result}->{rows}->[$j]->[$i];
             }
-            push @Objects, \%Data;
+            push @{$Objects}, \%Data;
         }
     }
 
-    return \@Objects;
+    return $Objects;
 }
 
 =head2 _BuildQueryBodyFromParams()

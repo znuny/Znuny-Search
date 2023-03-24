@@ -61,9 +61,10 @@ sub new {
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'article',      # index name on the engine/sql side
-        IndexName     => 'Article',      # index name on the api side
-        Identifier    => 'ArticleID',    # column name that represents object id in the field mapping
+        IndexRealName        => 'article',       # index name on the engine/sql side
+        IndexName            => 'Article',       # index name on the api side
+        Identifier           => 'ArticleID',     # column name that represents object id in the field mapping
+        ChangeTimeColumnName => 'ChangeTime',    # column representing time of updated data entry
     };
 
     # define schema for data
@@ -104,7 +105,7 @@ sub new {
             ColumnName => 'create_by',
             Type       => 'Integer'
         },
-        Changed => {
+        ChangeTime => {
             ColumnName => 'change_time',
             Type       => 'Date'
         },
