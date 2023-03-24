@@ -35,6 +35,11 @@ our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Main',
     'Kernel::System::Ticket::Article::Backend::MIMEBase::ArticleStorageDB',
+# ---
+# Znuny-Search
+# ---
+    'Kernel::System::Ticket::Article',
+# ---
 );
 
 =head1 NAME

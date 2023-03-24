@@ -17,7 +17,6 @@ use parent qw( Kernel::System::Search::Plugins::Base );
 
 our @ObjectDependencies = (
     'Kernel::System::Search',
-    'Kernel::System::DB',
 );
 
 =head1 NAME

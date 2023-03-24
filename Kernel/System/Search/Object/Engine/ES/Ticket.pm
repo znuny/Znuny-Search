@@ -65,9 +65,10 @@ sub new {
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName => 'ticket',      # index name on the engine/sql side
-        IndexName     => 'Ticket',      # index name on the api side
-        Identifier    => 'TicketID',    # column name that represents object id in the field mapping
+        IndexRealName        => 'ticket',      # index name on the engine/sql side
+        IndexName            => 'Ticket',      # index name on the api side
+        Identifier           => 'TicketID',    # column name that represents object id in the field mapping
+        ChangeTimeColumnName => 'Changed',     # column representing time of updated data entry
     };
 
     # define schema for data
@@ -870,7 +871,7 @@ sub FallbackExecuteSearch {
     # TODO support for fallback
     # disable fallback functionality (unlock search by count for re-indexing equality set)
     return $Self->SearchEmptyResponse(%Param)
-        if !$Param{ResultType} || ( $Param{ResultType} && $Param{ResultType} ne 'COUNT' );
+        if !$Param{ResultType} || ( $Param{ResultType} && $Param{ResultType} ne 'COUNT' ) && !$Param{Force};
 
     my $Result = {
         Ticket => $Self->Fallback( %Param, Fields => $Param{Fields}->{Ticket} ) // []

@@ -84,21 +84,26 @@ sub Fallback {
     my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
+    my $EmptyData = $Param{ResultType} eq 'HASH_SIMPLE' ? {} : [];
+
     my $SQLSearchResult = {
         Success => 0,
-        Data    => [],
+        Data    => $EmptyData,
     };
 
     if ( IsHashRefWithData( $Param{Fields} ) ) {
         $SQLSearchResult = $Self->SQLObjectSearch(
-            QueryParams                 => $Param{QueryParams},
-            AdvancedQueryParams         => $Param{AdvancedQueryParams},
-            Limit                       => $Param{Limit} || $Self->{DefaultSearchLimit},
-            OrderBy                     => $Param{OrderBy},
-            SortBy                      => $Param{SortBy},
-            ResultType                  => $Param{ResultType},
-            Fields                      => $Param{Fields},
-            Silent                      => $Param{Silent},
+            QueryParams         => $Param{QueryParams},
+            AdvancedQueryParams => $Param{AdvancedQueryParams},
+            Limit               => $Param{Limit} || $Self->{DefaultSearchLimit},
+            OrderBy             => $Param{OrderBy},
+            SortBy              => $Param{SortBy},
+            ResultType          => $Param{ResultType},
+            Fields              => $Param{Fields},
+            Silent              => $Param{Silent},
+            IgnoreDynamicFields         => $Param{IgnoreDynamicFields},    # Ticket/CustomerUser index compatibility
+            IgnoreArticles              => $Param{IgnoreArticles},         # Ticket index compatibility
+            NoPermissions               => $Param{NoPermissions},
             ReturnDefaultSQLColumnNames => 0,
         );
 
@@ -442,6 +447,8 @@ sub SQLObjectSearch {
     my $Fields     = $Param{CustomIndexFields} // $Self->{Fields};
     my $ResultType = $Param{ResultType} || 'ARRAY';
 
+    my $EmptyData = $ResultType eq 'HASH_SIMPLE' ? {} : [];
+
     # prepare sql statement
     my $SQL;
     my @SQLTableColumns;
@@ -528,7 +535,7 @@ sub SQLObjectSearch {
         if ( ref $SearchParams eq 'HASH' && $SearchParams->{Error} ) {
             return {
                 Success => 0,
-                Data    => [],
+                Data    => $EmptyData,
             };
         }
 
@@ -546,7 +553,7 @@ sub SQLObjectSearch {
                     );
                     return {
                         Success => 0,
-                        Data    => [],
+                        Data    => $EmptyData,
                     };
                 }
                 my $FieldRealName = $Fields->{$FieldName}->{ColumnName};
@@ -655,13 +662,22 @@ sub SQLObjectSearch {
         };
     }
 
-    my @Result;
+    my $Result;
 
     if ( $ResultType eq 'ARRAY_SIMPLE' ) {
         while ( my @Row = $DBObject->FetchrowArray() ) {
             my $DataCounter = 0;
             for my $ColumnName (@TableColumns) {
-                push @Result, $Row[$DataCounter];
+                push @{$Result}, $Row[$DataCounter];
+                $DataCounter++;
+            }
+        }
+    }
+    elsif ( $ResultType eq 'HASH_SIMPLE' ) {
+        while ( my @Row = $DBObject->FetchrowArray() ) {
+            my $DataCounter = 0;
+            for my $ColumnName (@TableColumns) {
+                $Result->{ $Row[$DataCounter] } = 1;
                 $DataCounter++;
             }
         }
@@ -674,13 +690,15 @@ sub SQLObjectSearch {
                 $Data{$ColumnName} = $Row[$DataCounter];
                 $DataCounter++;
             }
-            push @Result, \%Data;
+            push @{$Result}, \%Data;
         }
     }
 
+    $Result = $EmptyData if ( !$Result );
+
     return {
         Success => 1,
-        Data    => \@Result,
+        Data    => $Result,
     };
 }
 
@@ -689,7 +707,7 @@ sub SQLObjectSearch {
 format result specifically for index
 
     my $FormattedResult = $SearchBaseObject->SearchFormat(
-        ResultType => 'ARRAY|ARRAY_SIMPLE|HASH|COUNT' (optional, default: 'ARRAY')
+        ResultType => 'ARRAY|ARRAY_SIMPLE|HASH|HASH_SIMPLE|COUNT' (optional, default: 'ARRAY')
         IndexName  => "Ticket",
         GloballyFormattedResult => $GloballyFormattedResult,
     )
@@ -731,6 +749,9 @@ sub SearchFormat {
 
     if ( $Param{ResultType} eq 'ARRAY' || $Param{ResultType} eq 'ARRAY_SIMPLE' ) {
         $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData} // [];
+    }
+    elsif ( $Param{ResultType} eq 'HASH_SIMPLE' ) {
+        $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData} // {};
     }
     elsif ( $Param{ResultType} eq "HASH" ) {
 
@@ -875,6 +896,11 @@ sub DefaultConfigGet {
 
         # result type with keys as id and values as object
         'HASH' => {
+            Sortable => 0,
+        },
+
+        # result type with simple hash
+        'HASH_SIMPLE' => {
             Sortable => 0,
         },
 
