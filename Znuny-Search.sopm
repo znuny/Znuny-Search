@@ -1,12 +1,13 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <otrs_package version="1.0">
     <Name>Znuny-Search</Name>
-    <Version>6.3.0</Version>
+    <Version>6.5.1</Version>
     <Framework>6.5.x</Framework>
     <Vendor>Znuny GmbH</Vendor>
     <URL>http://znuny.com/</URL>
     <License>GNU AFFERO GENERAL PUBLIC LICENSE Version 3, November 2007</License>
     <Description Lang="en">Functionality related to search engines.</Description>
+    <ChangeLog Version="6.5.1" Date="2023-03-24 15:31:30 +0100">Initial release for Znuny 6.5.</ChangeLog>
     <ChangeLog Version="6.5.0" Date="2023-03-24 14:23:12 +0100">Initial release for Znuny 6.5.</ChangeLog>
     <Filelist>
         <File Permission="660" Location="Kernel/Config/Files/XML/Search.xml"/>
@@ -118,47 +119,47 @@
     ]]></CodeReinstall>
     <DatabaseInstall>
         <TableCreate Name="search_clusters">
-            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
-            <Column Name="name" Required="true" Size="100" Type="VARCHAR" />
-            <Column Name="description" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="engine" Required="true" Size="100" Type="VARCHAR" />
-            <Column Name="cluster_initialized" Required="false" Type="INTEGER" Default='0'/>
-            <Column Name="valid_id" Required="false" Type="INTEGER" />
-            <Column Name="create_time" Required="false" Type="DATE" />
-            <Column Name="change_time" Required="false" Type="DATE" />
-            <Column Name="create_by" Required="false" Type="INTEGER" />
-            <Column Name="change_by" Required="false" Type="INTEGER" />
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER"/>
+            <Column Name="name" Required="true" Size="100" Type="VARCHAR"/>
+            <Column Name="description" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="engine" Required="true" Size="100" Type="VARCHAR"/>
+            <Column Name="cluster_initialized" Required="false" Type="INTEGER" Default="0"/>
+            <Column Name="valid_id" Required="false" Type="INTEGER"/>
+            <Column Name="create_time" Required="false" Type="DATE"/>
+            <Column Name="change_time" Required="false" Type="DATE"/>
+            <Column Name="create_by" Required="false" Type="INTEGER"/>
+            <Column Name="change_by" Required="false" Type="INTEGER"/>
         </TableCreate>
         <TableCreate Name="search_cluster_states">
-            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
-            <Column Name="cluster_id" Required="true" Type="INTEGER" />
-            <Column Name="state" Required="false" Size="3000" Type="VARCHAR" />
-            <Column Name="create_by" Required="false" Type="INTEGER" />
-            <Column Name="create_time" Required="false" Type="DATE" />
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER"/>
+            <Column Name="cluster_id" Required="true" Type="INTEGER"/>
+            <Column Name="state" Required="false" Size="3000" Type="VARCHAR"/>
+            <Column Name="create_by" Required="false" Type="INTEGER"/>
+            <Column Name="create_time" Required="false" Type="DATE"/>
         </TableCreate>
         <TableCreate Name="search_cluster_nodes">
-            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
-            <Column Name="name" Required="true" Size="255" Type="VARCHAR" />
-            <Column Name="node_comment" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="protocol" Required="true" Size="255" Type="VARCHAR" />
-            <Column Name="host" Required="true" Size="255" Type="VARCHAR" />
-            <Column Name="port" Required="true" Type="INTEGER" />
-            <Column Name="node_path" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="node_login" Required="false" Size="200" Type="VARCHAR" />
-            <Column Name="node_password" Required="false" Size="128" Type="VARCHAR" />
-            <Column Name="valid_id" Required="true" Type="INTEGER" />
-            <Column Name="cluster_id" Required="true" Type="INTEGER" />
-            <Column Name="create_by" Required="false" Type="INTEGER" />
-            <Column Name="create_time" Required="false" Type="DATE" />
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER"/>
+            <Column Name="name" Required="true" Size="255" Type="VARCHAR"/>
+            <Column Name="node_comment" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="protocol" Required="true" Size="255" Type="VARCHAR"/>
+            <Column Name="host" Required="true" Size="255" Type="VARCHAR"/>
+            <Column Name="port" Required="true" Type="INTEGER"/>
+            <Column Name="node_path" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="node_login" Required="false" Size="200" Type="VARCHAR"/>
+            <Column Name="node_password" Required="false" Size="128" Type="VARCHAR"/>
+            <Column Name="valid_id" Required="true" Type="INTEGER"/>
+            <Column Name="cluster_id" Required="true" Type="INTEGER"/>
+            <Column Name="create_by" Required="false" Type="INTEGER"/>
+            <Column Name="create_time" Required="false" Type="DATE"/>
         </TableCreate>
         <TableCreate Name="search_cluster_data_equality">
-            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
-            <Column Name="cluster_id" Required="true" Type="INTEGER" />
-            <Column Name="index_name" Required="true" Size="255" Type="VARCHAR" />
-            <Column Name="percentage" Required="true" Size="5,2" Type="DECIMAL" />
-            <Column Name="create_time" Required="true" Type="DATE" />
-            <Column Name="change_time" Required="true" Type="DATE" />
-            <Column Name="last_reindexation" Required="true" Type="DATE" />
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER"/>
+            <Column Name="cluster_id" Required="true" Type="INTEGER"/>
+            <Column Name="index_name" Required="true" Size="255" Type="VARCHAR"/>
+            <Column Name="percentage" Required="true" Size="5,2" Type="DECIMAL"/>
+            <Column Name="create_time" Required="true" Type="DATE"/>
+            <Column Name="change_time" Required="true" Type="DATE"/>
+            <Column Name="last_reindexation" Required="true" Type="DATE"/>
         </TableCreate>
     </DatabaseInstall>
     <DatabaseUninstall>
