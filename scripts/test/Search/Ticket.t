@@ -723,17 +723,17 @@ my @Tests = (
                             {
                                 Attachments => [
                                     {
-                                        ID                 => 1,
-                                        AttachmentContent  => 123,
+                                        ID                 => '1',
+                                        AttachmentContent  => '123',
                                         Filename           => 'csvfile.csv',
                                         ContentType        => 'text/csv',
                                         ContentID          => '',
                                         ContentAlternative => '',
                                         Disposition        => 'attachment',
-                                        Content            => 123
+                                        Content            => '123'
                                     },
                                     {
-                                        ID                 => 2,
+                                        ID                 => '2',
                                         AttachmentContent  => 'empty',
                                         Filename           => 'pngfile.png',
                                         ContentType        => 'image/png; name=pngfile.png',
@@ -783,6 +783,7 @@ for my $Index ( 0 .. 4 ) {
         TicketID  => $TicketIDToTest,
         OnlyFirst => 1,
     );
+
     for my $AttachmentData ( @{ $Tests[0]->{Data}->{Attachment} } ) {
         if ( !( $Counter && !$Success ) ) {
             $Success = $ArticleObject->ArticleWriteAttachment(
@@ -792,6 +793,9 @@ for my $Index ( 0 .. 4 ) {
                 ArticleID   => $Articles[0]->{ArticleID},
                 UserID      => 1,
             );
+
+            $Tests[0]->{ExpectedResult}->{AfterAttachmentUpload}->{Ticket}->
+                [0]->{Articles}->[0]->{Attachments}->[$Counter]->{ArticleID} = $Articles[0]->{ArticleID} if $Index == 0;
         }
         $Counter++;
     }
@@ -817,6 +821,8 @@ my $TicketWithAttachmentIndexed = $SearchObject->Search(
         TicketID     => \@TicketIDsContainsAttachments,
         TicketNumber => undef,
     },
+    SortBy       => ['TicketID'],
+    OrderBy      => ['Up'],
     Fields       => [ ['Attachment_*'] ],
     Limit        => 1,
     UseSQLSearch => 0,
