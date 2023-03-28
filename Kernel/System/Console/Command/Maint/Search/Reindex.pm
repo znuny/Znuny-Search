@@ -803,38 +803,41 @@ sub Run {
 
             $Self->Print("<yellow>Status:</yellow> ");
             if ( $IndexObjectStatus{$Index}->{Successful} ) {
-                if ( !$IndexObjectStatus{$Index}->{SyncObjectsStatus} ) {
-                    $Self->Print("\n<yellow>No data to synchronize found.</yellow>\n");
-                }
+                if ( $Self->{Synchronize} ) {
+                    if ( !$IndexObjectStatus{$Index}->{SyncObjectsStatus} ) {
+                        $Self->Print("\n<yellow>No data to synchronize found.</yellow>\n");
+                    }
 
-                if ( ( $IndexObjectStatus{$Index}->{SyncObjectsStatus} ) ) {
-                    my %ActionOutputMapping = (
-                        ObjectIndexAdd    => 'Added',
-                        ObjectIndexUpdate => 'Updated',
-                        ObjectIndexRemove => 'Removed',
-                    );
+                    if ( ( $IndexObjectStatus{$Index}->{SyncObjectsStatus} ) ) {
+                        my %ActionOutputMapping = (
+                            ObjectIndexAdd    => 'Added',
+                            ObjectIndexUpdate => 'Updated',
+                            ObjectIndexRemove => 'Removed',
+                        );
 
-                    my %StatusOutputMapping = (
-                        Failed  => 'failed',
-                        Success => 'success',
-                    );
+                        my %StatusOutputMapping = (
+                            Failed  => 'failed',
+                            Success => 'success',
+                        );
 
-                    my %StatusColorOutputMapping = (
-                        Failed  => 'red',
-                        Success => 'yellow',
-                    );
+                        my %StatusColorOutputMapping = (
+                            Failed  => 'red',
+                            Success => 'yellow',
+                        );
 
-                    $Self->Print("\n\n");
-                    for my $Status (qw (Success Failed)) {
-                        for my $Action (qw (ObjectIndexAdd ObjectIndexUpdate ObjectIndexRemove)) {
-                            my $Count
-                                = $IndexObjectStatus{$Index}->{SyncObjectsStatus}->{$Action}->{$Status}->{Count} || 0;
-                            my $Color = $Count ? $StatusColorOutputMapping{$Status} : 'yellow';
+                        $Self->Print("\n\n");
+                        for my $Status (qw (Success Failed)) {
+                            for my $Action (qw (ObjectIndexAdd ObjectIndexUpdate ObjectIndexRemove)) {
+                                my $Count
+                                    = $IndexObjectStatus{$Index}->{SyncObjectsStatus}->{$Action}->{$Status}->{Count}
+                                    || 0;
+                                my $Color = $Count ? $StatusColorOutputMapping{$Status} : 'yellow';
 
-                            $Self->Print(
-                                "$ActionOutputMapping{$Action} objects count ($StatusOutputMapping{$Status}):" .
-                                    " <$Color> $Count </$Color>\n"
-                            );
+                                $Self->Print(
+                                    "$ActionOutputMapping{$Action} objects count ($StatusOutputMapping{$Status}):" .
+                                        " <$Color> $Count </$Color>\n"
+                                );
+                            }
                         }
                     }
                 }

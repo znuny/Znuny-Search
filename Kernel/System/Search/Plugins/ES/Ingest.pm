@@ -84,11 +84,9 @@ sub ClusterInit {
                         description => "Set attachment content to clear temporary field",
                         lang        => "painless",
                         source      => "
-                      ArrayList Articles = ctx.Articles;
-                      ArrayList AttachmentStorageTemp = ctx.AttachmentStorageTemp;
-                      for(int i=0;i<AttachmentStorageTemp.size();i++){
-                        ctx.AttachmentStorageClearTemp['Attachment_'+AttachmentStorageTemp[i].ID] = AttachmentStorageTemp[i].attachment.content
-                      }
+                            for(int i=0;i<ctx.AttachmentStorageTemp.size();i++){
+                                ctx.AttachmentStorageClearTemp[ctx.AttachmentStorageTemp[i].ArticleID + '_' + ctx.AttachmentStorageTemp[i].ID] = ctx.AttachmentStorageTemp[i].attachment.content
+                            }
                       "
                     }
                 },
@@ -97,7 +95,7 @@ sub ClusterInit {
                         description => "Remove temporary attribute",
                         lang        => "painless",
                         source      => "
-                     ctx.AttachmentStorageTemp = null;
+                            ctx.AttachmentStorageTemp = null;
                       "
                     }
                 },
@@ -106,14 +104,20 @@ sub ClusterInit {
                         description => "Set content type to attachment",
                         lang        => "painless",
                         source      => "
-                      ArrayList Articles = ctx.Articles;
-                      for(int i=0;i<Articles.size();i++){
-                        ArrayList Attachments = Articles.get(i).Attachments;
-                        for(int j=0; j<Attachments.size();j++){
-                          String AttachmentID = Attachments.get(j).ID;
-                          Attachments[j].AttachmentContent = ctx.AttachmentStorageClearTemp['Attachment_'+AttachmentID];
-                        }
-                      }
+                            ArrayList Articles = ctx.Articles;
+                            for(int i=0;i<Articles.size();i++){
+                                String ArticleID = Articles.get(i).ArticleID;
+                                ArrayList Attachments = Articles.get(i).Attachments;
+                                for(int j=0; j<Attachments.size();j++){
+                                    String AttachmentID = Attachments.get(j).ID;
+                                    for(int k=0; k<ctx.AttachmentStorageClearTemp.size();k++){
+                                        String Key = ArticleID + '_' + AttachmentID;
+                                        if(ctx.AttachmentStorageClearTemp[Key] !== null){
+                                            Attachments[j].AttachmentContent = ctx.AttachmentStorageClearTemp[Key];
+                                        }
+                                    }
+                                }
+                            }
                       "
                     }
                 },
@@ -122,7 +126,7 @@ sub ClusterInit {
                         description => "Remove temporary attribute",
                         lang        => "painless",
                         source      => "
-                     ctx.AttachmentStorageClearTemp = null;
+                            ctx.AttachmentStorageClearTemp = null;
                       "
                     }
                 }
