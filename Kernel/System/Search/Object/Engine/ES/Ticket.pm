@@ -1594,6 +1594,7 @@ ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
                 $EncodeObject->EncodeOutput( \$Result->{Content} );
                 $Result->{Content} = encode_base64( $Result->{Content}, '' );
             }
+            $Result->{ArticleID} = $Article->{ArticleID};
         }
 
         $Article->{Attachments} = \@Attachments;
@@ -1918,6 +1919,7 @@ sub SQLObjectSearch {
                                 $EncodeObject->EncodeOutput( \$Result->{Content} );
                                 $Result->{Content} = encode_base64( $Result->{Content}, '' );
                             }
+                            $Result->{ArticleID} = $Article->{ArticleID};
                         }
 
                         $Article->{Attachments} = \@Attachments;
