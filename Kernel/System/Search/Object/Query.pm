@@ -659,7 +659,13 @@ create object that can build queries for active engine
 sub EngineQueryHelperObjCreate {
     my ( $Self, %Param ) = @_;
 
-    my $QueryEngineHelperObj = "Kernel::System::Search::Object::EngineQueryHelper::$Self->{ActiveEngine}"->new(
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+
+    return if $SearchObject->{Fallback};
+
+    my $Module = "Kernel::System::Search::Object::EngineQueryHelper::$Self->{ActiveEngine}";
+
+    my $QueryEngineHelperObj = $Module->new(
         IndexName => $Param{IndexName},
         Query     => $Param{Query},
     );

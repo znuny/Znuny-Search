@@ -56,11 +56,13 @@ sub new {
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
     my $MainObject   = $Kernel::OM->Get('Kernel::System::Main');
 
-    $Self->{ActiveEngine} = $SearchObject->{Config}->{ActiveEngine};
+    $Self->{ActiveEngine} = $SearchObject->{Config}->{ActiveEngine} // '';
 
-    $MainObject->Require(
-        "Kernel::System::Search::Object::EngineQueryHelper::$Self->{ActiveEngine}",
-    );
+    if ( !$SearchObject->{Fallback} ) {
+        $MainObject->Require(
+            "Kernel::System::Search::Object::EngineQueryHelper::$Self->{ActiveEngine}",
+        );
+    }
 
     bless( $Self, $Type );
 
