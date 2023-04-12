@@ -26,6 +26,7 @@ our @ObjectDependencies = (
     'Kernel::System::JSON',
     'Kernel::System::Search::Object',
     'Kernel::System::Console::Command::Maint::Search::Reindex',
+    'Kernel::System::Log',
 );
 
 =head1 NAME
@@ -117,6 +118,11 @@ sub BuildReindexationSection {
         Value => $IsReindexingOngoing,
     );
 
+    my $SynchronizationEnabled = $CacheObject->Get(
+        Type => 'ReindexingProcess',
+        Key  => 'SynchronizationEnabled',
+    );
+
     if ($IsReindexingOngoing) {
         my $Percentage = $CacheObject->Get(
             Type => 'ReindexingProcess',
@@ -126,9 +132,10 @@ sub BuildReindexationSection {
         $LayoutObject->Block(
             Name => 'ProgressBar',
             Data => {
-                Percentage       => $Percentage,
-                InitialWidth     => $Percentage ? $Percentage * 3.8 : undef,
-                ProgressBarColor => $Percentage
+                Percentage             => $Percentage,
+                InitialWidth           => $Percentage ? $Percentage * 3.8 : undef,
+                SynchronizationEnabled => $SynchronizationEnabled,
+                ProgressBarColor       => $Percentage
                 ? $Percentage < 30
                         ? 'red'
                         : $Percentage < 50 ? 'yellow'
@@ -142,10 +149,11 @@ sub BuildReindexationSection {
         TemplateFile => "AdminSearch/Reindexation",
         Data         => {
             %Param,
-            ReindexingOngoing => $IsReindexingOngoing,
-            ActiveCluster     => $ClusterConfig->{ClusterID} == $Param{ClusterID} ? 1 : 0,
-            EngineConnection  => $SearchObject->{ConnectObject} ? 1 : 0,
-            ActionLabel       => $IsReindexingOngoing ? 'Status' : 'Actions',
+            ReindexingOngoing      => $IsReindexingOngoing,
+            ActiveCluster          => $ClusterConfig->{ClusterID} == $Param{ClusterID} ? 1 : 0,
+            EngineConnection       => $SearchObject->{ConnectObject} ? 1 : 0,
+            ActionLabel            => $IsReindexingOngoing ? 'Status' : 'Actions',
+            SynchronizationEnabled => $SynchronizationEnabled,
         },
     );
 
@@ -411,7 +419,11 @@ sub IndexReindexationStatus {
         Name => 'SearchEngineReindex',
     );
 
-    my $IsReindexingOngoing = %ReindexingProcess ? 1 : 0;
+    my %ReindexingProcessAlt = $PIDObject->PIDGet(
+        Name => 'SearchEngineSync',
+    );
+
+    my $IsReindexingOngoing = %ReindexingProcess || %ReindexingProcessAlt ? 1 : 0;
 
     my %IndexReindexationStatus = (
         IsReindexingOngoing => $IsReindexingOngoing,

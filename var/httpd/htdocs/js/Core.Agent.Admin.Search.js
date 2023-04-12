@@ -74,9 +74,11 @@ Core.Agent.Admin.Search = (function (TargetNS) {
                             }
                         })
 
-                        $('#ProgressBarFill').css('width', Response.Percentage * 3.8);
-                        $('#ProgressBarFill').css('background-color', ProgressBarColor);
-                        $('#PercentageDescription').html(Response.Percentage + "%");
+                        if(!Response.SynchronizationEnabled){
+                            $('#ProgressBarFill').css('width', Response.Percentage * 3.8);
+                            $('#ProgressBarFill').css('background-color', ProgressBarColor);
+                            $('#PercentageDescription').html(Response.Percentage + "%");
+                        }
                     })
                 }, 2000)
             }

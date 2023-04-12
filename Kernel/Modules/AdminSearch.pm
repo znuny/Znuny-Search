@@ -362,6 +362,13 @@ sub Run {
             );
         }
 
+        my $SynchronizationEnabled = $CacheObject->Get(
+            Type => 'ReindexingProcess',
+            Key  => 'SynchronizationEnabled',
+        );
+
+        $ResponseData{SynchronizationEnabled} = $SynchronizationEnabled;
+
         my $JSON = $LayoutObject->JSONEncode(
             Data => {
                 %ResponseData,
@@ -541,7 +548,7 @@ sub Run {
         my $NodeName = $LayoutObject->{LanguageObject}->Translate( '%s (copy) %s', $NodeData->{Name}, $Count );
 
         # the maximum number of nodes with the same name
-        # (postfixed with it's copy number) cannot be equal or greater than 100
+        # (postfixed with its copy number) cannot be equal or greater than 100
         while (
             IsHashRefWithData(
                 $SearchClusterObject->ClusterCommunicationNodeGet(

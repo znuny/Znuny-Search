@@ -51,11 +51,11 @@ sub Run {
     for my $Ticket (qw(TicketID MainTicketID)) {
 
         # update articles of changed tickets
-        $SearchChildObject->IndexObjectQueueAdd(
+        $SearchChildObject->IndexObjectQueueEntry(
             Index => 'Article',
             Value => {
-                FunctionName => 'ObjectIndexSet',
-                QueryParams  => {
+                Operation   => 'ObjectIndexSet',
+                QueryParams => {
                     TicketID => $Param{Data}->{$Ticket},
                 },
                 Context => "ObjectIndexSet_TicketMerge_$Param{Data}->{$Ticket}",
@@ -63,11 +63,11 @@ sub Run {
         );
 
         # update tickets that contains changed articles
-        $SearchChildObject->IndexObjectQueueAdd(
+        $SearchChildObject->IndexObjectQueueEntry(
             Index => 'Ticket',
             Value => {
-                FunctionName => 'ObjectIndexSet',
-                ObjectID     => $Param{Data}->{$Ticket},
+                Operation => 'ObjectIndexSet',
+                ObjectID  => $Param{Data}->{$Ticket},
             },
         );
     }

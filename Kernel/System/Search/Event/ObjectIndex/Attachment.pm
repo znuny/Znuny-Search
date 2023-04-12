@@ -65,12 +65,12 @@ sub Run {
     if ( $Param{Event} eq 'ArticleWriteAttachment' || $Param{Event} eq 'ArticleDeleteAttachment' ) {
         $AdditionalParams = { UpdateArticle => [ $Param{Data}->{ArticleID} ] };
 
-        $SearchChildObject->IndexObjectQueueAdd(
+        $SearchChildObject->IndexObjectQueueEntry(
             Index => $IndexName,
             Value => {
-                FunctionName         => 'ObjectIndexUpdate',
-                ObjectID             => $ObjectID,
-                AdditionalParameters => $AdditionalParams,
+                Operation => 'ObjectIndexUpdate',
+                ObjectID  => $ObjectID,
+                Data      => $AdditionalParams,
             },
         );
     }

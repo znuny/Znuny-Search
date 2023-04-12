@@ -66,11 +66,11 @@ sub Run {
     my $FunctionName           = $Param{Config}->{FunctionName};
     my $ObjectID               = $Param{Data}->{$ObjectIdentifierColumn};
 
-    $SearchChildObject->IndexObjectQueueAdd(
+    $SearchChildObject->IndexObjectQueueEntry(
         Index => 'Article',
         Value => {
-            FunctionName => $FunctionName,
-            ObjectID     => $Param{Data}->{ArticleID},
+            Operation => $FunctionName,
+            ObjectID  => $Param{Data}->{ArticleID},
         },
     );
 
@@ -84,12 +84,12 @@ sub Run {
     }
 
     # update tickets that contains changed article
-    $SearchChildObject->IndexObjectQueueAdd(
+    $SearchChildObject->IndexObjectQueueEntry(
         Index => 'Ticket',
         Value => {
-            FunctionName         => 'ObjectIndexUpdate',
-            ObjectID             => $Param{Data}->{TicketID},
-            AdditionalParameters => $AdditionalParams,
+            Operation => 'ObjectIndexUpdate',
+            ObjectID  => $Param{Data}->{TicketID},
+            Data      => $AdditionalParams,
         },
     );
 
