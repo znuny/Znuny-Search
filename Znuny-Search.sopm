@@ -3,6 +3,8 @@
     <Name>Znuny-Search</Name>
     <Version>6.5.1</Version>
     <Framework>6.5.x</Framework>
+    <ModuleRequired Version="8.00">Search::Elasticsearch</ModuleRequired>
+    <ModuleRequired Version="0.051">Proc::Find</ModuleRequired>
     <Vendor>Znuny GmbH</Vendor>
     <URL>http://znuny.com/</URL>
     <License>GNU AFFERO GENERAL PUBLIC LICENSE Version 3, November 2007</License>
