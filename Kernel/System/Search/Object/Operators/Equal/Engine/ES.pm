@@ -50,7 +50,7 @@ sub QueryBuild {
                         $FieldName => {
                             terms                       => $Values,
                             minimum_should_match_script => {
-                                source => "Math.max(params.num_terms, doc['$Param{Field}.keyword'].size())"
+                                source => "1"
                             }
                         }
                     }
@@ -68,7 +68,7 @@ sub QueryBuild {
                         $Param{Field} . '.keyword' => {
                             terms                       => $Param{Value},
                             minimum_should_match_script => {
-                                source => "Math.max(params.num_terms, doc['$Param{Field}.keyword'].size())"
+                                source => "1"
                             }
                         }
                     }

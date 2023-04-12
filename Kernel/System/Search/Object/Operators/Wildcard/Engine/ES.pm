@@ -38,7 +38,7 @@ sub QueryBuild {
     for my $ParamValue ( @{ $Param{Value} } ) {
         push @{ $Value->{bool}->{should} }, {
             wildcard => {
-                $Param{Field} => {
+                $Param{Field} . '.keyword' => {
                     value            => $ParamValue,
                     case_insensitive => 'true',
                 }
