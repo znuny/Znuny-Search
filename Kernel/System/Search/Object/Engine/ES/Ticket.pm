@@ -153,6 +153,10 @@ sub new {
             ColumnName => 'archive_flag',
             Type       => 'Integer'
         },
+        UntilTime => {
+            ColumnName => 'until_time',
+            Type       => 'Integer'
+        },
         Created => {
             ColumnName => 'create_time',
             Type       => 'Date'
@@ -364,6 +368,7 @@ On executing ticket search by Kernel::System::Search:
             Responsible  => ['root@localhost'],
             Priority     => ['3 normal'],
             State        => ['open'],
+            StateType    => ['new', 'open'],
             Customer     => ['customer123', 'customer12345'], # search by customer name
             CustomerUser => ['customeruser123', 'customeruser12345'], # same as CustomerUserID,
                                                                       # possible to use because of compatibility with

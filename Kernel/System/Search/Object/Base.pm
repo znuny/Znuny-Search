@@ -934,6 +934,7 @@ sub DefaultConfigGet {
                 "<="             => 1,
                 "<"              => 1,
                 ">"              => 1,
+                "BETWEEN"        => 1,
                 "IS EMPTY"       => 1,
                 "IS NOT EMPTY"   => 1,
                 "IS DEFINED"     => 1,

@@ -182,73 +182,84 @@ sub LookupTicketFields {
     my $LookupQueryParams;
 
     if ( $Param{QueryParams}->{Customer} ) {
-        my $Key = 'Customer';
+        my $Key   = 'Customer';
+        my $Param = $Param{QueryParams}->{$Key};
 
-        my $LookupField = $LookupFields->{$Key};
-        my $Module      = $Kernel::OM->Get( $LookupField->{Module} );
-        my $ParamName   = $LookupField->{ParamName};
+        if ( defined $Param ) {
+            my $LookupField = $LookupFields->{$Key};
+            my $Module      = $Kernel::OM->Get( $LookupField->{Module} );
+            my $ParamName   = $LookupField->{ParamName};
 
-        my $FunctionName = $LookupField->{FunctionName};
-        my $Param        = $Param{QueryParams}->{Customer};
+            my $FunctionName = $LookupField->{FunctionName};
 
-        my @IDs;
-        my @Param = IsString( delete $Param{QueryParams}->{Customer} )
-            ?
-            ($Param)
-            : @{$Param};
-        VALUE:
-        for my $Value (@Param) {
-            my %CustomerCompanyList = $Module->$FunctionName(
-                "$ParamName" => $Value
-            );
-
-            my $CustomerID;
-            CUSTOMER_COMPANY:
-            for my $CustomerCompanyID ( sort keys %CustomerCompanyList ) {
-                my %CustomerCompany = $Module->CustomerCompanyGet(
-                    CustomerID => $CustomerCompanyID,
+            my @IDs;
+            my @Param = IsString( delete $Param{QueryParams}->{Customer} )
+                ?
+                ($Param)
+                : @{$Param};
+            VALUE:
+            for my $Value (@Param) {
+                my %CustomerCompanyList = $Module->$FunctionName(
+                    "$ParamName" => $Value
                 );
 
-                if ( $CustomerCompany{CustomerCompanyName} && $CustomerCompany{CustomerCompanyName} eq $Value ) {
-                    $CustomerID = $CustomerCompanyID;
+                my $CustomerID;
+                CUSTOMER_COMPANY:
+                for my $CustomerCompanyID ( sort keys %CustomerCompanyList ) {
+                    my %CustomerCompany = $Module->CustomerCompanyGet(
+                        CustomerID => $CustomerCompanyID,
+                    );
+
+                    if ( $CustomerCompany{CustomerCompanyName} && $CustomerCompany{CustomerCompanyName} eq $Value ) {
+                        $CustomerID = $CustomerCompanyID;
+                    }
                 }
+
+                delete $Param{QueryParams}->{$Key};
+                next VALUE if !$CustomerID;
+                push @IDs, $CustomerID;
             }
 
-            delete $Param{QueryParams}->{$Key};
-            next VALUE if !$CustomerID;
-            push @IDs, $CustomerID;
-        }
+            if ( !@IDs ) {
+                return {
+                    Error => 'LookupValuesNotFound'
+                };
+            }
 
-        if ( !scalar @IDs ) {
-            return {
-                Error => 'LookupValuesNotFound'
+            my $LookupQueryParam = {
+                Operator   => "=",
+                Value      => \@IDs,
+                ReturnType => 'SCALAR',
+                Type       => 'String',
             };
+
+            $LookupQueryParams->{ $Key . 'ID' } = $LookupQueryParam;
         }
-
-        my $LookupQueryParam = {
-            Operator   => "=",
-            Value      => \@IDs,
-            ReturnType => 'SCALAR',
-            Type       => 'String',
-        };
-
-        $LookupQueryParams->{ $Key . 'ID' } = $LookupQueryParam;
+        else {
+            delete $Param{QueryParams}->{$Key};
+        }
     }
 
     if ( $Param{QueryParams}->{CustomerUser} ) {
         my $Param = $Param{QueryParams}->{CustomerUser};
-        my @Param = IsString( delete $Param{QueryParams}->{CustomerUser} )
-            ?
-            ($Param)
-            : @{$Param};
-        my $LookupQueryParam = {
-            Operator   => "=",
-            Value      => \@Param,
-            ReturnType => 'SCALAR',
-            Type       => 'String',
-        };
 
-        $LookupQueryParams->{CustomerUserID} = $LookupQueryParam;
+        if ( defined $Param ) {
+            my @Param = IsString( delete $Param{QueryParams}->{CustomerUser} )
+                ?
+                ($Param)
+                : @{$Param};
+            my $LookupQueryParam = {
+                Operator   => "=",
+                Value      => \@Param,
+                ReturnType => 'SCALAR',
+                Type       => 'String',
+            };
+
+            $LookupQueryParams->{CustomerUserID} = $LookupQueryParam;
+        }
+        else {
+            delete $Param{QueryParams}->{CustomerUser};
+        }
     }
 
     # get lookup fields that exists in "QueryParams" parameter
@@ -259,19 +270,24 @@ sub LookupTicketFields {
     LOOKUPFIELD:
     for my $Key ( sort keys %UsedLookupFields ) {
 
+        my $Param = $Param{QueryParams}->{$Key};
+        if ( !defined $Param ) {
+            delete $Param{QueryParams}->{$Key};
+            next LOOKUPFIELD;
+        }
+
         # lookup every field for ID
         my $LookupField   = $LookupFields->{$Key};
         my $Module        = $Kernel::OM->Get( $LookupField->{Module} );
-        my $Param         = $Param{QueryParams}->{$Key};
         my $FunctionName  = $LookupField->{FunctionName};
         my $ParamName     = $LookupField->{ParamName};
         my $AttributeName = $LookupField->{AttributeName} || $Key . 'ID';
-
         my @IDs;
         my @Param = IsString($Param)
             ?
             ($Param)
             : @{$Param};
+
         VALUE:
         for my $Value (@Param) {
 
@@ -284,7 +300,7 @@ sub LookupTicketFields {
             push @IDs, $FieldID;
         }
 
-        if ( !scalar @IDs ) {
+        if ( !@IDs ) {
             return {
                 Error => 'LookupValuesNotFound'
             };
@@ -298,6 +314,64 @@ sub LookupTicketFields {
         };
 
         $LookupQueryParams->{$AttributeName} = $LookupQueryParam;
+    }
+
+    if ( $Param{QueryParams}->{StateType} ) {
+
+        my $StateObject = $Kernel::OM->Get('Kernel::System::State');
+        my $Param       = $Param{QueryParams}->{StateType};
+        if ( defined $Param ) {
+            my @Param = IsString( delete $Param{QueryParams}->{StateType} )
+                ?
+                ($Param)
+                : @{$Param};
+
+            my @StateIDList = $StateObject->StateGetStatesByType(
+                StateType => \@Param,
+                Result    => 'ID',
+            );
+
+            if ( !@StateIDList ) {
+                return {
+                    Error => 'LookupValuesNotFound',
+                };
+            }
+
+            my $LookupQueryParam = {
+                Operator   => "=",
+                Value      => \@StateIDList,
+                ReturnType => 'SCALAR',
+                Type       => 'String',
+            };
+
+            # "State" filter is present, check if states found by "StateType" parameter
+            # are in states from "State" filter - those are matched together by "AND"
+            if ( $LookupQueryParams->{StateID} && IsArrayRefWithData( $LookupQueryParams->{StateID}->{Value} ) ) {
+                my @NewStateIDFilter;
+
+                for my $AlreadyAddedStateID ( @{ $LookupQueryParams->{StateID}->{Value} } ) {
+                    my @FoundInStateTypeFilter = grep { $_ eq $AlreadyAddedStateID } @StateIDList;
+
+                    if ( $FoundInStateTypeFilter[0] ) {
+                        push @NewStateIDFilter, $FoundInStateTypeFilter[0];
+                    }
+                }
+
+                # state from "StateID" query param was found, but afterwards
+                # those states did not match any state types from "StateType" param
+                if ( !@NewStateIDFilter ) {
+                    return {
+                        Error => 'StateTypesFilteredEmptyResponse',
+                    };
+                }
+            }
+            else {
+                $LookupQueryParams->{StateID} = $LookupQueryParam;
+            }
+        }
+        else {
+            delete $Param{QueryParams}->{StateType};
+        }
     }
 
     return $LookupQueryParams;
@@ -372,7 +446,7 @@ sub _QueryParamsPrepare {
         return $SearchParams;
     }
 
-    # merge lookupped fields with standard fields
+    # merge looked-up fields with standard fields
     for my $LookupParam ( sort keys %{$LookupQueryParams} ) {
         push @{ $SearchParams->{$LookupParam}->{Query} }, $LookupQueryParams->{$LookupParam};
     }
