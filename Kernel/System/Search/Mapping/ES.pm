@@ -1145,7 +1145,7 @@ sub DefaultRemoteSettingsGet {
         settings => {
             index => {
                 number_of_shards  => 6,
-                max_result_window => 10001,
+                max_result_window => 50000,
             }
         }
     );

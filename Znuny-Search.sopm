@@ -102,6 +102,7 @@
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/TestPerformance.pm"/>
         <File Permission="660" Location="scripts/test/Search/Ticket.t"/>
         <File Permission="660" Location="scripts/test/Search/Reindex.t"/>
+        <File Permission="660" Location="scripts/test/Search/IndexingQueue.t"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/ES/IndexQueueDataProcess.pm"/>
         <File Permission="660" Location="Custom/Kernel/System/DynamicField/ObjectType/CustomerUser.pm"/>
         <File Permission="660" Location="Custom/Kernel/System/Ticket/Article/Backend/MIMEBase/Base.pm"/>
@@ -162,11 +163,34 @@
             <Column Name="change_time" Required="true" Type="DATE"/>
             <Column Name="last_reindexation" Required="true" Type="DATE"/>
         </TableCreate>
+        <TableCreate Name="search_object_operation_queue">
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
+            <Column Name="object_id" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="entry_context" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="entry_data" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="entry_order" Required="false" Type="INTEGER" />
+            <Column Name="query_params" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="operation" Required="true" Size="100" Type="VARCHAR" />
+            <Column Name="index_name" Required="true" Size="255" Type="VARCHAR" />
+        </TableCreate>
     </DatabaseInstall>
+    <DatabaseUpgrade>
+        <TableCreate Name="search_object_operation_queue" Version="6.5.2">
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
+            <Column Name="object_id" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="entry_context" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="entry_data" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="entry_order" Required="false" Type="INTEGER" />
+            <Column Name="query_params" Required="false" Size="255" Type="VARCHAR" />
+            <Column Name="operation" Required="true" Size="100" Type="VARCHAR" />
+            <Column Name="index_name" Required="true" Size="255" Type="VARCHAR" />
+        </TableCreate>
+    </DatabaseUpgrade>
     <DatabaseUninstall>
         <TableDrop Name="search_clusters"/>
         <TableDrop Name="search_cluster_states"/>
         <TableDrop Name="search_cluster_nodes"/>
         <TableDrop Name="search_cluster_data_equality"/>
+        <TableDrop Name="search_object_operation_queue"/>
     </DatabaseUninstall>
 </otrs_package>

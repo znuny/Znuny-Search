@@ -76,9 +76,6 @@ sub Run {
         Success => 0,
     };
 
-    my $IndexationQueueConfig = $ConfigObject->Get("SearchEngine::IndexationQueue") // {};
-    my $TTL                   = $IndexationQueueConfig->{Settings}->{TTL} || 180;
-
     INDEX:
     for my $IndexName (@ActiveIndexes) {
 
@@ -86,7 +83,6 @@ sub Run {
 
         $SearchIndexObject->ObjectIndexQueueHandle(
             IndexName              => $IndexName,
-            TTL                    => $TTL,
             RebuildedObjectQueries => $RebuildedObjectQueries,
         );
     }

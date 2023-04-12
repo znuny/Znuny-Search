@@ -140,12 +140,16 @@ sub Run {
             );
         }
         else {
-            return $SearchChildObject->IndexObjectQueueAdd(
+            my %Context;
+            %Context = (
+                Context => "ObjectIndexUpdate_DFDelete_$UniqueID"
+            ) if !$SearchQuery->{ObjectID};
+            return $SearchChildObject->IndexObjectQueueEntry(
                 Index => $IndexToUpdate,
                 Value => {
-                    FunctionName         => 'ObjectIndexUpdate',
-                    AdditionalParameters => $AdditionalParameters,
-                    Context              => "ObjectIndexUpdate_DFDelete_$UniqueID",
+                    Operation => 'ObjectIndexUpdate',
+                    Data      => $AdditionalParameters,
+                    %Context,
                     %{$SearchQuery},
                 },
             );
@@ -162,12 +166,17 @@ sub Run {
         );
     }
     else {
-        $ParentIndexSuccess = $SearchChildObject->IndexObjectQueueAdd(
+        my %Context;
+        %Context = (
+            Context => "ObjectIndexUpdate_DFValueChanged_$UniqueID",
+        ) if !$SearchQuery->{ObjectID};
+
+        $ParentIndexSuccess = $SearchChildObject->IndexObjectQueueEntry(
             Index => $IndexToUpdate,
             Value => {
-                FunctionName         => 'ObjectIndexUpdate',
-                AdditionalParameters => $AdditionalParameters,
-                Context              => "ObjectIndexUpdate_DFValueChanged_$UniqueID",
+                Operation => 'ObjectIndexUpdate',
+                Data      => $AdditionalParameters,
+                %Context,
                 %{$SearchQuery},
             },
         );

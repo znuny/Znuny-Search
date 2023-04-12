@@ -70,11 +70,11 @@ sub Run {
     }
 
     if ( $ValidIndexes{Ticket} ) {
-        $SearchChildObject->IndexObjectQueueAdd(
+        $SearchChildObject->IndexObjectQueueEntry(
             Index => 'Ticket',
             Value => {
-                FunctionName => 'ObjectIndexRemove',
-                ObjectID     => $TicketID,
+                Operation => 'ObjectIndexRemove',
+                ObjectID  => $TicketID,
             },
         );
     }
@@ -84,11 +84,11 @@ sub Run {
         # event didn't send ArticleID in data, but there is TicketID
         # in that case remove all articles from this ticket
         if ( !IsArrayRefWithData($ArticleID) && $TicketID ) {
-            $SearchChildObject->IndexObjectQueueAdd(
+            $SearchChildObject->IndexObjectQueueEntry(
                 Index => 'Article',
                 Value => {
-                    FunctionName => 'ObjectIndexRemove',
-                    QueryParams  => {
+                    Operation   => 'ObjectIndexRemove',
+                    QueryParams => {
                         TicketID => $TicketID,
                     },
                     Context => "ObjectIndexRemove_TicketDelete_$TicketID",
@@ -98,11 +98,11 @@ sub Run {
 
         # event specified article to delete, delete only this article
         elsif ( IsArrayRefWithData($ArticleID) || IsNumber($ArticleID) ) {
-            $SearchChildObject->IndexObjectQueueAdd(
+            $SearchChildObject->IndexObjectQueueEntry(
                 Index => 'Article',
                 Value => {
-                    FunctionName => 'ObjectIndexRemove',
-                    ObjectID     => $ArticleID,
+                    Operation => 'ObjectIndexRemove',
+                    ObjectID  => $ArticleID,
                 },
             );
         }

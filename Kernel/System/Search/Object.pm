@@ -19,7 +19,8 @@ our @ObjectDependencies = (
     'Kernel::System::Search',
     'Kernel::System::Search::Object::Query',
     'Kernel::Config',
-    'Kernel::System::Cache',
+    'Kernel::System::DB',
+    'Kernel::System::JSON',
 );
 
 =head1 NAME
@@ -318,25 +319,25 @@ sub ValidFieldsPrepare {
     );
 }
 
-=head2 IndexObjectQueueAdd()
+=head2 IndexObjectQueueEntry()
 
-add cached operations for indexes to the queue
+queues operations for indexes
 
-    my $Success = $SearchChildObject->IndexObjectQueueAdd(
+    my $Success = $SearchChildObject->IndexObjectQueueEntry(
         Index => 'Ticket',
         Value => {
-            FunctionName => 'ObjectIndexSet',
+            Operation => 'ObjectIndexSet',
 
             ObjectID => 1,
             # OR
             QueryParams => { .. },
-            Context => 'Identifier_for_query', # needed if QueryParams specified
+            Context     => 'Identifier_for_query', # needed if QueryParams specified
         }
     );
 
 =cut
 
-sub IndexObjectQueueAdd {
+sub IndexObjectQueueEntry {
     my ( $Self, %Param ) = @_;
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
@@ -352,10 +353,10 @@ sub IndexObjectQueueAdd {
         return;
     }
 
-    if ( !$Param{Value}->{FunctionName} ) {
+    if ( !$Param{Value}->{Operation} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => 'Parameter "FunctionName" inside Value hash is needed!',
+            Message  => 'Parameter "Operation" inside Value hash is needed!',
         );
         return;
     }
@@ -378,33 +379,560 @@ sub IndexObjectQueueAdd {
 
     return if !$Self->IndexIsValid( IndexName => $Param{Index} );
 
-    my $CacheObject       = $Kernel::OM->Get('Kernel::System::Cache');
     my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
     my $SearchIndexObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}");
 
-    my $IndexationQueueConfig = $ConfigObject->Get("SearchEngine::IndexationQueue") // {};
-    my $TTL                   = $IndexationQueueConfig->{Settings}->{TTL} || 180;
-
-    my $Queue = $CacheObject->Get(
-        Type => 'SearchEngineIndexQueue',
-        Key  => "Index::$Param{Index}",
+    my $Queue = $Self->IndexObjectQueueGet(
+        Index => $Param{Index},
     ) || {};
 
-    my $QueueChanged = $SearchIndexObject->ObjectIndexQueueApplyRules(
+    my $SuccessCode = $SearchIndexObject->ObjectIndexQueueApplyRules(
         Queue      => $Queue,
         QueueToAdd => $Param{Value},
     );
 
-    $CacheObject->Set(
-        Type           => 'SearchEngineIndexQueue',
-        Key            => "Index::$Param{Index}",
-        Value          => $Queue,
-        TTL            => $TTL,
-        CacheInBackend => 1,
-        CacheInMemory  => 0,
+    return $SuccessCode;
+}
+
+=head2 IndexObjectQueueGet()
+
+get queued object data
+
+    my $Data = $SearchChildObject->IndexObjectQueueGet(
+        Index     => 'Ticket',         # required
+        ObjectID  => [ 1 ],            # optional, possible: array, scalar
+        Context   => 'some-context',   # optional
+        Operation => 'ObjectIndexAdd', # optional
+        Order     => [1, 2, 3, 4];     # optional, possible: array, scalar
+    );
+
+=cut
+
+sub IndexObjectQueueGet {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject   = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $JSONObject = $Kernel::OM->Get('Kernel::System::JSON');
+
+    NEEDED:
+    for my $Needed (qw( Index )) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $SQL = 'SELECT   id, object_id, entry_context,
+                        entry_data, operation, entry_order, query_params
+               FROM     search_object_operation_queue
+               WHERE    index_name = ?';
+
+    my @BindValues = ( \$Param{Index} );
+
+    my @ObjectID = IsArrayRefWithData( $Param{ObjectID} ) ? @{ $Param{ObjectID} } : ( $Param{ObjectID} );
+
+    if ( $ObjectID[0] ) {
+        my @ParamBindObjectID = map {'?,'} @ObjectID;
+        chop $ParamBindObjectID[-1];
+        $SQL .= " AND object_id IN (@ParamBindObjectID)";
+        for my $ID (@ObjectID) {
+            push @BindValues, \$ID;
+        }
+    }
+    if ( $Param{Operation} ) {
+        $SQL .= ' AND operation = ?';
+        push @BindValues, \$Param{Operation};
+    }
+    if ( $Param{Context} ) {
+        $SQL .= ' AND entry_context = ?';
+        push @BindValues, \$Param{Context};
+    }
+
+    my @Order = IsArrayRefWithData( $Param{Order} ) ? @{ $Param{Order} } : ( $Param{Order} );
+    if ( $Order[0] ) {
+        my @ParamBindOrder = map {'?,'} @Order;
+        chop $ParamBindOrder[-1];
+        $SQL .= " AND entry_order IN (@ParamBindOrder)";
+        for my $Number (@Order) {
+            push @BindValues, \$Number;
+        }
+    }
+
+    return if !$DBObject->Prepare(
+        SQL  => $SQL,
+        Bind => \@BindValues,
+    );
+
+    my $Data;
+    my $LastOrder = 0;
+    while ( my @Row = $DBObject->FetchrowArray() ) {
+        my $DataDecoded;
+
+        if ( $Row[3] ) {
+            $DataDecoded = $JSONObject->Decode(
+                Data => $Row[3],
+            );
+        }
+
+        if ( $Row[1] ) {
+            push @{ $Data->{ObjectID}->{ $Row[1] } }, {
+                ID        => $Row[0],
+                Data      => $DataDecoded,
+                Operation => $Row[4],
+                Order     => $Row[5],
+            };
+        }
+        elsif ( $Row[2] ) {
+            my $QueryParamsDecoded;
+            if ( defined $Row[6] ) {
+                $QueryParamsDecoded = $JSONObject->Decode(
+                    Data => $Row[6],
+                );
+            }
+            push @{ $Data->{QueryParams}->{ $Row[2] } }, {
+                ID          => $Row[0],
+                Data        => $DataDecoded,
+                Operation   => $Row[4],
+                Order       => $Row[5],
+                QueryParams => $QueryParamsDecoded,
+            };
+        }
+
+        # save last order number
+        if ( defined $Row[5] && ( $LastOrder < $Row[5] ) ) {
+            $LastOrder = $Row[5];
+        }
+    }
+
+    if ( defined $Data ) {
+        $Data->{LastOrder} = $LastOrder;
+    }
+
+    return $Data;
+}
+
+=head2 IndexObjectQueueAdd()
+
+add object of specified index and operation to the queue
+
+    my $Success = $SearchChildObject->IndexObjectQueueAdd(
+        Index     => 'Ticket',         # required
+        Operation => 'ObjectIndexAdd', # required
+        Data      => {..}              # optional
+
+        # required:
+        ObjectID  => 1,
+        # or
+        Context => 'some-context',
+        Order   => 1,
+    );
+
+=cut
+
+sub IndexObjectQueueAdd {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject   = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $JSONObject = $Kernel::OM->Get('Kernel::System::JSON');
+
+    NEEDED:
+    for my $Needed (qw(Operation Index)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    if ( $Param{ObjectID} && $Param{Context} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'Use either "ObjectID" or "Context" parameter!',
+        );
+        return;
+    }
+
+    my $SQL = 'INSERT INTO search_object_operation_queue
+               (operation, index_name';
+
+    my @Binds = ( \$Param{Operation}, \$Param{Index} );
+
+    my $ValuesStrg = '?, ?, ?';
+
+    if ( $Param{ObjectID} ) {
+        my $Exists = $Self->IndexObjectQueueExists(
+            ObjectID  => $Param{ObjectID},
+            Index     => $Param{Index},
+            Operation => $Param{Operation},
+        );
+        if ($Exists) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => 'Object to queue already exists with the same object id!',
+            );
+            return;
+        }
+        $SQL .= ', object_id';
+        push @Binds, \$Param{ObjectID};
+    }
+    elsif ( $Param{Context} ) {
+        if ( !defined $Param{Order} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => '"Context" require "Order" parameter!',
+            );
+            return;
+        }
+
+        $ValuesStrg .= ', ?';
+
+        my $Exists = $Self->IndexObjectQueueExists(
+            Context   => $Param{Context},
+            Index     => $Param{Index},
+            Operation => $Param{Operation},
+        );
+        if ($Exists) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => 'Object to queue already exists with the same context!',
+            );
+            return;
+        }
+        $SQL .= ', entry_context';
+        push @Binds, \$Param{Context};
+
+        my $QueryParams = $JSONObject->Encode(
+            Data => $Param{QueryParams},
+        );
+
+        $SQL .= ', query_params';
+        push @Binds, \$QueryParams;
+
+        if ( defined $Param{Order} ) {
+            $SQL .= ', entry_order';
+            push @Binds, \$Param{Order};
+            $ValuesStrg .= ', ?';
+        }
+    }
+
+    if ( $Param{Data} ) {
+        my $JSON = $JSONObject->Encode(
+            Data => $Param{Data},
+        );
+        $SQL .= ', entry_data';
+        push @Binds, \$JSON;
+        $ValuesStrg .= ', ?';
+    }
+
+    $SQL .= ") VALUES ($ValuesStrg)";
+
+    return if !$DBObject->Do(
+        SQL  => $SQL,
+        Bind => \@Binds,
     );
 
     return 1;
+}
+
+=head2 IndexObjectQueueUpdate()
+
+update data of specified queue entry
+
+    my $Success = $SearchChildObject->IndexObjectQueueUpdate(
+        ID          => 1,                     # required
+        Operation   => 'ObjectIndexAdd',      # optional
+        Order       => 1,                     # optional
+        Context     => 'some-unique-context', # optional
+        QueryParams => {TicketID => 1},       # optional
+        Data        => {data1 => 2},          # optional
+        ObjectID    => 10,                    # optional
+        IndexName   => 'Ticket',              # optional
+    );
+
+=cut
+
+sub IndexObjectQueueUpdate {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject   = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject  = $Kernel::OM->Get('Kernel::System::Log');
+    my $JSONObject = $Kernel::OM->Get('Kernel::System::JSON');
+
+    NEEDED:
+    for my $Needed (qw(ID)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $Exists = $Self->IndexObjectQueueExists(
+        ID => $Param{ID},
+    );
+
+    my $SQL = 'UPDATE search_object_operation_queue
+               SET';
+    my $SQLSet = '';
+    my @Binds;
+
+    if ( defined $Param{Data} ) {
+        my $JSON;
+        if ( !$Param{Data} ) {
+            $JSON = '';
+        }
+        else {
+            $JSON = $JSONObject->Encode(
+                Data => $Param{Data},
+            );
+        }
+        $SQLSet .= ' entry_data = ?,';
+        push @Binds, \$JSON;
+    }
+    if ( defined $Param{QueryParams} ) {
+        my $JSON = $JSONObject->Encode(
+            Data => $Param{QueryParams},
+        );
+
+        $SQLSet .= ' query_params = ?,';
+        push @Binds, \$JSON;
+    }
+    if ( $Param{Operation} ) {
+        $SQLSet .= ' operation = ?,';
+        push @Binds, \$Param{Operation};
+    }
+    if ( defined $Param{Order} ) {
+        $SQLSet .= ' entry_order = ?,';
+        push @Binds, \$Param{Order};
+    }
+    if ( defined $Param{Context} ) {
+        $SQLSet .= ' entry_context = ?,';
+        push @Binds, \$Param{Context};
+    }
+    if ( $Param{ObjectID} ) {
+        $SQLSet .= ' object_id = ?,';
+        push @Binds, \$Param{ObjectID};
+    }
+    if ( $Param{IndexName} ) {
+        $SQLSet .= ' index_name = ?,';
+        push @Binds, \$Param{IndexName};
+    }
+
+    # nothing to update
+    if ( !$SQLSet ) {
+        return;
+    }
+
+    chop($SQLSet);
+
+    $SQL .= $SQLSet;
+    $SQL .= ' WHERE id = ?';
+    push @Binds, \$Param{ID};
+
+    return if !$DBObject->Do(
+        SQL  => $SQL,
+        Bind => \@Binds,
+    );
+
+    return 1;
+}
+
+=head2 IndexObjectQueueExists()
+
+check if object data was added into the operation queue
+
+    my $ID = $SearchChildObject->IndexObjectQueueExists(
+        ID        => 1,
+
+        # or
+
+        Index     => 'Ticket',
+        Operation => 'ObjectIndexAdd',
+
+        ObjectID  => 1,
+        # or
+        Context => 'my_context',
+    );
+
+=cut
+
+sub IndexObjectQueueExists {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if (
+        !$Param{ID}
+        &&
+        (
+            !$Param{Operation}
+            && !$Param{Index}
+            && !$Param{Context}
+            && !$Param{ObjectID}
+        )
+        )
+    {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'No valid parameters!'
+        );
+        return;
+    }
+
+    my $SQL = 'SELECT id FROM search_object_operation_queue WHERE 1 = 1';
+
+    my @Binds;
+    if ( $Param{ID} ) {
+        $SQL .= ' AND id = ?';
+        push @Binds, \$Param{ID};
+    }
+    else {
+        if ( $Param{Operation} ) {
+            $SQL .= ' AND operation = ?';
+            push @Binds, \$Param{Operation};
+        }
+        if ( $Param{Index} ) {
+            $SQL .= ' AND index_name = ?';
+            push @Binds, \$Param{Index};
+        }
+        if ( $Param{Context} ) {
+            $SQL .= ' AND entry_context = ?';
+            push @Binds, \$Param{Context};
+        }
+        elsif ( $Param{ObjectID} ) {
+            $SQL .= ' AND object_id = ?';
+            push @Binds, \$Param{ObjectID};
+        }
+    }
+
+    return if !$DBObject->Prepare(
+        SQL  => $SQL,
+        Bind => \@Binds,
+    );
+
+    my @Data = $DBObject->FetchrowArray();
+
+    return $Data[0];
+}
+
+=head2 IndexObjectQueueDelete()
+
+delete queued object data
+
+    my $Success = $SearchChildObject->IndexObjectQueueDelete(
+        ID  => 1, # required
+
+        # or
+
+        Index     => 'Ticket',         # required
+        Operation => 'ObjectIndexAdd', # optional
+
+        ObjectID => 1,
+        # or
+        Context => 'some-context',
+    );
+
+=cut
+
+sub IndexObjectQueueDelete {
+    my ( $Self, %Param ) = @_;
+
+    my $DBObject  = $Kernel::OM->Get('Kernel::System::DB');
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if (
+        !$Param{ID}
+        && !$Param{ObjectID}
+        &&
+        !$Param{Operation} && !$Param{Index} &&
+        !$Param{Context}
+        )
+    {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'No valid parameters!',
+        );
+        return;
+    }
+
+    if ( $Param{ID} ) {
+        my @ParamID = IsArrayRefWithData( $Param{ID} ) ? @{ $Param{ID} } : ( $Param{ID} );
+
+        my @ParamBindQuery = map {'?,'} @ParamID;
+        chop $ParamBindQuery[-1];
+
+        return if !$DBObject->Do(
+            SQL => "DELETE FROM search_object_operation_queue
+                     WHERE id IN (@ParamBindQuery)",
+            Bind => [ \$Param{ID} ],
+        );
+
+        return 1;
+    }
+    else {
+        if ( !$Param{Index} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => 'Parameter "Index" is needed!',
+            );
+            return;
+        }
+        my @ParamObjectID;
+        my $ObjSQLColumn;
+        my $SQLWhere = '1 = 1';
+        my $ObjOrContextDefined;
+        if ( $Param{ObjectID} ) {
+            @ParamObjectID = IsArrayRefWithData( $Param{ObjectID} ) ? @{ $Param{ObjectID} } : ( $Param{ObjectID} );
+            $ObjSQLColumn  = 'object_id';
+            $ObjOrContextDefined = 1;
+        }
+        elsif ( $Param{Context} ) {
+            @ParamObjectID       = IsArrayRefWithData( $Param{Context} ) ? @{ $Param{Context} } : ( $Param{Context} );
+            $ObjSQLColumn        = 'entry_context';
+            $ObjOrContextDefined = 1;
+        }
+        if ($ObjOrContextDefined) {
+            my @ParamBindQuery = map {'?,'} @ParamObjectID;
+            chop $ParamBindQuery[-1];
+            $SQLWhere = "$ObjSQLColumn IN (@ParamBindQuery)";
+        }
+
+        my $SQL = "DELETE FROM search_object_operation_queue
+                   WHERE $SQLWhere";
+
+        my @BindValues;
+        for my $BindableObjectID (@ParamObjectID) {
+            push @BindValues, \$BindableObjectID;
+        }
+
+        $SQL .= ' AND index_name = ?';
+        push @BindValues, \$Param{Index};
+
+        if ( $Param{Operation} ) {
+            $SQL .= ' AND operation = ?';
+            push @BindValues, \$Param{Operation};
+        }
+
+        return if !$DBObject->Do(
+            SQL  => $SQL,
+            Bind => \@BindValues,
+        );
+
+        return 1;
+    }
 }
 
 =head2 _PostValidFieldsGet()

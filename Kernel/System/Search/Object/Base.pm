@@ -20,7 +20,6 @@ our @ObjectDependencies = (
     'Kernel::System::Search::Object::Operators',
     'Kernel::System::Search::Object',
     'Kernel::System::Search',
-    'Kernel::System::Cache',
 );
 
 =head1 NAME
@@ -430,7 +429,7 @@ search in sql database for objects index related
         Limit       => 10,
         Offset      => 2,
         ReturnDefaultSQLColumnNames => 0 # (possible: 1,0) default 0, returns default column names for each of row,
-                                         # when disabled it will format column names into it's aliases
+                                         # when disabled it will format column names into its aliases
     );
 
 =cut
@@ -1009,7 +1008,7 @@ sub IsSortableResultType {
 
 =head2 SortParamApply()
 
-apply sort param if it's valid
+apply sort param if its valid
 
     my $Result = $SearchBaseObject->SortParamApply(
         SortBy     => 'TicketID',
@@ -1146,11 +1145,11 @@ handle saved queue for index
 sub ObjectIndexQueueHandle {
     my ( $Self, %Param ) = @_;
 
-    my $CacheObject  = $Kernel::OM->Get('Kernel::System::Cache');
-    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
-    for my $Needed (qw(TTL IndexName RebuildedObjectQueries)) {
+    for my $Needed (qw(IndexName RebuildedObjectQueries)) {
         if ( !$Param{$Needed} ) {
             $LogObject->Log(
                 Priority => 'error',
@@ -1163,18 +1162,16 @@ sub ObjectIndexQueueHandle {
     my $IndexName = $Param{IndexName};
 
     # get queued data for indexing
-    my $Queue = $CacheObject->Get(
-        Type => 'SearchEngineIndexQueue',
-        Key  => "Index::$IndexName",
+    my $Queue = $SearchChildObject->IndexObjectQueueGet(
+        Index => $IndexName,
     );
 
     return if !defined $Queue;
 
-    # delete cached queue as new data can be inserted
+    # delete queue as new data can be inserted
     # and it is already stored here
-    $CacheObject->Delete(
-        Type => 'SearchEngineIndexQueue',
-        Key  => "Index::$IndexName",
+    my $Success = $SearchChildObject->IndexObjectQueueDelete(
+        Index => $IndexName,
     );
 
     my @QueuesToExecute = $Self->ObjectIndexQueueFormat(
@@ -1184,7 +1181,7 @@ sub ObjectIndexQueueHandle {
     for ( my $i = 0; $i < scalar @QueuesToExecute; $i++ ) {
         my %QueueData = %{ $QueuesToExecute[$i] };
 
-        my $FunctionName = $QueueData{FunctionName};
+        my $FunctionName = $QueueData{Operation};
         my %Query        = $QueueData{QueryParams}
             ?
             (
@@ -1197,7 +1194,7 @@ sub ObjectIndexQueueHandle {
 
         %QueueData = ( %QueueData, %Query );
 
-        my $AdditionalData = delete $QueueData{AdditionalParameters};
+        my $AdditionalData = delete $QueueData{Data};
 
         if ( IsHashRefWithData($AdditionalData) ) {
             %QueueData = ( %QueueData, %{$AdditionalData} );
@@ -1240,18 +1237,20 @@ sub ObjectIndexQueueFormat {
     my $ObjectIDsQueue = $Param{Queue}->{ObjectID};
     if ( IsHashRefWithData($ObjectIDsQueue) ) {
         for my $ObjectID ( sort keys %{$ObjectIDsQueue} ) {
-            push @FormattedQueue, $ObjectIDsQueue->{$ObjectID};
+            my $DataToPush = $ObjectIDsQueue->{$ObjectID}->[0];
+            $DataToPush->{ObjectID} = $ObjectID;
+            push @FormattedQueue, $DataToPush;
         }
     }
 
     my $QueryParamsQueue = $Param{Queue}->{QueryParams};
     if ( IsHashRefWithData($QueryParamsQueue) ) {
         for my $QueryContext (
-            sort { $QueryParamsQueue->{$a}->{Order} <=> $QueryParamsQueue->{$b}->{Order} }
+            sort { $QueryParamsQueue->{$a}->[0]->{Order} <=> $QueryParamsQueue->{$b}->[0]->{Order} }
             keys %{$QueryParamsQueue}
             )
         {
-            push @FormattedQueue, $QueryParamsQueue->{$QueryContext};
+            push @FormattedQueue, $QueryParamsQueue->{$QueryContext}->[0];
         }
     }
 
@@ -1284,9 +1283,9 @@ sub ObjectIndexQueueApplyRules {
     }
 
     my $Changed;
-    my $Order      = $Param{Queue}->{Order}++;
+    my $Order      = ++$Param{Queue}->{LastOrder};
     my $QueueToAdd = $Param{QueueToAdd};
-    my $Function   = $QueueToAdd->{FunctionName};
+    my $Function   = $QueueToAdd->{Operation};
 
     if ( $Function eq 'ObjectIndexAdd' ) {
         $Changed = $Self->ObjectIndexQueueAddRule(
@@ -1334,43 +1333,51 @@ apply index object add rule for queries
 sub ObjectIndexQueueAddRule {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    return if !IsHashRefWithData( $Param{QueueToAdd} );
 
     my $ObjectIDQueueToAdd    = $Param{QueueToAdd}->{ObjectID};
     my $QueryParamsQueueToAdd = $Param{QueueToAdd}->{QueryParams};
 
+    my $Index = $Self->{Config}->{IndexName};
+
     # check if ObjectIndexAdd by object id is to be queued
     if ($ObjectIDQueueToAdd) {
-        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd};
+        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1];
         if ($QueuedOperation) {
 
             # identify what operation was already queued
-            my $PrevQueuedOperationName = $QueuedOperation->{FunctionName};
+            my $PrevQueuedOperationName = $QueuedOperation->{Operation};
 
             # same object don't need to be added 2 times
             if ( $PrevQueuedOperationName eq 'ObjectIndexAdd' ) {
-                return;
+                return 0;
             }
 
             # update needs to be overwritten by add
             elsif ( $PrevQueuedOperationName eq 'ObjectIndexUpdate' ) {
-                $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-                return 1;
+                return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                    %{ $Param{QueueToAdd} },
+                    ID => $QueuedOperation->{ID},
+                );
             }
 
             # set doesn't need to be overwritten
             elsif ( $PrevQueuedOperationName eq 'ObjectIndexSet' ) {
-                return;
+                return 0;
             }
 
             # should never be a case in the system, don't allow it
             elsif ( $PrevQueuedOperationName eq 'ObjectIndexRemove' ) {
-                return;
+                return 0;
             }
         }
         else {
-            $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-            return 1;
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
+                %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
+            );
         }
     }
 
@@ -1386,16 +1393,20 @@ sub ObjectIndexQueueAddRule {
             return;
         }
 
-        if ( $Param{Queue}->{QueryParams}->{$Context} ) {
-            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
-            return;
+        my $QueuedOperation = $Param{Queue}->{QueryParams}->{$Context}->[-1];
+
+        if ($QueuedOperation) {
+            return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                ID    => $QueuedOperation->{ID},
+                Order => $Param{Order},
+            );
         }
         else {
-            $Param{Queue}->{QueryParams}->{$Context} = {
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
                 %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
                 Order => $Param{Order},
-            };
-            return 1;
+            );
         }
     }
     else {
@@ -1419,7 +1430,8 @@ apply index object set rule for queries
 sub ObjectIndexQueueSetRule {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     return if !IsHashRefWithData( $Param{QueueToAdd} );
 
     my $ObjectIDQueueToAdd    = $Param{QueueToAdd}->{ObjectID};
@@ -1427,22 +1439,26 @@ sub ObjectIndexQueueSetRule {
 
     # check if ObjectIndexSet by object id is to be queued
     if ($ObjectIDQueueToAdd) {
-        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd};
+        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1];
         if ($QueuedOperation) {
 
             # identify what operation was already queued
-            my $PrevQueuedOperationName = $QueuedOperation->{FunctionName};
+            my $PrevQueuedOperationName = $QueuedOperation->{Operation};
 
             # set overrides add
             if ( $PrevQueuedOperationName eq 'ObjectIndexAdd' ) {
-                $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-                return 1;
+                return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                    %{ $Param{QueueToAdd} },
+                    ID => $QueuedOperation->{ID},
+                );
             }
 
             # update needs to be overwritten
             elsif ( $PrevQueuedOperationName eq 'ObjectIndexUpdate' ) {
-                $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-                return 1;
+                return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                    %{ $Param{QueueToAdd} },
+                    ID => $QueuedOperation->{ID},
+                );
             }
 
             # set doesn't need to be overwritten
@@ -1456,8 +1472,10 @@ sub ObjectIndexQueueSetRule {
             }
         }
         else {
-            $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-            return 1;
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
+                %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
+            );
         }
     }
 
@@ -1473,16 +1491,20 @@ sub ObjectIndexQueueSetRule {
             return;
         }
 
-        if ( $Param{Queue}->{QueryParams}->{$Context} ) {
-            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
-            return;
+        my $QueuedOperation = $Param{Queue}->{QueryParams}->{$Context}->[-1];
+
+        if ($QueuedOperation) {
+            return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                ID    => $QueuedOperation->{ID},
+                Order => $Param{Order},
+            );
         }
         else {
-            $Param{Queue}->{QueryParams}->{$Context} = {
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
                 %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
                 Order => $Param{Order},
-            };
-            return 1;
+            );
         }
     }
     else {
@@ -1506,7 +1528,8 @@ apply index object update rule for queries
 sub ObjectIndexQueueUpdateRule {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     return if !IsHashRefWithData( $Param{QueueToAdd} );
 
     my $ObjectIDQueueToAdd    = $Param{QueueToAdd}->{ObjectID};
@@ -1514,15 +1537,17 @@ sub ObjectIndexQueueUpdateRule {
 
     # check if ObjectIndexUpdate by object id is to be queued
     if ($ObjectIDQueueToAdd) {
-        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd};
+        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1];
         if ($QueuedOperation) {
 
             # update does not override any previous operation
             return;
         }
         else {
-            $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-            return 1;
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
+                %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
+            );
         }
     }
 
@@ -1538,16 +1563,20 @@ sub ObjectIndexQueueUpdateRule {
             return;
         }
 
-        if ( $Param{Queue}->{QueryParams}->{$Context} ) {
-            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
-            return;
+        my $QueuedOperation = $Param{Queue}->{QueryParams}->{$Context}->[-1];
+
+        if ($QueuedOperation) {
+            return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                ID    => $QueuedOperation->{ID},
+                Order => $Param{Order},
+            );
         }
         else {
-            $Param{Queue}->{QueryParams}->{$Context} = {
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
                 %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
                 Order => $Param{Order},
-            };
-            return 1;
+            );
         }
     }
     else {
@@ -1571,7 +1600,8 @@ apply index object update rule for queries
 sub ObjectIndexQueueRemoveRule {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     return if !IsHashRefWithData( $Param{QueueToAdd} );
 
     my $ObjectIDQueueToAdd    = $Param{QueueToAdd}->{ObjectID};
@@ -1579,28 +1609,33 @@ sub ObjectIndexQueueRemoveRule {
 
     # check if ObjectIndexRemove by object id is to be queued
     if ($ObjectIDQueueToAdd) {
-        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd};
+        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1];
         if ($QueuedOperation) {
 
             # identify what operation was already queued
-            my $PrevQueuedOperationName = $QueuedOperation->{FunctionName};
+            my $PrevQueuedOperationName = $QueuedOperation->{Operation};
 
             # remove cancels add
             if ( $PrevQueuedOperationName eq 'ObjectIndexAdd' ) {
-                delete $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd};
-                return 1;
+                return 3 if $SearchChildObject->IndexObjectQueueDelete(
+                    ID => $QueuedOperation->{ID},
+                );
             }
 
             # remove overwrites update
             elsif ( $PrevQueuedOperationName eq 'ObjectIndexUpdate' ) {
-                $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-                return 1;
+                return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                    %{ $Param{QueueToAdd} },
+                    ID => $QueuedOperation->{ID},
+                );
             }
 
             # remove overwrites set
             elsif ( $PrevQueuedOperationName eq 'ObjectIndexSet' ) {
-                $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-                return 1;
+                return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                    %{ $Param{QueueToAdd} },
+                    ID => $QueuedOperation->{ID},
+                );
             }
 
             # should never be a case in the system, don't allow it
@@ -1609,8 +1644,10 @@ sub ObjectIndexQueueRemoveRule {
             }
         }
         else {
-            $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-            return 1;
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
+                %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
+            );
         }
     }
 
@@ -1626,16 +1663,20 @@ sub ObjectIndexQueueRemoveRule {
             return;
         }
 
-        if ( $Param{Queue}->{QueryParams}->{$Context} ) {
-            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
-            return;
+        my $QueuedOperation = $Param{Queue}->{QueryParams}->{$Context}->[-1];
+
+        if ($QueuedOperation) {
+            return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                ID    => $QueuedOperation->{ID},
+                Order => $Param{Order},
+            );
         }
         else {
-            $Param{Queue}->{QueryParams}->{$Context} = {
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
                 %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
                 Order => $Param{Order},
-            };
-            return 1;
+            );
         }
     }
     else {

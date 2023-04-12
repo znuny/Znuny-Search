@@ -67,11 +67,11 @@ sub Run {
 
     my $FunctionName = $Param{Config}->{FunctionName};
 
-    $SearchChildObject->IndexObjectQueueAdd(
+    $SearchChildObject->IndexObjectQueueEntry(
         Index => 'DynamicField',
         Value => {
-            FunctionName => $FunctionName,
-            ObjectID     => $Param{Data}->{NewData}->{ID},
+            Operation => $FunctionName,
+            ObjectID  => $Param{Data}->{NewData}->{ID},
         },
     );
 
@@ -93,12 +93,12 @@ sub Run {
     if ( $Param{Event} eq 'DynamicFieldDelete' ) {
         my $OldDFName = $Param{Data}->{NewData}->{Name};
 
-        $Success = $SearchChildObject->IndexObjectQueueAdd(
+        $Success = $SearchChildObject->IndexObjectQueueEntry(
             Index => $UpdateIndex,
             Value => {
-                FunctionName         => 'ObjectIndexUpdate',
-                QueryParams          => {},
-                AdditionalParameters => {
+                Operation   => 'ObjectIndexUpdate',
+                QueryParams => {},
+                Data        => {
                     CustomFunction => {
                         Name   => 'ObjectIndexUpdateDFChanged',
                         Params => {
@@ -121,20 +121,22 @@ sub Run {
 
     if ( $NewDFName && $OldDFName && $NewDFName ne $OldDFName ) {
 
-        $Success = $SearchChildObject->IndexObjectQueueAdd(
+        $Success = $SearchChildObject->IndexObjectQueueEntry(
             Index => $UpdateIndex,
             Value => {
-                FunctionName   => 'ObjectIndexUpdate',
-                QueryParams    => {},
-                CustomFunction => {
-                    Name   => 'ObjectIndexUpdateDFChanged',
-                    Params => {
-                        DynamicField => {
-                            ObjectType => $ObjectType,
-                            Name       => $OldDFName,
-                            NewName    => $Param{Data}->{NewData}->{Name},
-                            Event      => 'NameChange',
-                        }
+                Operation   => 'ObjectIndexUpdate',
+                QueryParams => {},
+                Data        => {
+                    CustomFunction => {
+                        Name   => 'ObjectIndexUpdateDFChanged',
+                        Params => {
+                            DynamicField => {
+                                ObjectType => $ObjectType,
+                                Name       => $OldDFName,
+                                NewName    => $Param{Data}->{NewData}->{Name},
+                                Event      => 'NameChange',
+                            }
+                        },
                     },
                 },
                 Context => "ObjectIndexUpdate_DFNameChanged_${OldDFName}_${ObjectType}",

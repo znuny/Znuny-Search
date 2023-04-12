@@ -60,22 +60,22 @@ sub Run {
     if ( $Param{Event} eq 'TicketMerge' ) {
         my $MergedIntoTicketID = $Param{Data}->{MainTicketID};
 
-        $SearchChildObject->IndexObjectQueueAdd(
+        $SearchChildObject->IndexObjectQueueEntry(
             Index => 'TicketHistory',
             Value => {
-                FunctionName => 'ObjectIndexSet',
-                QueryParams  => {
+                Operation   => 'ObjectIndexSet',
+                QueryParams => {
                     TicketID => $TicketID,
                 },
                 Context => "ObjectIndexSet_TicketMerge_$TicketID",
             },
         );
 
-        $SearchChildObject->IndexObjectQueueAdd(
+        $SearchChildObject->IndexObjectQueueEntry(
             Index => 'TicketHistory',
             Value => {
-                FunctionName => 'ObjectIndexSet',
-                QueryParams  => {
+                Operation   => 'ObjectIndexSet',
+                QueryParams => {
                     TicketID => $MergedIntoTicketID,
                 },
                 Context => "ObjectIndexSet_TicketMerge_$MergedIntoTicketID",
@@ -83,11 +83,11 @@ sub Run {
         );
     }
     elsif ( $Param{Event} eq 'HistoryDelete' ) {
-        $SearchChildObject->IndexObjectQueueAdd(
+        $SearchChildObject->IndexObjectQueueEntry(
             Index => 'TicketHistory',
             Value => {
-                FunctionName => 'ObjectIndexRemove',
-                QueryParams  => {
+                Operation   => 'ObjectIndexRemove',
+                QueryParams => {
                     TicketID => $TicketID,
                 },
                 Context => "ObjectIndexRemove_HistoryDelete_$TicketID",
@@ -108,11 +108,11 @@ sub Run {
             OrderBy => 'Down',
         );
 
-        $SearchChildObject->IndexObjectQueueAdd(
+        $SearchChildObject->IndexObjectQueueEntry(
             Index => 'TicketHistory',
             Value => {
-                FunctionName => 'ObjectIndexAdd',
-                ObjectID     => $TicketHistoryID->[0],
+                Operation => 'ObjectIndexAdd',
+                ObjectID  => $TicketHistoryID->[0],
             },
         );
     }

@@ -139,7 +139,8 @@ sub Run {
     my $StartFrom           = $Self->GetOption('start-from');
 
     $Self->{Synchronize} = $Self->GetOption('sync');
-    $Self->{PIDName}     = $Self->{Synchronize} ? 'SearchEngineReindex' : 'SearchEngineSync';
+    $Self->{PIDName}     = $Self->{Synchronize} ? 'SearchEngineSync' : 'SearchEngineReindex';
+    $Self->{PIDNameAlt}  = $Self->{Synchronize} ? 'SearchEngineReindex' : 'SearchEngineSync';
 
     my $FullReindexation = !$StartFrom && !$Limit;
 
@@ -167,13 +168,28 @@ sub Run {
         Name => $Self->{PIDName},
     );
 
+    %{ $Self->{ReindexingProcessAlt} } = $PIDObject->PIDGet(
+        Name => $Self->{PIDNameAlt},
+    );
+
     if ( IsHashRefWithData( $Self->{ReindexingProcess} ) ) {
-        if ( $Self->{Synchronize} ) {
-            $Self->Print("<yellow>There is already a locked synchronizing process\n</yellow>");
-        }
-        else {
-            $Self->Print("<yellow>There is already a locked re-indexing process\n</yellow>");
-        }
+        $Self->{AlreadyLockedProcess} = {
+            Name => $Self->{PIDName},
+            PID  => $Self->{ReindexingProcess}->{PID},
+        };
+    }
+    elsif ( IsHashRefWithData( $Self->{ReindexingProcessAlt} ) ) {
+        $Self->{AlreadyLockedProcess} = {
+            Name => $Self->{PIDNameAlt},
+            PID  => $Self->{ReindexingProcessAlt}->{PID},
+        };
+    }
+
+    if ( IsHashRefWithData( $Self->{AlreadyLockedProcess} ) ) {
+
+        my $ProcessName = $Self->{AlreadyLockedProcess}->{Name};
+
+        $Self->Print("<yellow>There is already a locked \"$ProcessName\" process\n</yellow>");
 
         return $Self->ExitCodeError() if !$ForcePID;
 
@@ -186,11 +202,13 @@ sub Run {
             return $Self->ExitCodeOk();
         }
 
+        my $PID = $Self->{AlreadyLockedProcess}->{PID};
+
         $Self->Print(
-            "<yellow>Used force flag, trying to remove ongoing process with ID $Self->{ReindexingProcess}->{PID}.</yellow>\n"
+            "<yellow>Used force flag, trying to remove ongoing process with ID $PID.</yellow>\n"
         );
 
-        my $Success = kill 9, $Self->{ReindexingProcess}->{PID};
+        my $Success = kill 9, $PID;
         if ($Success) {
             $Self->Print("<yellow>Process was stopped</yellow>\n");
         }
@@ -281,7 +299,7 @@ sub Run {
         Key   => 'ReindexingQueue',
         Value => $ObjectQueueJSON,
         TTL   => 24 * 60 * 60,
-    ) if !$Self->{Synchronize};
+    );
 
     $Self->{SearchObject}->ClusterInit(
         Force => $ClusterReinitialize,
@@ -312,14 +330,21 @@ sub Run {
             Key   => 'Percentage',
             Value => 0,
             TTL   => 24 * 60 * 60,
-        ) if !$Self->{Synchronize};
+        );
 
         $CacheObject->Set(
             Type  => 'ReindexingProcess',
             Key   => 'ReindexedIndex',
             Value => $IndexName,
             TTL   => 24 * 60 * 60,
-        ) if !$Self->{Synchronize};
+        );
+
+        $CacheObject->Set(
+            Type  => 'ReindexingProcess',
+            Key   => 'SynchronizationEnabled',
+            Value => $Self->{Synchronize},
+            TTL   => 24 * 60 * 60,
+        ) if $Self->{Synchronize};
 
         my $IndexCreated;
 
@@ -412,6 +437,23 @@ sub Run {
             my $DBEngineDataCount        = $DataEqualityResponse->{$IndexName}->{DBEngine}->{Count}     // 0;
             my $CustomEngineDataCount    = $DataEqualityResponse->{$IndexName}->{CustomEngine}->{Count} // 0;
             my $EqualityPercentageStatus = $DataEqualityResponse->{$IndexName}->{EqualityPercentage}    // 0;
+            my $ObjectQueueJSON          = $JSONObject->Encode(
+                Data => \%IndexObjectStatus
+            );
+
+            $CacheObject->Set(
+                Type  => 'ReindexingProcess',
+                Key   => 'ReindexingQueue',
+                Value => $ObjectQueueJSON,
+                TTL   => 24 * 60 * 60,
+            );
+
+            $CacheObject->Set(
+                Type  => 'ReindexingProcess',
+                Key   => 'ReindexedIndex',
+                Value => $IndexName,
+                TTL   => 24 * 60 * 60,
+            );
 
             $Self->Print(
                 "<yellow>Already indexed data:\nStatus: $EqualityPercentageStatus%.\n" .
@@ -484,8 +526,8 @@ sub Run {
 
             if ( !$ChangeTimeColumnName ) {
                 $Self->PrintError(
-                    'Specified index to synchronize does not contain column name set' .
-                        "in it's module config. " .
+                    'Specified index to synchronize does not contain change time column name set' .
+                        "in its module config. " .
                         'Synchronization will continue, but entries will be only added' . "\n" .
                         'or delete if needed - existing entries in both engines can\'t be compared.'
                 );
@@ -508,13 +550,13 @@ sub Run {
             );
 
             SEARCH:
-            for ( my $i = $StartID; $i <= $EndID; $i += 10000 ) {
+            for ( my $i = $StartID; $i <= $EndID; $i += 50000 ) {
                 my %SearchParams = (
                     Objects     => [$IndexName],
                     QueryParams => {
-                        $Identifier => [ $i .. $i + 9999 ],
+                        $Identifier => [ $i .. $i + 49999 ],
                     },
-                    Limit         => 10000,
+                    Limit         => 50000,
                     ResultType    => 'HASH',
                     Fields        => [ [ $IndexName . '_' . $Identifier, $IndexName . '_' . $ChangeTimeColumnName ] ],
                     NoPermissions => 1,
@@ -547,7 +589,7 @@ sub Run {
                     }
                     else {
                         # entry exists in both engines
-                        # check it's update time and update if needed
+                        # check its update time and update if needed
                         # IMPORTANT! If custom engine update time anyhow differs from
                         # sql db, entry will be updated on engine side
                         if (
@@ -555,32 +597,12 @@ sub Run {
                             && $CustomSearchEngineData{$ID}->{$ChangeTimeColumnName}
                             )
                         {
-                            my $SQLChangeTimeObject = $Kernel::OM->Create(
-                                'Kernel::System::DateTime',
-                                ObjectParams => {
-                                    String => $SQLData{$ID}->{$ChangeTimeColumnName},
-                                }
-                            );
-                            my $SearchEngineChangeTimeObject = $Kernel::OM->Create(
-                                'Kernel::System::DateTime',
-                                ObjectParams => {
-                                    String => $CustomSearchEngineData{$ID}->{$ChangeTimeColumnName},
-                                }
-                            );
-                            if ( !$SQLChangeTimeObject && !$SearchEngineChangeTimeObject ) {
-                                $Self->PrintError(
-                                    "Could not build correct DateTime object from '$ChangeTimeColumnName' column for object id: $ID",
-                                );
-                                next SQL_DATA;
-                            }
-                            else {
-                                my $Result
-                                    = $SQLChangeTimeObject->Compare( DateTimeObject => $SearchEngineChangeTimeObject );
-                                my $ChangeTimeIsDifferent = $Result eq 1 || $Result eq -1;
+                            my $Result = $SQLData{$ID}->{$ChangeTimeColumnName}
+                                cmp $CustomSearchEngineData{$ID}->{$ChangeTimeColumnName};
+                            my $ChangeTimeIsDifferent = $Result eq 1 || $Result eq -1;
 
-                                if ($ChangeTimeIsDifferent) {
-                                    push @{ $Actions{ObjectIndexUpdate} }, $ID;
-                                }
+                            if ($ChangeTimeIsDifferent) {
+                                push @{ $Actions{ObjectIndexUpdate} }, $ID;
                             }
                         }
                     }
@@ -596,12 +618,21 @@ sub Run {
                 }
             }
 
+            my $IndexationQueueConfig = $ConfigObject->Get("SearchEngine::IndexationQueue") // {};
+
             # perform synchronization based on queue of accumulated data
             ACTION:
             for my $Action (qw(ObjectIndexAdd ObjectIndexUpdate ObjectIndexRemove)) {
                 my $IDsToProcess = $Actions{$Action};
                 next ACTION if !IsArrayRefWithData($IDsToProcess);
                 my $IDsToProcessCount = scalar @{$IDsToProcess};
+
+                # remove any queued data for indexing that synchronization will update
+                $SearchChildObject->IndexObjectQueueDelete(
+                    Index     => $IndexName,
+                    Operation => $Action,
+                    ObjectID  => $IDsToProcess,
+                );
 
                 # order of synchronization is the same as reindexation - start from the end
                 # perform synchronization in part of requests
@@ -880,7 +911,7 @@ sub PostRun {
 
     $CacheObject->CleanUp(
         Type => 'ReindexingProcess',
-    ) if !$Self->{Synchronize};
+    );
 
     $PIDObject->PIDDelete(
         Name => $Self->{PIDName},

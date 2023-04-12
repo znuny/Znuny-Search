@@ -60,14 +60,14 @@ sub Run {
 
     my $OldQueueID = $Param{Data}->{OldQueue}->{QueueID};
 
-    $SearchChildObject->IndexObjectQueueAdd(
+    $SearchChildObject->IndexObjectQueueEntry(
         Index => 'Ticket',
         Value => {
-            FunctionName => 'ObjectIndexUpdate',
-            QueryParams  => {
+            Operation   => 'ObjectIndexUpdate',
+            QueryParams => {
                 QueueID => $OldQueueID,
             },
-            AdditionalParameters => {
+            Data => {
                 CustomFunction => {
                     Name   => 'ObjectIndexUpdateGroupID',
                     Params => {

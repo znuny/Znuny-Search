@@ -56,6 +56,7 @@ sub Data {
     $Self->{Translation}->{'Check Data Equality'} = 'Gleichheit der Daten prüfen';
     $Self->{Translation}->{'Cluster is not active. Cannot perform any action on invalid cluster.'} = 'Cluster ist nicht aktiv. Auf einem ungültigen Cluster kann keine Aktion ausgeführt werden.';
     $Self->{Translation}->{'Cannot connect to search engine. Please check your connection.'} = 'Keine Verbindung zur Such-Engine möglich. Bitte Verbindung prüfen.';
+    $Self->{Translation}->{'Synchronization is already ongoing. Please wait for the end of the process.'} = 'Synchronisation läuft bereits. Bitte warten, bis der Prozess abgeschlossen ist.';
     $Self->{Translation}->{'Re-indexation is already ongoing. Please wait for the end of the process.'} = 'Re-Indizierung läuft bereits. Bitte warten, bis der Prozess abgeschlossen ist.';
     $Self->{Translation}->{'Preparing...'} = 'Bereite vor...';
     $Self->{Translation}->{'Stop reindexation'} = 'Re-Indizierung stoppen';
@@ -91,6 +92,7 @@ sub Data {
     $Self->{Translation}->{'Manage search engine clusters.'} = 'Such-Engine-Cluster verwalten.';
     $Self->{Translation}->{'Enables search engine feature.'} = 'Aktiviert Search-Engine-Funktion.';
     $Self->{Translation}->{'Cron task for executing queued operations for active search indexes.'} = 'Cron-Task zur Ausführung anstehender Operationen aktiver Suche-Indizes.';
+    $Self->{Translation}->{'Cron task for executing synchronization between indexes and its SQL data. Used as an additional layer to detect any data mismatch between engines.'} = 'Cron-Task zur Synchronisation von Indizes und SQL-Daten. Wird verwendet, um Unterschiede in den Daten zwischen den Engines zu ermitteln.';
     $Self->{Translation}->{'Settings used in indexation queue.'} = 'Einstellungen für die Indizierungs-Queue.';
     $Self->{Translation}->{'Settings used for re-indexation command.'} = 'Einstellungen für das Re-Indizierungs-Konsolenkommando.';
     $Self->{Translation}->{'Registers Elasticsearch engine plugin.'} = 'Registriert Elasticsearch-Engine-Plugin.';

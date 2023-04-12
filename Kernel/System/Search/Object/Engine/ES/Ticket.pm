@@ -51,7 +51,7 @@ for fallback or separate engine.
 
 Don' t use the constructor directly, use the ObjectManager instead :
 
-        my $SearchTicketESObject = $Kernel::OM->Get('Kernel::System::Search::Object::Engine::ES::Ticket');
+    my $SearchTicketESObject = $Kernel::OM->Get('Kernel::System::Search::Object::Engine::ES::Ticket');
 
 =cut
 
@@ -355,7 +355,7 @@ On executing ticket search by Kernel::System::Search:
 
             # additionally there is a possibility to pass names for fields below
             # always pass them in an array or scalar
-            # can be combined with it's ID's alternative (will match
+            # can be combined with its IDs alternative (will match
             # by "AND" operator as any other fields)
             # operators syntax is not supported on those fields
             Queue        => ['Misc', 'Junk'], # search by queue name
@@ -976,6 +976,9 @@ sub ObjectIndexUpdate {
     # update base ticket properties
     # or update specified ticket articles
     # or add specified ticket articles
+    if ( $Param{ObjectID} ) {
+        $Param{UpdateTicket} = 1;
+    }
     if ( $Param{UpdateTicket} || $Param{UpdateArticle} || $Param{AddArticle} ) {
         my $RunPipeline = $Param{UpdateArticle} || $Param{AddArticle} ? 1 : 0;
 
@@ -2215,7 +2218,8 @@ apply index object update rule for queries
 sub ObjectIndexQueueUpdateRule {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     return if !IsHashRefWithData( $Param{QueueToAdd} );
 
     my $ObjectIDQueueToAdd    = $Param{QueueToAdd}->{ObjectID};
@@ -2223,11 +2227,11 @@ sub ObjectIndexQueueUpdateRule {
 
     # check if ObjectIndexUpdate by object id is to be queued
     if ($ObjectIDQueueToAdd) {
-        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd};
+        my $QueuedOperation = $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1];
         if ($QueuedOperation) {
 
             # identify what operation was already queued
-            my $PrevQueuedOperationName = $QueuedOperation->{FunctionName};
+            my $PrevQueuedOperationName = $QueuedOperation->{Operation};
 
             # add overwrites update
             if ( $PrevQueuedOperationName eq 'ObjectIndexAdd' ) {
@@ -2235,17 +2239,19 @@ sub ObjectIndexQueueUpdateRule {
             }
 
             elsif ( $PrevQueuedOperationName eq 'ObjectIndexUpdate' ) {
-                my $UpdateTicketQueuedBefore = $QueuedOperation->{AdditionalParameters}->{UpdateTicket};
-                my $UpdateTicketQueuedNow    = $Param{QueueToAdd}->{AdditionalParameters}->{UpdateTicket};
+                my $Changed;
+                my $UpdateTicketQueuedBefore = $QueuedOperation->{Data}->{UpdateTicket};
+                my $UpdateTicketQueuedNow    = $Param{QueueToAdd}->{Data}->{UpdateTicket};
 
                 if ( $UpdateTicketQueuedNow && !$UpdateTicketQueuedBefore ) {
-                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateTicket}
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateTicket}
                         = $UpdateTicketQueuedNow;
+                    $Changed = 1;
                 }
 
-                my $AddArticleQueuedBefore    = $QueuedOperation->{AdditionalParameters}->{AddArticle}    || '';
-                my $UpdateArticleQueuedBefore = $QueuedOperation->{AdditionalParameters}->{UpdateArticle} || '';
-                my $UpdateArticleQueuedNow    = $Param{QueueToAdd}->{AdditionalParameters}->{UpdateArticle};
+                my $AddArticleQueuedBefore    = $QueuedOperation->{Data}->{AddArticle}    || '';
+                my $UpdateArticleQueuedBefore = $QueuedOperation->{Data}->{UpdateArticle} || '';
+                my $UpdateArticleQueuedNow    = $Param{QueueToAdd}->{Data}->{UpdateArticle};
 
                 # check if articles to update has been queued now
                 if ( IsArrayRefWithData($UpdateArticleQueuedNow) && $UpdateArticleQueuedBefore ne '*' ) {
@@ -2271,15 +2277,17 @@ sub ObjectIndexQueueUpdateRule {
                         $ArticlesToQueue = \@MergedArticleIDsArray;
                     }
                     if ( IsArrayRefWithData($ArticlesToQueue) ) {
-                        $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateArticle}
+                        $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle}
                             = $ArticlesToQueue;
+                        $Changed = 1;
                     }
                 }
                 elsif ( $UpdateArticleQueuedNow && $UpdateArticleQueuedNow eq '*' ) {
-                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateArticle} = '*';
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle} = '*';
+                    $Changed = 1;
                 }
 
-                my $AddArticleQueuedNow = $Param{QueueToAdd}->{AdditionalParameters}->{AddArticle};
+                my $AddArticleQueuedNow = $Param{QueueToAdd}->{Data}->{AddArticle};
 
                 # check if articles to add has been queued now
                 if ( IsArrayRefWithData($AddArticleQueuedNow) ) {
@@ -2297,8 +2305,9 @@ sub ObjectIndexQueueUpdateRule {
                         }
                         my @ArticlesToUpdate = keys %QueuedArticleUpdateIDsBefore;
 
-                        $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{UpdateArticle}
+                        $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle}
                             = \@ArticlesToUpdate;
+                        $Changed = 1;
                     }
 
                     if ( IsArrayRefWithData($AddArticleQueuedBefore) ) {
@@ -2308,8 +2317,15 @@ sub ObjectIndexQueueUpdateRule {
 
                         $ArticlesToQueue = \@MergedArticleIDsArray;
                     }
-                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->{AdditionalParameters}->{AddArticle}
-                        = $ArticlesToQueue;
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{AddArticle} = $ArticlesToQueue;
+                    $Changed = 1;
+                }
+
+                if ($Changed) {
+                    return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                        %{ $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1] },
+                        ID => $QueuedOperation->{ID},
+                    );
                 }
 
                 return;
@@ -2326,8 +2342,10 @@ sub ObjectIndexQueueUpdateRule {
             }
         }
         else {
-            $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd} = $Param{QueueToAdd};
-            return 1;
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
+                %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
+            );
         }
     }
 
@@ -2343,16 +2361,20 @@ sub ObjectIndexQueueUpdateRule {
             return;
         }
 
-        if ( $Param{Queue}->{QueryParams}->{$Context} ) {
-            $Param{Queue}->{QueryParams}->{$Context}->{Order} = $Param{Order};
-            return;
+        my $QueuedOperation = $Param{Queue}->{QueryParams}->{$Context}->[-1];
+
+        if ($QueuedOperation) {
+            return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                ID    => $QueuedOperation->{ID},
+                Order => $Param{Order},
+            );
         }
         else {
-            $Param{Queue}->{QueryParams}->{$Context} = {
+            return 1 if $SearchChildObject->IndexObjectQueueAdd(
                 %{ $Param{QueueToAdd} },
+                Index => $Self->{Config}->{IndexName},
                 Order => $Param{Order},
-            };
-            return 1;
+            );
         }
     }
     else {

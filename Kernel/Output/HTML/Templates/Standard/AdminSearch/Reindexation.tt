@@ -108,6 +108,9 @@
                                 [% Translate("Cannot connect to search engine. Please check your connection.") | html %]
 [% ELSE %]
                                 <div id="ReindexationProcessContainer">
+[% IF Data.SynchronizationEnabled %]
+                                    [% Translate("Synchronization is already ongoing. Please wait for the end of the process.") | html %]
+[% ELSE %]
                                     [% Translate("Re-indexation is already ongoing. Please wait for the end of the process.") | html %]
                                     <fieldset class="GridTable">
 [% RenderBlockStart("ProgressBar") %]
@@ -115,7 +118,7 @@
                                             <div id="ProgressBarFill" style="height:10px;width:[% Data.InitialWidth %]px;background-color:[% Data.ProgressBarColor %];"></div>
                                             <div style="width:380px;text-align:center;display:inline-block" id="PercentageDescription">
 [% IF Data.Percentage %]
-                                            [% Data.Percentage %]%
+                                            [% Data.Percentage | html %]%
 [% ELSE %]
                                             [% Translate("Preparing...") | html %]
 [% END %]
@@ -124,6 +127,7 @@
                                     </div>
 [% RenderBlockEnd("ProgressBar") %]
                                 </fieldset>
+[% END %]
                                 </div>
 [% END %]
                             </div>

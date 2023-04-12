@@ -273,13 +273,13 @@
                 <Item Key="TaskName">IndexQueueDataProcess</Item>
                 <Item Key="Schedule">* * * * *</Item> <!-- Every minute -->
                 <Item Key="Module">Kernel::System::Console::Command::Maint::Search::ES::IndexQueueDataProcess</Item>
-                <Item Key="MaximumParallelInstances">1</Item>
+                <Item Key="MaximumParallelInstances">3</Item>
                 <Item Key="Function">Execute</Item>
             </Hash>
         </Value>
     </Setting>
     <Setting Name="Daemon::SchedulerCronTaskManager::Task###CustomEngineSynchronizeData" Required="0" Valid="0">
-        <Description Translatable="1">Cron task for executing synchronization between CustomerUser index and it's sql data.</Description>
+        <Description Translatable="1">Cron task for executing synchronization between indexes and its SQL data. Used as an additional layer to detect any data mismatch between engines.</Description>
         <Navigation>Daemon::SchedulerCronTaskManager::Task</Navigation>
         <Value>
             <Hash>
@@ -290,9 +290,17 @@
                 <Item Key="MaximumParallelInstances">1</Item>
                 <Item Key="Params">
                     <Array>
+                        <Item>--sync</Item>
+                        <Item>--index</Item>
+                        <Item>Ticket</Item>
+                        <Item>--index</Item>
+                        <Item>TicketHistory</Item>
+                        <Item>--index</Item>
+                        <Item>DynamicField</Item>
+                        <Item>--index</Item>
+                        <Item>Article</Item>
                         <Item>--index</Item>
                         <Item>CustomerUser</Item>
-                        <Item>--sync</Item>
                     </Array>
                 </Item>
             </Hash>

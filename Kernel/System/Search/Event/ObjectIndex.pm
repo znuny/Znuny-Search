@@ -74,22 +74,22 @@ sub Run {
         return;
     }
 
-    my $AdditionalValueParameters;
+    my $AdditionalValueParameters = '';
 
     if ( $Param{Config}->{AdditionalValueParameters} ) {
         my $DecodedJSON = $JSONObject->Decode(
             Data => $Param{Config}->{AdditionalValueParameters},
         );
 
-        $AdditionalValueParameters = $DecodedJSON;
+        $AdditionalValueParameters = $DecodedJSON // '';
     }
 
-    $SearchChildObject->IndexObjectQueueAdd(
+    $SearchChildObject->IndexObjectQueueEntry(
         Index => $IndexName,
         Value => {
-            FunctionName         => $Param{Config}->{FunctionName},
-            ObjectID             => $ObjectID,
-            AdditionalParameters => $AdditionalValueParameters
+            Operation => $Param{Config}->{FunctionName},
+            ObjectID  => $ObjectID,
+            Data      => $AdditionalValueParameters,
         },
     );
 

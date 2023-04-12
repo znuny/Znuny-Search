@@ -139,7 +139,7 @@ sub BuildNodeSection {
 
         # remove password from data
         # just in case someone tried to
-        # use it's value in template
+        # use its value in template
         undef $Param{Password};
         undef $NodeData->{Password};
         $Output .= $LayoutObject->Output(
@@ -187,7 +187,7 @@ sub BuildNodeSection {
 
         # remove password from data
         # just in case someone tried to
-        # use it's value in template
+        # use its value in template
         undef $Param{Password};
 
         $Output .= $LayoutObject->Output(
