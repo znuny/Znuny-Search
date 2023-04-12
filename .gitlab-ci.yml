@@ -6,4 +6,5 @@ include:
 
 .before_script:
   commands:
+    - cpanm Search::Elasticsearch
     - cpanm Proc::Find
