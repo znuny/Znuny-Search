@@ -79,7 +79,7 @@ sub new {
         },
         TicketNumber => {
             ColumnName => 'tn',
-            Type       => 'String'
+            Type       => 'Long'
         },
         Title => {
             ColumnName => 'title',
@@ -605,9 +605,46 @@ sub ExecuteSearch {
             # get fields to search
             my $ESTicketSearchFieldsConfig = $ConfigObject->Get('SearchEngine::ES::TicketSearchFields');
             my $FulltextSearchFields       = $ESTicketSearchFieldsConfig->{Fulltext};
-            my @FulltextTicketFields       = @{ $FulltextSearchFields->{Ticket} };
-            my @FulltextArticleFields      = map {"Articles.$_"} @{ $FulltextSearchFields->{Article} };
-            my @FulltextAttachmentFields   = map {"Articles.Attachments.$_"} @{ $FulltextSearchFields->{Attachment} };
+            my @FulltextTicketFields;
+            my $MappingDataTypes = $Param{MappingObject}->MappingDataTypesGet();
+
+            if ( IsArrayRefWithData( $FulltextSearchFields->{Ticket} ) ) {
+                for my $Property ( @{ $FulltextSearchFields->{Ticket} } ) {
+                    my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
+                        Index  => 'Ticket',
+                        Entity => 'Ticket',
+                        Field  => $Property,
+                    );
+
+                    push @FulltextTicketFields, $FulltextField if $FulltextField;
+                }
+            }
+
+            my @FulltextArticleFields;
+            if ( IsArrayRefWithData( $FulltextSearchFields->{Article} ) ) {
+                for my $Property ( @{ $FulltextSearchFields->{Article} } ) {
+                    my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
+                        Index  => 'Ticket',
+                        Entity => 'Article',
+                        Field  => $Property,
+                    );
+
+                    push @FulltextArticleFields, 'Articles.' . $FulltextField if $FulltextField;
+                }
+            }
+
+            my @FulltextAttachmentFields;
+            if ( IsArrayRefWithData( $FulltextSearchFields->{Attachment} ) ) {
+                for my $Property ( @{ $FulltextSearchFields->{Attachment} } ) {
+                    my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
+                        Index  => 'Ticket',
+                        Entity => 'Attachment',
+                        Field  => $Property,
+                    );
+
+                    push @FulltextAttachmentFields, 'Articles.Attachments.' . $FulltextField if $FulltextField;
+                }
+            }
 
             # clean special characters
             $FulltextValue = $Param{EngineObject}->QueryStringReservedCharactersClean(

@@ -350,8 +350,8 @@
                         <Item>Subject</Item>
                         <Item>From</Item>
                         <Item>To</Item>
-                        <Item>CC</Item>
-                        <Item>BCC</Item>
+                        <Item>Cc</Item>
+                        <Item>Bcc</Item>
                     </Array>
                 </Item>
                 <Item Key="Attachment">
