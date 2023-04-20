@@ -1380,6 +1380,65 @@ sub LimitQueryBuild {
     }
 }
 
+=head2 FulltextSearchableFieldBuild()
+
+build specified field is searchable in fulltext context
+
+    my $Result = $SearchMappingESObject->FulltextSearchableFieldBuild(
+        Field => 'TicketNumber',
+        Index => 'Ticket',
+        Entity => 'Ticket',
+    );
+
+=cut
+
+sub FulltextSearchableFieldBuild {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Field Index Entity)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $SearchIndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
+    my $MappingDataTypes  = $Self->MappingDataTypesGet();
+    my $Index             = $Param{Index};
+    my $Field             = $Param{Field};
+    my $Entity            = $Param{Entity};
+
+    my %Field = $SearchIndexObject->ValidFieldsPrepare(
+        Fields      => ["${Entity}_${Field}"],
+        Object      => $Index,
+        QueryParams => {},
+    );
+
+    my $Type            = $Field{$Entity}->{$Field}->{Type};
+    my $MappingDataType = $MappingDataTypes->{$Type}->{type};
+
+    if ( $MappingDataType && $MappingDataType eq 'text' ) {
+        return $Field;
+    }
+    elsif ( $MappingDataTypes->{$Type}->{fields}->{keyword} ) {
+        return $Field . '.keyword';
+    }
+    elsif ( !$Param{Silent} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "$Entity property '$Field' is not valid for a fulltext search!",
+        );
+    }
+    return;
+}
+
 =head2 _ResponseDataFormat()
 
 globally formats response data from engine

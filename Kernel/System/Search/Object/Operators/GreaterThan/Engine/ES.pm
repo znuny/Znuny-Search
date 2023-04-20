@@ -25,15 +25,29 @@ sub new {
 sub QueryBuild {
     my ( $Self, %Param ) = @_;
 
-    return {
-        Query => {
+    if ( ref $Param{Value} ne "ARRAY" ) {
+        $Param{Value} = [ $Param{Value} ];
+    }
+
+    my $Value = {
+        bool => {
+            should => [],
+        }
+    };
+
+    for my $ParamValue ( @{ $Param{Value} } ) {
+        push @{ $Value->{bool}->{should} }, {
             range => {
                 $Param{Field} => {
-                    gt => $Param{Value}
+                    gt => $ParamValue,
                 }
             }
-        },
-        Section => 'must'
+        };
+    }
+
+    return {
+        Query   => $Value,
+        Section => 'must',
     };
 }
 
