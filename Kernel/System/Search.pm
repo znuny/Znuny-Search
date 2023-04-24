@@ -136,7 +136,9 @@ search for specified object data
                 # types - the default rules are specified in the module
                 # Kernel::System::Search::Object::Base->DefaultConfigGet()
                 # every field type can be seen in
-                # Kernel::System::Search::Object::"ObjectName" module
+                # Kernel::System::Search::Object::Default::"ObjectName" module
+                # or
+                # Kernel::System::Search::Object::*EngineName*::"ObjectName" module
             LockID => {
                 Operator => 'IS NOT DEFINED',
             },
@@ -217,9 +219,6 @@ search for specified object data
             TicketID => [1,2,3],
             SLAID => {
                 Operator => 'IS NOT EMPTY'
-            },
-            TicketHistoryID => {
-                Operator => '>=', Value => 1000,
             },
         },
         ResultType => "ARRAY",
