@@ -103,6 +103,7 @@
         <File Permission="660" Location="scripts/test/Search/Ticket.t"/>
         <File Permission="660" Location="scripts/test/Search/Reindex.t"/>
         <File Permission="660" Location="scripts/test/Search/IndexingQueue.t"/>
+        <File Permission="660" Location="scripts/test/Search/APIParameters.t"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/ES/IndexQueueDataProcess.pm"/>
         <File Permission="660" Location="Custom/Kernel/System/DynamicField/ObjectType/CustomerUser.pm"/>
         <File Permission="660" Location="Custom/Kernel/System/Ticket/Article/Backend/MIMEBase/Base.pm"/>
