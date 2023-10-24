@@ -11,8 +11,6 @@ package Kernel::System::Search::Plugins::ES::Ingest;
 use strict;
 use warnings;
 
-use Kernel::System::VariableCheck qw(:all);
-
 use parent qw( Kernel::System::Search::Plugins::Base );
 
 our @ObjectDependencies = (

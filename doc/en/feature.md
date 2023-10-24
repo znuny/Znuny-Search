@@ -1,4 +1,4 @@
-# Znuny-Search
+# Functionality
 
 ## Basics
 
@@ -16,7 +16,6 @@ Both Znuny versions 6.5 and 7 will support the new search API.
 
 Releasing this feature as a package enables us to quickly extend, update, address issues and release the package without the need for a full framework update.
 
-
 ## Connect to a cluster in Znuny
 
 1. Go into new "Search Engine" Administrator view, then add new cluster.
@@ -29,9 +28,9 @@ can searching for the most recent information, while the reindexation is running
 
 5. Live indexing is queue based. The queue is checked every minute by default. After this time it should be visible to the search.
 
-![Cluster List](img/ClusterList.png)
+![Cluster List](doc/en/images/ClusterList.png)
 
-![Cluster Details](img/ClusterDetails.png)
+![Cluster Details](doc/en/images/ClusterDetails.png)
 
 If everything is setup correctly you can start to use the Search API, for example using
 the Znuny-SearchFrontend or by creating Dashboards in Grafana.

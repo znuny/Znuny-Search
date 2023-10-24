@@ -13,8 +13,6 @@ package var::packagesetup::ZnunySearch;    ## no critic
 use strict;
 use warnings;
 
-use Kernel::System::VariableCheck qw(:all);
-
 our @ObjectDependencies = (
 );
 
