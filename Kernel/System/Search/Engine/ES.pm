@@ -165,14 +165,16 @@ sub QueryExecute {
     my $JSONObject    = $Kernel::OM->Get('Kernel::System::JSON');
     my $ConnectObject = $Param{ConnectObject};
 
-    for my $Name (qw(Query Operation ConnectObject)) {
-        if ( !$Param{$Name} ) {
-            $LogObject->Log(
-                Priority => 'error',
-                Message  => "Need $Name!"
-            );
-            return;
-        }
+    NEEDED:
+    for my $Needed (qw(Query Operation ConnectObject)) {
+
+        next NEEDED if $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
     }
 
     my $FunctionName = '_QueryExecute' . $Param{Operation};
