@@ -2342,8 +2342,14 @@ sub ObjectIndexQueueUpdateRule {
                         }
                         my @ArticlesToUpdate = keys %QueuedArticleUpdateIDsBefore;
 
-                        $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle}
-                            = \@ArticlesToUpdate;
+                        if ( scalar @ArticlesToUpdate ) {
+                            $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle}
+                                = \@ArticlesToUpdate;
+                        }
+                        else {
+                            delete $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle};
+                        }
+
                         $Changed = 1;
                     }
 
