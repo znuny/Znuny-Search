@@ -7,29 +7,8 @@
 # --
 
 [% RenderBlockStart("Main") %]
-<div class="MainBox ARIARoleMain LayoutFixedSidebar SidebarFirst">
-    <h1 class="InvisibleText">[% Translate("Cluster Management") | html %]</h1>
-
-    [% BreadcrumbPath = [
-            {
-                Name => Translate('Search Engine Management'),
-                Link => Env("Action"),
-            },
-        ]
-    %]
-
-    [% SWITCH Data.Action %]
-        [% CASE 'Add' %]
-            [% BreadcrumbPath.push({ Name => Translate("Add Cluster"),}) %]
-        [% CASE 'Change' %]
-            [% USE EditTitle = String(Translate("Edit Cluster Settings")) %]
-            [% BreadcrumbPath.push({ Name => EditTitle.append( ': ', Data.ClusterData.Name ), }) %]
-    [% END %]
-
-    [% INCLUDE "Breadcrumb.tt" Path = BreadcrumbPath %]
-
-    <div class="Clear"></div>
-    <div class="SidebarColumn">
+<div class="MainBox ARIARoleMain LayoutFixedSidebar SidebarFirst ActionsSideBar AdminSearch AdminManagement">
+    <div class="SidebarColumn ActionsSideBarComp">
 [% RenderBlockStart("ActionList") %]
         <div class="WidgetSimple">
             <div class="Header">
@@ -114,12 +93,12 @@
                             <div id="FileUploadError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
                             <div id="FileUploadServerError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
                             [% IF Data.CommunicationNodes %]
-                            <fieldset class="Separated SpacingTop">
+                            <fieldset class="Separated">
                                 <input type="checkbox" id="OverwriteExistingEntities" name="OverwriteExistingNodes" value="1" />
                                 <label for="OverwriteExistingEntities">[% Translate("Overwrite existing nodes?") | html %]</label>
                             </fieldset>
                             [% END %]
-                            <button class="CallForAction Fullsize Center SpacingTop" type="submit" value="[% Translate("Upload node configuration") | html %]">
+                            <button class="CallForAction btn-main btn-primary-ghost" type="submit" value="[% Translate("Upload node configuration") | html %]">
                                 <span><i class="fa fa-upload"></i>[% Translate("Import node configuration") | html %]</span>
                             </button>
                         </form>
@@ -132,26 +111,69 @@
     </div>
 
     <div class="ContentColumn">
+        <h1 class="InvisibleText">[% Translate("Cluster Management") | html %]</h1>
 
-[% RenderBlockStart("Status") %]
-<div class="WidgetSimple">
-    <div class="Header">
-[% IF Data.ClusterName %]
-        <h2>[% Translate("Active Cluster") | html %]: <span class="ClusterDescription">[% Data.ClusterName | html %]</span></h2><br>
-        <h2>[% Translate("Connection") | html %]: <span class="[% Data.ConnectionStatus | html %]">[% Translate(Data.ConnectionMessage) | html %]</span></h2><br>
-        <h2>[% Translate("Search engine running") | html %]:
-[% IF Data.SearchEngineIsRunning %]
-            <span class="IsRunning">[% Translate("yes") | html %]</span></h2>
-[% ELSE %]
-            <span class="IsNotRunning">[% Translate("no") | html %]</span></h2>
-[% END %]
-[% ELSE %]
-        <h2>[% Translate("There are no valid clusters.") | html %]</h2><br>
-[% END %]
-    </div>
-</div>
-[% RenderBlockEnd("Status") %]
+        [% BreadcrumbPath = [
+                {
+                    Name => Translate('Search Engine Management'),
+                    Link => Env("Action"),
+                },
+            ]
+        %]
 
+        [% SWITCH Data.Action %]
+            [% CASE 'Add' %]
+                [% BreadcrumbPath.push({ Name => Translate("Add Cluster"),}) %]
+            [% CASE 'Change' %]
+                [% USE EditTitle = String(Translate("Edit Cluster Settings")) %]
+                [% BreadcrumbPath.push({ Name => EditTitle.append( ': ', Data.ClusterData.Name ), }) %]
+        [% END %]
+
+        [% INCLUDE "Breadcrumb.tt" Path = BreadcrumbPath %]
+
+[% RenderBlockStart("Summary") %]
+        <div class="WidgetSimple">
+            <div class="Header">
+                <div class="WidgetAction Toggle">
+                    <a href="#" title="[% Translate("Show or hide the content") | html %]"><i class="fa fa-caret-right"></i><i class="fa fa-caret-down"></i></a>
+                </div>
+                <h2>[% Translate("Summary") | html %]</h2>
+            </div>
+            <div class="Content">
+                <ul class="CheckSummary">
+[% RenderBlockStart("SummaryRow") %]
+                    <li class="CheckSummary[% Data.StatusName | html %]">
+[% RenderBlockStart("SummarySubGroup") %]
+                        <h3 class="Heading">
+                            <span title="[% Translate(Data.StatusName) | html %]" class="Flag Small [% Data.StatusName | html %]">
+                                <span>[% Data.StatusName | html %]</span>
+                            </span>
+                            [% Translate(Data.SubGroup) | html %]
+                        </h3>
+                        <div class="SummaryTableScrollbar">
+                            <table class="SummaryDataTable DataTable TableList">
+                                <tbody>
+[% RenderBlockStart("SummarySubEntry") %]
+                                    <tr>
+                                        <td class="Status">
+                                            <span title="[% Translate(Data.StatusName) | html %]" class="Flag Small [% Data.StatusName | html %]">
+                                                <span>[% Data.StatusName | html %]</span>
+                                            </span>
+                                        </td>
+                                        <td class="ItemLabel">[% Translate(Data.Label) | html %]</td>
+                                        <td>[% Data.Value | html %]</td>
+                                    </tr>
+[% RenderBlockEnd("SummarySubEntry") %]
+                                </tbody>
+                            </table>
+                        </div>
+[% RenderBlockEnd("SummarySubGroup") %]
+                    </li>
+[% RenderBlockEnd("SummaryRow") %]
+                </ul>
+            </div>
+        </div>
+[% RenderBlockEnd("Summary") %]
 [% RenderBlockStart("OverviewHeader") %]
         <div class="WidgetSimple">
             <div class="Header">
@@ -159,7 +181,7 @@
             </div>
 [% RenderBlockEnd("OverviewHeader") %]
 [% RenderBlockStart("OverviewResult") %]
-            <div class="Content ">
+            <div class="Content">
                 <table class="DataTable" id="ClusterTable" summary="List of all registered clusters">
                     <thead>
                         <tr>
@@ -177,7 +199,6 @@
                             </td>
                         </tr>
 [% RenderBlockEnd("NoDataFoundMsg") %]
-
 [% RenderBlockStart("OverviewResultRow") %]
                         <tr [% IF Data.Valid != "valid"%]class="Invalid"[% END %]>
                             <td>
@@ -188,7 +209,6 @@
                             <td>[% Translate(Data.Valid) | html %]</td>
                         </tr>
 [% RenderBlockEnd("OverviewResultRow") %]
-
                     </tbody>
                 </table>
             </div>
@@ -207,44 +227,48 @@
                     <h2>[% Translate("General") | html %]</h2>
                 </div>
                 <div class="Content">
-                    <div class="LayoutGrid ColumnsWithSpacing">
+                    <div class="LayoutGrid ColumnsWithSpacing no-padding">
                         <div class="Size1of2">
                             <fieldset class="TableLike">
-                                <label class="Mandatory" for="Name"><span class="Marker">*</span> [% Translate("Name") | html %]:</label>
-                                <div class="Field">
-                                    <input id="Name" class="W50pc [% Data.NameServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Name | html %]" name="Name"/>
-                                    <div id="NameError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
-                                    <div id="NameServerError" class="TooltipErrorMessage"><p>[% Translate(Data.NameServerErrorMessage) | html %]</p></div>
-                                </div>
-                                <div class="Clear"></div>
+                                <div class="field-wrapper">
+                                    <label class="Mandatory" for="Name"><span class="Marker">*</span> [% Translate("Name") | html %]:</label>
+                                    <div class="Field">
+                                        <input id="Name" class="W50pc [% Data.NameServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Name | html %]" name="Name"/>
+                                        <div id="NameError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                                        <div id="NameServerError" class="TooltipErrorMessage"><p>[% Translate(Data.NameServerErrorMessage) | html %]</p></div>
+                                        </div>
+                                    </div>
 
-                                <label for="Description">[% Translate("Description") | html %]:</label>
-                                <div class="Field">
-                                    <input id="Description" class="W50pc" type="text" maxlength="250" value="[% Data.Description | html %]" name="Description"/>
+                                    <div class="field-wrapper">
+                                        <label for="Description">[% Translate("Description") | html %]:</label>
+                                        <div class="Field">
+                                            <input id="Description" class="W50pc" type="text" maxlength="250" value="[% Data.Description | html %]" name="Description"/>
+                                    </div>
                                 </div>
-                                <div class="Clear"></div>
 
                             </fieldset>
                         </div>
                         <div class="Size1of2">
                             <fieldset class="TableLike">
-                                <label class="Mandatory" for="EngineID"><span class="Marker">*</span>[% Translate("Engine") | html %]:</label>
-                                <div class="Field">
-                                    [% Data.EngineStrg %]
-                                    <div id="EngineIDError" class="TooltipErrorMessage">
-                                        <p>[% Translate("This field is required.") | html %]</p>
-                                    </div>
-                                    <div id="EngineIDServerError" class="TooltipErrorMessage">
-                                        <p>[% Translate("This field is required.") | html %]</p>
+                                <div class="field-wrapper">
+                                    <label class="Mandatory" for="EngineID"><span class="Marker">*</span>[% Translate("Engine") | html %]:</label>
+                                    <div class="Field">
+                                        [% Data.EngineStrg %]
+                                        <div id="EngineIDError" class="TooltipErrorMessage">
+                                            <p>[% Translate("This field is required.") | html %]</p>
+                                        </div>
+                                        <div id="EngineIDServerError" class="TooltipErrorMessage">
+                                            <p>[% Translate("This field is required.") | html %]</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="Clear"></div>
 
-                                <label for="ValidID">[% Translate("Validity") | html %]:</label>
-                                <div class="Field">
-                                    [% Data.ValidtyStrg %]
-                                </div>
-                                <div class="Clear"></div>
+                                <div class="field-wrapper">
+                                    <label for="ValidID">[% Translate("Validity") | html %]:</label>
+                                    <div class="Field">
+                                        [% Data.ValidtyStrg %]
+                                    </div>
+                                <div>
                             </fieldset>
                         </div>
                     </div>
@@ -316,7 +340,7 @@
                     <h2>[% Translate("Status") | html %]</h2>
                 </div>
 
-                <div class="Content">
+                <div class="Content padding">
                     [% Data.Details %]
                 </div>
             </div>
@@ -327,18 +351,18 @@
                 </div>
                 <div class="Content">
                     <fieldset class="TableLike">
-                        <div class="Field SpacingTop">
-                            [% IF Data.Action == 'Change' %]
-                                <button class="CallForAction Primary" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
-                                [% Translate("or") | html %]
-                                <button class="CallForAction Primary" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save and finish") | html %]</span></button>
-                            [% ELSE %]
-                                <button class="CallForAction Primary" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
-                            [% END %]
-                            [% Translate("or") | html %]
-                            <a href="[% Env("Baselink") %]Action=[% Env("Action") %]"><span>[% Translate("Cancel") | html %]</span></a>
+                        <div class="field-wrapper form-button-actions">
+                            <div class="Field buttons-field">
+                                <a href="[% Env("Baselink") %]Action=[% Env("Action") %]" class="btn-cancel-ghost btn-main btn-width-md" class="btn-cancel-ghost btn-main btn-width-md" class="btn-cancel-ghost btn-main btn-width-md"><span>[% Translate("Cancel") | html %]</span></a>
+
+                                [% IF Data.Action == 'Change' %]
+                                    <button class="CallForAction Primary btn-primary-ghost btn-main  btn-width-md btn-primary-ghost btn-main btn-width-md btn-primary-ghost btn-main btn-width-md" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save and finish") | html %]</span></button>
+                                    <button class="CallForAction Primary btn-primary btn-main  btn-width-md btn-primary btn-main btn-width-md btn-primary btn-main btn-width-md" id="SubmitAndContinue" type="button" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                                [% ELSE %]
+                                    <button class="CallForAction Primary btn-primary btn-main  btn-width-md btn-primary-ghost btn-main btn-width-md btn-primary-ghost btn-main btn-width-md" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                                [% END %]
+                            </div>
                         </div>
-                        <div class="Clear"></div>
                     </fieldset>
                 </div>
             </div>
@@ -346,6 +370,5 @@
 [% RenderBlockEnd("Details") %]
 
     </div>
-    <div class="Clear"></div>
-</div>
+    </div>
 [% RenderBlockEnd("Main") %]

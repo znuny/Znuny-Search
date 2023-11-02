@@ -6,22 +6,8 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-<div class="MainBox ARIARoleMain LayoutFixedSidebar SidebarFirst">
-    <h1 class="InvisibleText">[% Translate("Cluster node Management") | html %]</h1>
-
-    [% BreadcrumbPath = [
-            {
-                Name => Translate('Search Engine Management'),
-                Link => Env("Action"),
-            },
-        ]
-    %]
-
-    [% INCLUDE "Breadcrumb.tt" Path = BreadcrumbPath %]
-
-    <div class="Clear"></div>
-
-    <div class="SidebarColumn">
+<div class="MainBox ARIARoleMain LayoutFixedSidebar SidebarFirst ActionsSideBar AdminSearchNodeSection">
+    <div class="SidebarColumn ActionsSideBarComp">
         <div class="WidgetSimple">
             <div class="Header">
                 <h2>[% Translate("Actions") | html %]</h2>
@@ -54,144 +40,172 @@
     </div>
 
     <div class="ContentColumn">
-        <form id="CommunicationNode" action="[% Env("CGIHandle") %]" method="post" class="Validate PreventMultipleSubmits" autocomplete="off">
-            <input type="hidden" name="Action" value="[% Env("Action") %]"/>
-            <input type="hidden" name="Subaction" id="Subaction" value="[% Data.Action | html %]Action"/>
-            <input type="hidden" name="NodeID" value="[% Data.NodeID %]" id="NodeID">
-            <input type="hidden" name="ContinueAfterSave" id="ContinueAfterSave" value=""/>
-            <input type="hidden" name="ClusterID" value="[% Data.ClusterID | html %]" id="ClusterID"/>
-            [% IF Data.ClusterID || Data.NodeID %]
-                <div class="WidgetSimple">
-                        <div class="Header">
-                            <h2>[% IF !Data.NodeID %][% Translate("Adding communication node") | html %][% ELSE %] [% Translate("Updating communication node") | html %][% END %]</h2>
-                        </div>
-                        <div class="Content">
-                            <div class="LayoutGrid ColumnsWithSpacing CommunicationNode">
-                                <fieldset class="TableLike">
+        <h1 class="InvisibleText">[% Translate("Cluster node Management") | html %]</h1>
 
-                                    <label class="Mandatory" for="Name"><span class="Marker">*</span>[% Translate("Node name") | html %]:</label>
-                                    <div class="Field">
-                                        <input id="Name" class="[% Data.NameServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Name | html %]" name="Name"/>
-                                        <div id="NameError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
-                                        <div id="NameServerError" class="TooltipErrorMessage"><p>[% Translate(Data.NameServerErrorMessage) | html %]</p></div>
-                                    </div>
-                                    <div class="Clear"></div>
+        [% BreadcrumbPath = [
+                {
+                    Name => Translate('Search Engine Management'),
+                    Link => Env("Action"),
+                },
+            ]
+        %]
 
-                                    <label for="Comment">[% Translate("Comment") | html %]:</label>
-                                    <div class="Field">
-                                        <input id="Comment" type="text" maxlength="250" value="[% Data.Comment | html %]" name="Comment"/>
-                                    </div>
+        [% INCLUDE "Breadcrumb.tt" Path = BreadcrumbPath %]
 
-                                    <label class="Mandatory" for="Protocol"><span class="Marker">*</span>[% Translate("Protocol") | html %]:</label>
-                                    <div class="Field">
-                                        [% Data.ProtocolStrg %]
-                                    </div>
-                                    <div class="Clear"></div>
-
-                                    <label class="Mandatory" for="Host"><span class="Marker">*</span> [% Translate("Host") | html %]:</label>
-                                    <div class="Field">
-                                        <input id="Host" class="[% Data.HostServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Host | html %]" name="Host"/>
-                                        <div id="HostError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
-                                        <div id="HostServerError" class="TooltipErrorMessage"><p>[% Translate(Data.HostServerErrorMessage) | html %]</p></div>
-                                    </div>
-                                    <div class="Clear"></div>
-
-                                    <label class="Mandatory" for="Port"><span class="Marker">*</span> [% Translate("Port") | html %]:</label>
-                                    <div class="Field">
-                                        <input id="Port" class="[% Data.PortServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Port | html %]" name="Port"/>
-                                        <div id="PortError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
-                                        <div id="PortServerError" class="TooltipErrorMessage"><p>[% Translate(Data.PortServerErrorMessage) | html %]</p></div>
-                                    </div>
-                                    <div class="Clear"></div>
-
-                                    <label for="Path">[% Translate("Path") | html %]:</label>
-                                    <div class="Field">
-                                        <input id="Path" type="text" maxlength="250" value="[% Data.Path | html %]" name="Path"/>
-                                    </div>
-
-                                    <label class="Mandatory" for="ValidID"><span class="Marker">*</span> [% Translate("Validity") | html %]:</label>
-                                    <div class="Field">
-                                        [% Data.ValidtyStrg %]
-                                    </div>
-                                    <div class="SpacingTop"></div>
-
-                                    <label class="Mandatory" for="CommunicationNodeAuthRequired">[% Translate("Authentication") | html %]:</label>
-                                    <div class="Field">
-                                        <input id="CommunicationNodeAuthRequired" type="checkbox" name="AuthRequired" [% IF Data.Login %] checked [% END %]/>
-                                    </div>
-                                </fieldset>
-                                [% IF !AuthRequired %]
-                                    <fieldset class="TableLike" id="CommunicationNodeAuth">
-                                        <label class="Mandatory" for="Login"><span class="Marker">*</span> [% Translate("Login") | html %]:</label>
-                                        <div class="Field">
-                                            <input id="LoginFieldNodeAuth" class="[% Data.NameServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Login | html %]" name="Login" autocomplete="off"/>
-                                            <div id="LoginError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
-                                            <div id="LoginServerError" class="TooltipErrorMessage"><p>[% Translate(Data.LoginServerErrorMessage) | html %]</p></div>
-                                        </div>
-                                        <div class="Clear"></div>
-                                        <label for="Password">[% Translate("Password") | html %]:</label>
-                                        <div class="Field">
-                                            <input id="PasswordFieldNodeAuth" class="[% Data.NameServerError | html %]" type="password" maxlength="250" name="Password" autocomplete="new-password"/>
-                                            <div id="PasswordError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
-                                            <div id="PasswordServerError" class="TooltipErrorMessage"><p>[% Translate(Data.PasswordServerErrorMessage) | html %]</p></div>
-                                        </div>
-                                        <div class="Clear"></div>
-                                    </fieldset>
-                                [% END %]
-
-                            </div>
-                        </div>
-                    <div class="Content">
-                        <div class="Center">
-                            <div class="Field">
-                                <button type="button" id="TestConnection" class="CallForAction" value="[% Translate('Test conection') | html %]" data-action="Test"><span>[% Translate("Test connection") | html %]</span></button>
-                            </div>
-                            <div class="Clear"></div>
-
-                            <div class="Field SpacingTop Hidden" id="TestError">
-                                <p class="ErrorBox">[% Translate("Error while trying to connect. Please check the configuration.") | html %]</p>
-                            </div>
-                            [% IF Data.AddingError %]
-                                <div class="Field SpacingTop TooltipErrorMessage[% Data.AddingError | html %]"><p style="color: red;">[% Translate(Data.AddingErrorMessage) | html %]</p></div>
-                            [% END %]
-
-                            <div class="Field SpacingTop Hidden" id="ValidationError">
-                                <p class="ErrorBox">[% Translate("Name, Host and Port must be entered!") | html %]</p>
-                            </div>
-
-                            <div class="Field SpacingTop Hidden" id="TestSuccess">
-                                <p class="SuccessBox">[% Translate("Connected.") | html %]</p>
-                            </div>
-                            <div class="Clear"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="WidgetSimple">
-                    <div class="Header">
-                        <h2>[% Translate("Save") | html %]</h2>
-                    </div>
-                    <div class="Content">
+        [% IF Data.ClusterID || Data.NodeID %]
+        <div class="WidgetSimple">
+            <div class="Header">
+                <h2>[% IF !Data.NodeID %][% Translate("Adding communication node") | html %][% ELSE %] [% Translate("Updating communication node") | html %][% END %]</h2>
+            </div>
+                <div class="Content">
+                    <form id="CommunicationNode" action="[% Env("CGIHandle") %]" method="post" class="Validate PreventMultipleSubmits" autocomplete="off">
+                        <input type="hidden" name="Action" value="[% Env("Action") %]"/>
+                        <input type="hidden" name="Subaction" id="Subaction" value="[% Data.Action | html %]Action"/>
+                        <input type="hidden" name="NodeID" value="[% Data.NodeID %]" id="NodeID">
+                        <input type="hidden" name="ContinueAfterSave" id="ContinueAfterSave" value=""/>
+                        <input type="hidden" name="ClusterID" value="[% Data.ClusterID | html %]" id="ClusterID"/>
                         <fieldset class="TableLike">
-                            <div class="Field SpacingTop">
-                            [% IF Data.Action == 'NodeChange' %]
-                                <button class="CallForAction Primary" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                            <div class="field-wrapper">
+                                <label class="Mandatory" for="Name"><span class="Marker">*</span>[% Translate("Node name") | html %]:</label>
+                                <div class="Field">
+                                    <input id="Name" class="[% Data.NameServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Name | html %]" name="Name"/>
+                                    <div id="NameError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                                    <div id="NameServerError" class="TooltipErrorMessage"><p>[% Translate(Data.NameServerErrorMessage) | html %]</p></div>
+                                </div>
+                            </div>
 
-                                [% Translate("or") | html %]
+                            <div class="field-wrapper">
+                                <label for="Comment">[% Translate("Comment") | html %]:</label>
+                                <div class="Field">
+                                    <input id="Comment" type="text" maxlength="250" value="[% Data.Comment | html %]" name="Comment"/>
+                                </div>
+                            </div>
 
-                                <button class="CallForAction Primary" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save and finish") | html %]</span></button>
+                            <div class="field-wrapper">
+                                <label class="Mandatory" for="Protocol"><span class="Marker">*</span>[% Translate("Protocol") | html %]:</label>
+                                <div class="Field">
+                                    [% Data.ProtocolStrg %]
+                                </div>
+                            </div>
 
-                                [% Translate("or") | html %]
+                            <div class="field-wrapper">
+                                <label class="Mandatory" for="Host"><span class="Marker">*</span> [% Translate("Host") | html %]:</label>
+                                <div class="Field">
+                                    <input id="Host" class="[% Data.HostServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Host | html %]" name="Host"/>
+                                    <div id="HostError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                                    <div id="HostServerError" class="TooltipErrorMessage"><p>[% Translate(Data.HostServerErrorMessage) | html %]</p></div>
+                                </div>
+                            </div>
 
-                                <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]"><span>[% Translate("Cancel") | html %]</span></a>
-                            [% ELSE %]
-                                <button class="CallForAction Primary" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                            <div class="field-wrapper">
+                                <label class="Mandatory" for="Port"><span class="Marker">*</span> [% Translate("Port") | html %]:</label>
+                                <div class="Field">
+                                    <input id="Port" class="[% Data.PortServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Port | html %]" name="Port"/>
+                                    <div id="PortError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                                    <div id="PortServerError" class="TooltipErrorMessage"><p>[% Translate(Data.PortServerErrorMessage) | html %]</p></div>
+                                </div>
+                            </div>
 
-                                [% Translate("or") | html %]
+                            <div class="field-wrapper">
+                                <label for="Path">[% Translate("Path") | html %]:</label>
+                                <div class="Field">
+                                    <input id="Path" type="text" maxlength="250" value="[% Data.Path | html %]" name="Path"/>
+                                </div>
+                            </div>
 
-                                <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]"><span>[% Translate("Cancel") | html %]</span></a>
-                            [% END %]
+                            <div class="field-wrapper">
+                                <label class="Mandatory" for="ValidID"><span class="Marker">*</span> [% Translate("Validity") | html %]:</label>
+                                <div class="Field">
+                                    [% Data.ValidtyStrg %]
+                                </div>
+                            </div>
+
+                            <div class="field-wrapper">
+                                <label class="Mandatory" for="CommunicationNodeAuthRequired">[% Translate("Authentication") | html %]:</label>
+                                <div class="Field">
+                                    <input id="CommunicationNodeAuthRequired" type="checkbox" name="AuthRequired" [% IF Data.Login %] checked [% END %]/>
+                                </div>
                             </div>
                         </fieldset>
+                        [% IF !AuthRequired %]
+                        <fieldset class="TableLike" id="CommunicationNodeAuth">
+                            <div class="field-wrapper">
+                                <label class="Mandatory" for="Login"><span class="Marker">*</span> [% Translate("Login") | html %]:</label>
+                                <div class="Field">
+                                    <input id="LoginFieldNodeAuth" class="[% Data.NameServerError | html %] Validate_Required" type="text" maxlength="250" value="[% Data.Login | html %]" name="Login" autocomplete="off"/>
+                                    <div id="LoginError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                                    <div id="LoginServerError" class="TooltipErrorMessage"><p>[% Translate(Data.LoginServerErrorMessage) | html %]</p></div>
+                                </div>
+                            </div>
+                            <div class="field-wrapper">
+                                <label for="Password">[% Translate("Password") | html %]:</label>
+                                <div class="Field">
+                                    <input id="PasswordFieldNodeAuth" class="[% Data.NameServerError | html %]" type="password" maxlength="250" name="Password" autocomplete="new-password"/>
+                                    <div id="PasswordError" class="TooltipErrorMessage"><p>[% Translate("This field is required.") | html %]</p></div>
+                                    <div id="PasswordServerError" class="TooltipErrorMessage"><p>[% Translate(Data.PasswordServerErrorMessage) | html %]</p></div>
+                                </div>
+                            </div>
+                        </fieldset>
+                        [% END %]
+                        <div class="TableLike">
+                            <div class="Center">
+                                <div class="field-wrapper" id="test-connection">
+                                    <div class="Field">
+                                        <button type="button" id="TestConnection" class="CallForAction btn-main btn-primary-ghost btn-width-md" value="[% Translate('Test conection') | html %]" data-action="Test"><span>[% Translate("Test connection") | html %]</span></button>
+                                    </div>
+                                </div>
+
+                                <div class="field-wrapper">
+                                    <div class="Field SpacingTop Hidden" id="TestError">
+                                        <p class="ErrorBox">[% Translate("Error while trying to connect. Please check the configuration.") | html %]</p>
+                                    </div>
+                                </div>
+                                [% IF Data.AddingError %]
+                                <div class="field-wrapper">
+                                    <div class="Field SpacingTop TooltipErrorMessage[% Data.AddingError | html %]"><p style="color: red;">[% Translate(Data.AddingErrorMessage) | html %]</p></div>
+                                </div>
+                                [% END %]
+
+                                <div class="field-wrapper">
+                                    <div class="Field SpacingTop Hidden" id="ValidationError">
+                                        <p class="ErrorBox">[% Translate("Name, Host and Port must be entered!") | html %]</p>
+                                    </div>
+                                </div>
+
+                                <div class="field-wrapper">
+                                    <div class="Field SpacingTop Hidden" id="TestSuccess">
+                                        <p class="SuccessBox">[% Translate("Connected.") | html %]</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="WidgetSimple">
+                        <div class="Header">
+                            <h2>[% Translate("Save") | html %]</h2>
+                        </div>
+                        <div class="Content">
+                            <fieldset class="TableLike">
+                                <div class="field-wrapper form-button-actions">
+                                    <div class="Field buttons-field">
+                                    [% IF Data.Action == 'NodeChange' %]
+                                        <button class="CallForAction Primary btn-primary btn-main btn-width-md" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+
+
+                                        <button class="btn-primary-ghost btn-main  btn-width-md btn-primary-ghost btn-main btn-width-md" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save and finish") | html %]</span></button>
+
+
+                                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]" class="btn-cancel-ghost btn-main btn-width-md" class="btn-cancel-ghost btn-main btn-width-md"><span>[% Translate("Cancel") | html %]</span></a>
+                                    [% ELSE %]
+                                        <button class="btn-primary btn-main btn-width-md btn-primary btn-main btn-width-md" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+
+
+                                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]" class="btn-cancel-ghost btn-main btn-width-md" class="btn-cancel-ghost btn-main btn-width-md"><span>[% Translate("Cancel") | html %]</span></a>
+                                    [% END %]
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </form>
                     </div>
                 </div>
             [% ELSE %]

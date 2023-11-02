@@ -231,7 +231,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
         if (!AuthBox || !LoginInput || !PasswordInput || !AuthCheckbox) return;
 
         if (AuthCheckbox.checked) {
-            AuthBox.css("display", "block");
+            AuthBox.css("display", "flex");
             LoginInput.addClass('Validate_Required');
         }
         else {

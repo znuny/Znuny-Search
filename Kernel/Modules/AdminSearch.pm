@@ -954,29 +954,93 @@ sub _ShowOverview {
         }
     }
 
+    my @Summary = (
+        {
+            Name       => 'Status',
+            StatusName => 'OK',
+            Items      => [],
+        }
+    );
+
     if ( !$SearchObject->{Config}->{ActiveEngine} || $SearchObject->{Config}->{ActiveEngine} eq 'Unregistered' ) {
-        $LayoutObject->Block(
-            Name => 'Status',
-            Data => {
-                ClusterName       => $ActiveClusterConfig->{Name},
-                ConnectionMessage => 'Engine of the active cluster is not registered!',
-                ConnectionStatus  => 'Failed',
+        $Summary[0]->{Items} = [
+            {
+                StatusName => 'Problem',
+                Name       => 'Active cluster name',
+                Value      => $ActiveClusterConfig->{Name} || 'Not found',
             },
-        );
+            {
+                StatusName => 'Problem',
+                Name       => 'Connection message',
+                Value      => 'Engine of the active cluster is not registered!',
+            },
+            {
+                StatusName => 'Information',
+                Name       => 'Search engine running',
+                Value      => IsHashRefWithData( $SearchObject->{Error} ) ? 0 : 1,
+            }
+        ];
     }
     else {
         my $ConnectionStrg   = $ConnectObject->{Error} ? 'failed' : 'available';
         my $ConnectionStatus = $ConnectObject->{Error} ? 'Failed' : 'Available';
 
+        $Summary[0]->{Items} = [
+            {
+                StatusName => 'OK',
+                Label      => 'Active cluster name',
+                Value      => $ActiveClusterConfig->{Name} || 'Not found',
+            },
+            {
+                StatusName => $ConnectionStrg eq 'failed' ? 'Problem' : 'OK',
+                Label      => 'Connection message',
+                Value      => $ConnectionStrg,
+            },
+            {
+                StatusName => 'Information',
+                Label      => 'Search engine running',
+                Value      => IsHashRefWithData( $SearchObject->{Error} ) ? 'no' : 'yes',
+            }
+        ];
+    }
+
+    my $SummaryStatusStateCode = grep { $_->{StatusName} eq 'Problem' } @{ $Summary[0]->{Items} };
+    $Summary[0]->{StatusName} = $SummaryStatusStateCode ? 'Problem' : 'OK';
+
+    $LayoutObject->Block(
+        Name => 'Summary',
+    );
+
+    for my $SummarySection (@Summary) {
+        my $SectionName  = $SummarySection->{Name};
+        my $SectionItems = $SummarySection->{Items};
+        my $StatusName   = $SummarySection->{StatusName};
+
         $LayoutObject->Block(
-            Name => 'Status',
+            Name => 'SummaryRow',
             Data => {
-                ClusterName           => $ActiveClusterConfig->{Name},
-                ConnectionMessage     => $ConnectionStrg,
-                ConnectionStatus      => $ConnectionStatus,
-                SearchEngineIsRunning => IsHashRefWithData( $SearchObject->{Error} ) ? 0 : 1,
+                StatusName => $StatusName,
             },
         );
+
+        $LayoutObject->Block(
+            Name => 'SummarySubGroup',
+            Data => {
+                StatusName => $StatusName,
+                SubGroup   => $SectionName,
+            },
+        );
+
+        for my $Item ( @{$SectionItems} ) {
+            $LayoutObject->Block(
+                Name => 'SummarySubEntry',
+                Data => {
+                    StatusName => $Item->{StatusName},
+                    Label      => $Item->{Label},
+                    Value      => $Item->{Value},
+                },
+            );
+        }
     }
 
     $Output .= $LayoutObject->Output(
@@ -1061,8 +1125,6 @@ sub _ShowEdit {
         Data => \%Param,
     );
 
-    $LayoutObject->Block( Name => 'ActionOverview' );
-
     my $CommunicationNodeList;
     my $ClusterData;
 
@@ -1104,7 +1166,19 @@ sub _ShowEdit {
         $ClusterData = $SearchClusterObject->ClusterGet(
             ClusterID => $Param{ClusterID},
         );
+
+        $LayoutObject->Block(
+            Name => 'ActionReindexation',
+            Data => {
+                ClusterID => $ClusterData->{ClusterID}
+            },
+        );
+
     }
+    elsif ( $Param{Action} eq 'Add' ) {
+        $LayoutObject->Block( Name => 'ActionList' );
+    }
+    $LayoutObject->Block( Name => 'ActionOverview' );
 
     my %GeneralData = (
         Name        => $ClusterData->{Name},
@@ -1280,13 +1354,6 @@ sub _ShowEdit {
             },
         );
     }
-
-    $LayoutObject->Block(
-        Name => 'ActionReindexation',
-        Data => {
-            ClusterID => $ClusterData->{ClusterID}
-        },
-    );
 
     $Output .= $LayoutObject->Output(
         TemplateFile => 'AdminSearch',

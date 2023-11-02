@@ -93,3 +93,82 @@ did not receive this file, see https://www.gnu.org/licenses/gpl-3.0.txt.
 i.fa-trash-o.IndexRemove{
     cursor:pointer;
 }
+
+.CheckSummary {
+    display: flex;
+    flex-flow: column;
+    gap: var(--gap-lg);
+}
+
+.AdminSearch .CheckSummary > li h3.Heading {
+    position: relative;
+    font-size: var(--font-size-sm);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--gap-md);
+    color: var(--black);
+    letter-spacing: .1px;
+    line-height: 24px;
+}
+
+.AdminSearch .CheckSummary > li.CheckSummaryUnknown span.Value,
+.AdminSearch .CheckSummary > li.CheckSummaryOK span.Value,
+.AdminSearch .CheckSummary > li.CheckSummaryInformation span.Value {
+    color: var(--gray-dark-semi);
+    margin-left: -10px;
+}
+
+.AdminSearch .CheckSummary > li.CheckSummaryOK > p {
+    color: var(--gray-dark-semi);
+}
+
+.AdminSearch .CheckSummary > li > p:empty {
+    display: none;
+}
+
+.AdminSearch .Flag.Information span {
+    background-color: #CDCDCD;
+}
+
+.AdminSearch .Flag.OK span {
+    background-color: #008000;
+}
+
+.AdminSearch .Flag.Warning span {
+    background-color: #ffa000;
+}
+
+.AdminSearch .Flag.Problem span {
+    background-color: #ff0000;
+}
+
+.AdminSearch .CheckSummary > li .SummaryTableScrollbar {
+    max-height: 560px;
+    overflow-y: auto;
+    margin-top: var(--margin-sm);
+    margin-left: 45px;
+    border-radius: var(--border-radius-sm);
+    border: var(--border-width) var(--border-solid) var(--border-color);
+}
+
+.AdminSearch .CheckSummary > li table.SummaryDataTable,
+.AdminSearch .CheckSummary > li table.SummaryDataTable thead {
+    margin: 0;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+}
+
+.AdminSearch .CheckSummary > li table.SummaryDataTable th {
+    border-top: 0;
+}
+
+.AdminSearchNodeSection fieldset#CommunicationNodeAuth {
+    padding-top: 0px;
+}
+
+.AdminSearchNodeSection div.TableLike #TestConnection {
+    margin:auto;
+    margin-bottom:var(--margin-lg);
+}
