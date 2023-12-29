@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <otrs_package version="1.0">
     <Name>Znuny-Search</Name>
-    <Version>6.5.1</Version>
+    <Version>6.5.2</Version>
     <Framework>6.5.x</Framework>
     <ModuleRequired Version="8.00">Search::Elasticsearch</ModuleRequired>
     <ModuleRequired Version="0.051">Proc::Find</ModuleRequired>
@@ -9,6 +9,7 @@
     <URL>http://znuny.com/</URL>
     <License>GNU AFFERO GENERAL PUBLIC LICENSE Version 3, November 2007</License>
     <Description Lang="en">Functionality related to search engines.</Description>
+    <ChangeLog Version="6.5.2" Date="2023-12-29 12:47:28 +0100">Several bugfixes.</ChangeLog>
     <ChangeLog Version="6.5.1" Date="2023-03-24 15:31:30 +0100">Initial release for Znuny 6.5.</ChangeLog>
     <Filelist>
         <File Permission="660" Location="Kernel/Config/Files/XML/Search.xml"/>
@@ -165,26 +166,26 @@
             <Column Name="last_reindexation" Required="true" Type="DATE"/>
         </TableCreate>
         <TableCreate Name="search_object_operation_queue">
-            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
-            <Column Name="object_id" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="entry_context" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="entry_data" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="entry_order" Required="false" Type="INTEGER" />
-            <Column Name="query_params" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="operation" Required="true" Size="100" Type="VARCHAR" />
-            <Column Name="index_name" Required="true" Size="255" Type="VARCHAR" />
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER"/>
+            <Column Name="object_id" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="entry_context" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="entry_data" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="entry_order" Required="false" Type="INTEGER"/>
+            <Column Name="query_params" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="operation" Required="true" Size="100" Type="VARCHAR"/>
+            <Column Name="index_name" Required="true" Size="255" Type="VARCHAR"/>
         </TableCreate>
     </DatabaseInstall>
     <DatabaseUpgrade>
         <TableCreate Name="search_object_operation_queue" Version="6.5.2">
-            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER" />
-            <Column Name="object_id" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="entry_context" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="entry_data" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="entry_order" Required="false" Type="INTEGER" />
-            <Column Name="query_params" Required="false" Size="255" Type="VARCHAR" />
-            <Column Name="operation" Required="true" Size="100" Type="VARCHAR" />
-            <Column Name="index_name" Required="true" Size="255" Type="VARCHAR" />
+            <Column Name="id" Required="true" PrimaryKey="true" AutoIncrement="true" Type="INTEGER"/>
+            <Column Name="object_id" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="entry_context" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="entry_data" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="entry_order" Required="false" Type="INTEGER"/>
+            <Column Name="query_params" Required="false" Size="255" Type="VARCHAR"/>
+            <Column Name="operation" Required="true" Size="100" Type="VARCHAR"/>
+            <Column Name="index_name" Required="true" Size="255" Type="VARCHAR"/>
         </TableCreate>
     </DatabaseUpgrade>
     <DatabaseUninstall>
