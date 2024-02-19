@@ -388,6 +388,11 @@ On executing ticket search by Kernel::System::Search:
             Fulltext      => ['elasticsearch', 'kibana'],
             #    OR
             Fulltext      => {
+                Highlight => ['Ticket_Title, 'Article_Body'], # support ResultType: "HASH","ARRAY"
+                Fields => {
+                    Ticket => [ 'Title' ],
+                    Article => [ 'Body' ],
+                }, # optional
                 Text => ['elasticsearch', 'kibana'],
                 QueryOperator => 'AND', # determine if all words from specified
                                         # value needs to match
@@ -607,11 +612,31 @@ sub ExecuteSearch {
         {
             my @FulltextQuery;
 
+            my $FulltextHighlight = $Fulltext->{Highlight};
+            my @FulltextHighlightFieldsValid;
+
+            # check validity of highlight fields
+            if ( IsArrayRefWithData($FulltextHighlight) ) {
+                for my $Property ( @{$FulltextHighlight} ) {
+                    my %Field = $Self->ValidFieldsPrepare(
+                        Fields => [$Property],
+                        Object => 'Ticket',
+                    );
+
+                    FIELD:
+                    for my $Entity ( sort keys %Field ) {
+                        next FIELD if !IsHashRefWithData( $Field{$Entity} );
+                        push @FulltextHighlightFieldsValid, $Property;
+                        last FIELD;
+                    }
+                }
+            }
+
             # get fields to search
             my $ESTicketSearchFieldsConfig = $ConfigObject->Get('SearchEngine::ES::TicketSearchFields');
-            my $FulltextSearchFields       = $ESTicketSearchFieldsConfig->{Fulltext};
+            my $FulltextSearchFields       = $Fulltext->{Fields} || $ESTicketSearchFieldsConfig->{Fulltext};
             my @FulltextTicketFields;
-            my $MappingDataTypes = $Param{MappingObject}->MappingDataTypesGet();
+            my %FulltextFieldsValid;
 
             if ( IsArrayRefWithData( $FulltextSearchFields->{Ticket} ) ) {
                 for my $Property ( @{ $FulltextSearchFields->{Ticket} } ) {
@@ -621,7 +646,11 @@ sub ExecuteSearch {
                         Field  => $Property,
                     );
 
-                    push @FulltextTicketFields, $FulltextField if $FulltextField;
+                    if ($FulltextField) {
+                        my $Field = $FulltextField;
+                        push @FulltextTicketFields, $Field;
+                        $FulltextFieldsValid{"Ticket_${Property}"} = $Field;
+                    }
                 }
             }
 
@@ -634,7 +663,11 @@ sub ExecuteSearch {
                         Field  => $Property,
                     );
 
-                    push @FulltextArticleFields, 'Articles.' . $FulltextField if $FulltextField;
+                    if ($FulltextField) {
+                        my $Field = 'Articles.' . $FulltextField;
+                        push @FulltextArticleFields, $Field;
+                        $FulltextFieldsValid{"Article_${Property}"} = $Field;
+                    }
                 }
             }
 
@@ -651,8 +684,22 @@ sub ExecuteSearch {
                         Field  => $Property,
                     );
 
-                    push @FulltextAttachmentFields, 'Articles.Attachments.' . $FulltextField if $FulltextField;
+                    if ($FulltextField) {
+                        my $Field = 'Articles.Attachments.' . $FulltextField;
+                        push @FulltextArticleFields, $Field;
+                        $FulltextFieldsValid{"Attachment_${Property}"} = $Field;
+                    }
                 }
+            }
+
+            # build highlight query
+            my @HighlightQueryFields;
+            HIGHLIGHT:
+            for my $HighlightField (@FulltextHighlightFieldsValid) {
+                next HIGHLIGHT if !( $FulltextFieldsValid{$HighlightField} );
+                push @HighlightQueryFields, {
+                    $FulltextFieldsValid{$HighlightField} => {},
+                };
             }
 
             # clean special characters
@@ -713,9 +760,15 @@ sub ExecuteSearch {
                         should => \@FulltextQuery,
                     }
                 };
+                if (@HighlightQueryFields) {
+                    $Query->{Body}->{highlight}->{fields} = \@HighlightQueryFields;
+                }
             }
         }
     }
+
+    my $RetrieveHighlightData = IsHashRefWithData( $Query->{Body}->{highlight} )
+        && IsArrayRefWithData( $Query->{Body}->{highlight}->{fields} );
 
     my $ArticleSearchParams              = $SegregatedQueryParams->{Articles};
     my $ArticleDynamicFieldsSearchParams = $SegregatedQueryParams->{ArticleDynamicFields};
@@ -895,9 +948,11 @@ sub ExecuteSearch {
         IndexName  => 'Ticket',
         ResultType => $Param{ResultType} || 'ARRAY',
         QueryData  => {
-            Query => $Query
+            Query                 => $Query,
+            RetrieveHighlightData => $RetrieveHighlightData,
         },
     );
+
     return $FormattedResult;
 
 }
