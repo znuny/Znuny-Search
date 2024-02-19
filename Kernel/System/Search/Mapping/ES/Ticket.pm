@@ -170,7 +170,7 @@ sub _ResponseDataFormat {
                 }
 
                 else {
-                    if ($Param{QueryData}->{RetrieveHighlightData}) {
+                    if ( $Param{QueryData}->{RetrieveHighlightData} ) {
                         for my $Hit ( @{$Hits} ) {
                             my $Data = $Hit->{_source};
 
