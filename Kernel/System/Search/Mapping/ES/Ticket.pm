@@ -150,7 +150,6 @@ sub _ResponseDataFormat {
                 }
             }
             else {
-                my $RetrieveHighlightData = $Param{QueryData}->{RetrieveHighlightData};
 
                 if ($SimpleArray) {
                     for my $Hit ( @{$Hits} ) {
@@ -171,7 +170,7 @@ sub _ResponseDataFormat {
                 }
 
                 else {
-                    if ($RetrieveHighlightData) {
+                    if ($Param{QueryData}->{RetrieveHighlightData}) {
                         for my $Hit ( @{$Hits} ) {
                             my $Data = $Hit->{_source};
 
