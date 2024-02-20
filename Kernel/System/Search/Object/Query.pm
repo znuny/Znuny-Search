@@ -747,6 +747,8 @@ set query param field to standardized output
 sub _QueryParamSet {
     my ( $Self, %Param ) = @_;
 
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
     my $Name = $Param{Name};
 
     # prevent using query parameter that is not supposed to be searched by
@@ -780,6 +782,10 @@ sub _QueryParamSet {
         # response which can identify usage of
         # wrong query parameter
         if ( $Param{Strict} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Search parameter: $Name is not valid!",
+            );
             return { Error => 1 };
         }
 
@@ -788,8 +794,6 @@ sub _QueryParamSet {
             return;
         }
     }
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
     if ( !defined $Data ) {
         $LogObject->Log(

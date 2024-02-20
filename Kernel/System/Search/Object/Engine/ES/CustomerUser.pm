@@ -80,6 +80,11 @@ sub new {
         ChangeTimeColumnName => 'ChangeTime',       # column representing time of updated data entry
     };
 
+    # load settings for index
+    $Self->{Config}->{Settings} = $Self->LoadSettings(
+        IndexName => $Self->{Config}->{IndexName},
+    );
+
     my $CustomerUserObject = $Kernel::OM->Get('Kernel::System::CustomerUser');
 
     SOURCE:

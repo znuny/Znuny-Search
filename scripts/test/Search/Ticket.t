@@ -30,10 +30,8 @@ my $SearchObject          = $Kernel::OM->Get('Kernel::System::Search');
 my $SearchChildObject     = $Kernel::OM->Get('Kernel::System::Search::Object');
 my $ZnunyHelperObject     = $Kernel::OM->Get('Kernel::System::ZnunyHelper');
 my $ConfigObject          = $Kernel::OM->Get('Kernel::Config');
-my $SearchTicketObject    = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
 my $DBObject              = $Kernel::OM->Get('Kernel::System::DB');
 my $UserObject            = $Kernel::OM->Get('Kernel::System::User');
-my $TicketQueryObject     = $Kernel::OM->Get('Kernel::System::Search::Object::Query::Ticket');
 my $CustomerUserObject    = $Kernel::OM->Get('Kernel::System::CustomerUser');
 my $CustomerCompanyObject = $Kernel::OM->Get('Kernel::System::CustomerCompany');
 my $ServiceObject         = $Kernel::OM->Get('Kernel::System::Service');
@@ -84,6 +82,28 @@ $ConfigObject->Set(
     Key   => 'Ticket::Responsible',
     Value => 1,
 );
+
+my $ActiveEngine = $SearchObject->{Config}->{ActiveEngine};
+
+$Self->True(
+    $ActiveEngine,
+    "Active engine ($SearchObject->{Config}->{ActiveEngine}) exists, search engine.",
+);
+
+return if !$ActiveEngine;
+
+# enable attachment indexation if for some reason it was disabled
+$ConfigObject->Set(
+    Key   => "SearchEngine::Settings::Index::${ActiveEngine}::Ticket",
+    Value => {
+        '000-Framework' => {
+            IndexAttachments => 1,
+        }
+    },
+);
+
+my $SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
+my $TicketQueryObject  = $Kernel::OM->Get('Kernel::System::Search::Object::Query::Ticket');
 
 my $ReindexationStep = 4;
 
@@ -747,8 +767,15 @@ my @Tests = (
                         ]
                     }
                 ]
-            }
-        }
+            },
+            DisabledAttachmentsQueryParam => {
+                'Ticket' => [],
+            },
+            DisabledAttachmentsFields => {
+                'Ticket' => [],
+            },
+        },
+
     }
 );
 for ( 1 .. 10 ) {
@@ -802,6 +829,8 @@ for my $Index ( 0 .. 4 ) {
     push @TicketIDsContainsAttachments, $TicketIDToTest if $Success;
 }
 
+$Tests[0]->{ExpectedResult}->{DisabledAttachmentsFields}->{Ticket}->[0]->{TicketID} = $TicketIDsContainsAttachments[0];
+
 $StartQueuedIndexation->();
 
 # refresh Ticket index
@@ -809,7 +838,7 @@ $SearchObject->IndexRefresh(
     Index => 'Ticket',
 );
 
-my $TicketWithAttachmentIndexed = $SearchObject->Search(
+my $TicketWithAttachmentsParams = {
     Objects     => ["Ticket"],
     QueryParams => {
         %ESCompatibleQueryParams,
@@ -826,12 +855,124 @@ my $TicketWithAttachmentIndexed = $SearchObject->Search(
     Fields       => [ ['Attachment_*'] ],
     Limit        => 1,
     UseSQLSearch => 0,
+};
+
+my $TicketWithAttachmentIndexed = $SearchObject->Search(
+    %{$TicketWithAttachmentsParams},
 );
 
 $Self->IsDeeply(
     $TicketWithAttachmentIndexed,
     $Tests[0]->{ExpectedResult}->{AfterAttachmentUpload},
     "(Engine search) Response check, search by attachment filename after attachment upload.",
+);
+
+# disable attachment indexation
+$ConfigObject->Set(
+    Key   => "SearchEngine::Settings::Index::${ActiveEngine}::Ticket",
+    Value => {
+        '000-Framework' => {
+            IndexAttachments => 0,
+        }
+    },
+);
+
+# recreate objects to initialize correct fields
+$Kernel::OM->ObjectsDiscard(
+    Objects => [
+        'Kernel::System::Search::Object::Default::Ticket',
+        'Kernel::System::Search::Object::Query::Ticket',
+    ],
+);
+
+$SearchTicketObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
+$TicketQueryObject  = $Kernel::OM->Get('Kernel::System::Search::Object::Query::Ticket');
+
+# use the same search query as previous
+my $TicketWithAttachmentIndexedDisabled = $SearchObject->Search(
+    %{$TicketWithAttachmentsParams},
+);
+
+$Self->IsDeeply(
+    $TicketWithAttachmentIndexedDisabled,
+    $Tests[0]->{ExpectedResult}->{DisabledAttachmentsQueryParam},
+    "(Engine search) Response check, search by attachment filename after attachment upload with disabled attachment indexation.",
+);
+
+# try to retrieve attachment data after attachments are disabled on ticket that contains attachment
+# but does not use attachment properties inside QueryParams parameter
+my $TicketRetrieveAttachmentDisabled = $SearchObject->Search(
+    Objects     => ["Ticket"],
+    QueryParams => {
+        UserID   => $Object->{Basic}->{User}->{ID},
+        TicketID => \@TicketIDsContainsAttachments,
+    },
+    SortBy       => ['TicketID'],
+    OrderBy      => ['Up'],
+    Fields       => [ [ 'Attachment_*', 'Ticket_TicketID' ] ],
+    Limit        => 1,
+    UseSQLSearch => 0,
+);
+
+$Self->IsDeeply(
+    $TicketRetrieveAttachmentDisabled,
+    $Tests[0]->{ExpectedResult}->{DisabledAttachmentsFields},
+    "(Engine search) Response check, search by ticket id after attachment upload with disabled attachment indexation and try to retrieve attachment data.",
+);
+
+# add attachment to next ticket, notice that attachment indexation is disabled
+my $Counter  = 0;
+my @Articles = $ArticleObject->ArticleList(
+    TicketID  => $TicketIDsToTest[6],
+    OnlyFirst => 1,
+);
+
+undef $Success;
+
+for my $AttachmentData ( @{ $Tests[0]->{Data}->{Attachment} } ) {
+    $Success = $ArticleObject->ArticleWriteAttachment(
+        TicketID => $TicketIDsToTest[6],
+        %{$AttachmentData},
+        Disposition => 'attachment',
+        ArticleID   => $Articles[0]->{ArticleID},
+        UserID      => 1,
+    );
+
+    $Self->True(
+        $Success,
+        "Writing attachment into article (TicketID: $TicketIDsToTest[6], ArticleID: $Articles[0]->{ArticleID}) created/exists, sql.",
+    );
+}
+
+# get queued data for indexing
+my $Queue = $SearchChildObject->IndexObjectQueueGet(
+    Index => 'Ticket',
+);
+
+$Self->False(
+    $Queue,
+    "ArticleWriteAttachment event when attachment indexing is disabled check, queue not created/exists, sql.",
+);
+
+my $ArticleBackendObject = $ArticleObject->BackendForArticle(
+    TicketID  => $TicketIDsToTest[6],
+    ArticleID => $Articles[0]->{ArticleID},
+);
+
+# remove all attachments
+$Success = $ArticleBackendObject->ArticleDeleteAttachment(
+    ArticleID => $Articles[0]->{ArticleID},
+    UserID    => 1,
+);
+
+# get queued data for indexing
+$Queue = $SearchChildObject->IndexObjectQueueGet(
+    Index => 'Ticket',
+);
+
+$Self->False(
+    $Queue,
+    "ArticleDeleteAttachment event when attachment indexing is disabled check, queue not created/exists, sql.",
 );
 
 1;

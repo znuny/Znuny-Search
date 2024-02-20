@@ -53,6 +53,8 @@ sub Run {
     my $ObjectIdentifierColumn = $IndexSearchObject->{Config}->{Identifier};
     my $ObjectID               = $Param{Data}->{$ObjectIdentifierColumn};
 
+    return if !$IndexSearchObject->{Config}->{Settings}->{IndexAttachments};
+
     if ( !$ObjectID ) {
         $LogObject->Log(
             Priority => 'error',
