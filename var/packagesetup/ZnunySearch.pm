@@ -5,7 +5,7 @@
 # the enclosed file COPYING for license information (AGPL). If you
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
-
+## nofilter(TidyAll::Plugin::Znuny::CodeStyle::STDERRCheck)
 ## nofilter(TidyAll::Plugin::Znuny4OTRS::Legal::AGPLValidator)
 
 package var::packagesetup::ZnunySearch;    ## no critic
@@ -53,6 +53,50 @@ run the code install part
 
 sub CodeInstall {
     my ( $Self, %Param ) = @_;
+
+    return 1;
+}
+
+=head2 CodeUpgrade()
+
+run the code upgrade part
+
+    my $Result = $CodeObject->CodeUpgrade(
+        PreVersion => '6.5.3',
+    );
+
+=cut
+
+sub CodeUpgrade {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject               = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject                  = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchESIngestPluginObject = $Kernel::OM->Get('Kernel::System::Search::Plugins::ES::Ingest');
+
+    if ( $Param{PreVersion} && $Param{PreVersion} eq '6.5.3' ) {
+        if (
+            $SearchObject->{Config}->{ActiveEngine}
+            &&
+            $SearchObject->{Config}->{ActiveEngine} eq 'ES'        &&
+            $SearchObject->{Config}->{RegisteredIndexes}->{Ticket} &&
+            $SearchObject->{Config}->{RegisteredPlugins}->{Ingest} &&
+            $SearchObject->{ConnectObject}
+            )
+        {
+            my $Result     = $SearchESIngestPluginObject->ClusterInit();
+            my $PluginName = $Result->{PluginName} || 'Ingest';
+
+            # print in the same manner as other stuff is printed during CodeUpgrade,
+            # look at Kernel::System::Package module
+            if ( $Result->{Status}->{Success} ) {
+                print STDERR "Notice: $PluginName plugin reinitialized succesfully\n";
+            }
+            else {
+                print STDERR "Error: can't reinitialize $PluginName plugin!\n";
+            }
+        }
+    }
 
     return 1;
 }

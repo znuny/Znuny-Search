@@ -115,6 +115,9 @@
     <CodeInstall Type="post"><![CDATA[
         $Kernel::OM->Get('var::packagesetup::ZnunySearch')->CodeInstall();
     ]]></CodeInstall>
+    <CodeUpgrade Type="post" Version="6.5.3"><![CDATA[
+        $Kernel::OM->Get('var::packagesetup::ZnunySearch')->CodeUpgrade(PreVersion => '6.5.3');
+    ]]></CodeUpgrade>
     <CodeUninstall Type="pre"><![CDATA[
         $Kernel::OM->Get('var::packagesetup::ZnunySearch')->CodeUninstall();
     ]]></CodeUninstall>
