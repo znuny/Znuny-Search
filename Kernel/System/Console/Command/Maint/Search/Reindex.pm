@@ -97,6 +97,14 @@ sub Configure {
         HasValue => 0,
         Multiple => 0,
     );
+    $Self->AddOption(
+        Name => 'from-gui',
+        Description =>
+            "Do not use this flag!",
+        Required => 0,
+        HasValue => 0,
+        Multiple => 0,
+    );
 
     return;
 }
@@ -107,6 +115,7 @@ sub PreRun {
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
 
     $Self->{SearchObject} = $Kernel::OM->Get('Kernel::System::Search');
+    $Self->{FromGUI}      = $Self->GetOption('from-gui');
 
     if (
         $Self->{SearchObject}
@@ -125,7 +134,7 @@ sub PreRun {
         if ( !$Self->{SearchObject}->{ConnectObject} ) {
             $Message = "Could not connect to the cluster.";
         }
-        $Self->Print("<red>$Message\n</red>");
+        $Self->PrintError("$Message\n");
         $Self->{Abort} = 1;
     }
 
@@ -155,11 +164,9 @@ sub Run {
     $Self->{PIDName}     = $Self->{Synchronize} ? 'SearchEngineSync' : 'SearchEngineReindex';
     $Self->{PIDNameAlt}  = $Self->{Synchronize} ? 'SearchEngineReindex' : 'SearchEngineSync';
 
-    my $FullReindexation = !$StartFrom && !$Limit;
-
     if ( $Self->{Synchronize} && ( defined $StartFrom || $Limit || $Recreate ) ) {
-        $Self->Print(
-            "<red>Parameter 'sync' cannot be used in combination with 'start-from', 'limit' or 'recreate'!</red>\n"
+        $Self->PrintError(
+            "Parameter 'sync' cannot be used in combination with 'start-from', 'limit' or 'recreate'!\n"
         );
         return $Self->ExitCodeError();
     }
@@ -170,7 +177,7 @@ sub Run {
         @{ $Self->{Index} } = sort keys %{ $Self->{SearchObject}->{Config}->{RegisteredIndexes} };
 
         if ( !IsArrayRefWithData( $Self->{Index} ) ) {
-            $Self->Print("No index found in SearchEngine::Loader::Index config.\n");
+            $Self->PrintError("No index found in SearchEngine::Loader::Index config.\n");
             return $Self->ExitCodeError();
         }
     }
@@ -269,7 +276,7 @@ sub Run {
             );
 
             if ( !$Result ) {
-                $Self->Print("<red>Index $Index is not valid! Ignoring re-indexation for this index.\n</red>");
+                $Self->PrintError("Index $Index is not valid! Ignoring re-indexation for this index.\n");
                 $Counter++;
                 next INDEX;
             }
@@ -318,6 +325,8 @@ sub Run {
         Force => $ClusterReinitialize,
     );
 
+    $Self->{IndexesToClearDataEquality} = {};
+
     # list all indexes on remote (engine) side
     my @ActiveClusterRemoteIndexList = $Self->{SearchObject}->IndexList();
     my $ReindexationSettings         = $ConfigObject->Get('SearchEngine::Reindexation')->{Settings};
@@ -359,6 +368,14 @@ sub Run {
             TTL   => 24 * 60 * 60,
         ) if $Self->{Synchronize};
 
+        my $IndexCheck = $Self->{SearchObject}->IndexBaseCheck( Index => $IndexName );
+        if ( !$IndexCheck->{Success} ) {
+            $Self->PrintError("$IndexCheck->{Message}\n");
+            $IndexObjectStatus{$IndexName}->{Successful} = 0;
+
+            next OBJECT;
+        }
+
         my $IndexCreated;
 
         if ( !$RemoteExists ) {
@@ -389,8 +406,8 @@ sub Run {
             );
 
             if ( !$RemoveSuccess ) {
-                $Self->Print(
-                    "<red>Could not remove index $IndexName! Ignoring re-indexation for that index.\n</red>"
+                $Self->PrintError(
+                    "Could not remove index $IndexName! Ignoring re-indexation for that index.\n"
                 );
                 next OBJECT;
             }
@@ -401,8 +418,8 @@ sub Run {
             );
 
             if ( !$AddSuccess ) {
-                $Self->Print(
-                    "<red>Could not add index $IndexName! Ignoring re-indexation for that index.\n</red>"
+                $Self->PrintError(
+                    "Could not add index $IndexName! Ignoring re-indexation for that index.\n"
                 );
                 next OBJECT;
             }
@@ -845,6 +862,8 @@ sub Run {
         for my $Index ( sort keys %IndexObjectStatus ) {
             $Self->Print("\n<yellow>Index: $Index</yellow>\n");
 
+            my $FailedMessage = $Self->{FromGUI} ? "Re-indexation of $Index index failed!" : "<red>Failed.</red>\n";
+
             $Self->Print("<yellow>Status:</yellow> ");
             if ( $IndexObjectStatus{$Index}->{Successful} ) {
                 if ( $Self->{Synchronize} ) {
@@ -893,11 +912,11 @@ sub Run {
                 }
                 else {
                     $Self->Print("<green>Success.\n</green>");
-                    push @{ $Self->{FullySuccesfullReindexatedObjects} }, $Index if $FullReindexation;
                 }
             }
             else {
-                $Self->Print("<red>Failed.\n</red>");
+                $Self->{IndexesToClearDataEquality}->{$Index} = 1;
+                $Self->Print( $FailedMessage, $Self->{FromGUI} );
             }
         }
     }
@@ -937,10 +956,10 @@ sub PostRun {
     }
 
     my $Success = $ReindexationObject->DataEqualitySet(
-        ClusterID                        => $Self->{ClusterConfig}->{ClusterID},
-        Indexes                          => $Self->{Index},
-        UpdateReindexationTimeForIndexes => $Self->{FullySuccesfullReindexatedObjects},
-        NoPermissions                    => 1,
+        ClusterID                  => $Self->{ClusterConfig}->{ClusterID},
+        Indexes                    => $Self->{Index},
+        IndexesToClearDataEquality => $Self->{IndexesToClearDataEquality},
+        NoPermissions              => 1,
     );
 
     if ( !$Self->{Synchronize} ) {
@@ -951,6 +970,40 @@ sub PostRun {
     }
 
     return $Self->ExitCodeOk();
+}
+
+sub PrintError {
+    my ( $Self, $Text ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( $Self->{FromGUI} ) {
+
+        chomp $Text;
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => $Text,
+        );
+        return;
+    }
+    return $Self->SUPER::PrintError($Text);
+}
+
+sub Print {
+    my ( $Self, $Text, $GUIOutput ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ($GUIOutput) {
+
+        chomp $Text;
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => $Text,
+        );
+        return;
+    }
+    return $Self->SUPER::Print($Text);
 }
 
 1;

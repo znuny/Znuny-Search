@@ -284,11 +284,11 @@ sub ObjectIndexAdd() {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    if ( !$Self->{ActiveDBBackend}->{ValidBackend} ) {
+    my $IndexCheck = $Self->IndexBaseCheck();
+    if ( !$IndexCheck->{Success} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => 'Valid backend for Elasticsearch engine was not found!' . "\n" .
-                'Configure Elasticsearch module for CustomerUser backend and reindex data or disable CustomerUser index.',
+            Message  => $IndexCheck->{Message},
         );
         return;
     }
@@ -303,11 +303,11 @@ sub ObjectIndexSet() {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    if ( !$Self->{ActiveDBBackend}->{ValidBackend} ) {
+    my $IndexCheck = $Self->IndexBaseCheck();
+    if ( !$IndexCheck->{Success} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => 'Valid backend for Elasticsearch engine was not found!' . "\n" .
-                'Configure Elasticsearch module for CustomerUser backend and reindex data or disable CustomerUser index.',
+            Message  => $IndexCheck->{Message},
         );
         return;
     }
@@ -322,11 +322,11 @@ sub ObjectIndexUpdate() {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    if ( !$Self->{ActiveDBBackend}->{ValidBackend} ) {
+    my $IndexCheck = $Self->IndexBaseCheck();
+    if ( !$IndexCheck->{Success} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => 'Valid backend for Elasticsearch engine was not found!' . "\n" .
-                'Configure Elasticsearch module for CustomerUser backend and reindex data or disable CustomerUser index.',
+            Message  => $IndexCheck->{Message},
         );
         return;
     }
@@ -347,11 +347,11 @@ sub ObjectIndexRemove() {
 
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
-    if ( !$Self->{ActiveDBBackend}->{ValidBackend} ) {
+    my $IndexCheck = $Self->IndexBaseCheck();
+    if ( !$IndexCheck->{Success} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => 'Valid backend for Elasticsearch engine was not found!' . "\n" .
-                'Configure Elasticsearch module for CustomerUser backend and reindex data or disable CustomerUser index.',
+            Message  => $IndexCheck->{Message},
         );
         return;
     }
@@ -361,6 +361,29 @@ sub ObjectIndexRemove() {
     return $Self->SUPER::ObjectIndexRemove(
         %Param,
     );
+}
+
+=head2 IndexBaseCheck()
+
+Checks index for specific base conditions to determine if it can be used.
+
+    my $Result = $SearchCustomerUserESObject->IndexBaseCheck();
+
+=cut
+
+sub IndexBaseCheck {
+    my ( $Self, %Param ) = @_;
+
+    if ( !$Self->{ActiveDBBackend}->{ValidBackend} ) {
+        return {
+            Success => 0,
+            Message => $Self->MessageInvalidBackend(),
+        };
+    }
+
+    return {
+        Success => 1,
+    };
 }
 
 =head2 ExecuteSearch()
@@ -890,6 +913,21 @@ sub ObjectIndexUpdateDFChanged {
     return $Param{MappingObject}->ResponseIsSuccess(
         Response => $Response,
     );
+}
+
+=head2 MessageInvalidBackend()
+
+return message about invalid active backend
+
+    my $Message = $SearchCustomerUserESObject->MessageInvalidBackend();
+
+=cut
+
+sub MessageInvalidBackend {
+    my ( $Self, %Param ) = @_;
+
+    return 'Valid backend for Elasticsearch engine was not found!' . "\n" .
+        'Configure Elasticsearch module for CustomerUser backend and reindex data or disable CustomerUser index.';
 }
 
 1;

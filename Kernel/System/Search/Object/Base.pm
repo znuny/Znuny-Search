@@ -413,6 +413,29 @@ sub IndexBaseInit {
     );
 }
 
+=head2 IndexBaseCheck()
+
+Checks index for specific base conditions to determine if it can be used.
+Definition only, specify your own function in Kernel::System::Search::Object::Engine::*SearchEngine*::*IndexName*.
+
+    my $Result = $SearchObject->IndexBaseCheck(
+        Index         => $Index,
+        Config        => $Config,
+        MappingObject => $MappingObject,
+        EngineObject  => $EngineObject,
+        ConnectObject => $ConnectObject,
+    );
+
+=cut
+
+sub IndexBaseCheck {
+    my ( $Self, %Param ) = @_;
+
+    return {
+        Success => 1,
+    };
+}
+
 =head2 SQLObjectSearch()
 
 search in sql database for objects index related
