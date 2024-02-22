@@ -106,10 +106,14 @@ sub Search {
             $Body{_source} = "false";
             @{ $Body{fields} } = keys %{ $Param{Fields} };
         }
+
+        $Body{track_total_hits} = 'true' if $Param{RetrieveEngineData}->{TotalHits};
     }
     else {
         $QueryPath .= '_count';
     }
+
+    $Body{from} = $Param{Offset} if IsInteger( $Param{Offset} ) && $Param{Offset} >= 0;
 
     my $Query = {
         Body   => \%Body,
@@ -202,13 +206,27 @@ sub SearchFormat {
     }
 
     my $GloballyFormattedObjData;
+    my $EngineData;
+
+    my %RetrieveEngineData = ();
+    my %EngineDataMapping  = ();
+
+    if ( IsHashRefWithData( $Param{RetrieveEngineData} ) ) {
+        %RetrieveEngineData = %{ $Param{RetrieveEngineData} };
+        %EngineDataMapping  = $Self->RetrievableEngineDataSearchMappingGet();
+    }
 
     # identify format of response
     if ( $Param{ResultType} ne 'COUNT' ) {
         $GloballyFormattedObjData = $Self->_ResponseDataFormat(
-            Result => $Result,
+            Result     => $Result,
+            EngineData => $EngineData,
             %Param,
         );
+        if ( $Param{Result}->{hits}->{total} && delete $RetrieveEngineData{TotalHits} ) {
+            $EngineData->{TotalHits}         = $Param{Result}->{hits}->{total}->{value} // 0;
+            $EngineData->{TotalHitsRelation} = $Param{Result}->{hits}->{total}->{relation};
+        }
     }
     else {
         if ( $Result->{columns} ) {
@@ -219,13 +237,17 @@ sub SearchFormat {
         }
     }
 
+    # basic engine data to get
+    DATA:
+    for my $EngineDataToGet ( sort keys %RetrieveEngineData ) {
+        next DATA if !$RetrieveEngineData{$EngineDataToGet};
+        $EngineData->{$EngineDataToGet} = $Result->{ $EngineDataMapping{$EngineDataToGet} };
+    }
+
     return {
         $IndexName => {
             ObjectData => $GloballyFormattedObjData,
-            EngineData => {
-                Shards       => $Result->{_shards},
-                ResponseTime => $Result->{took},
-            }
+            EngineData => $EngineData // {},
         }
     };
 }
@@ -1388,6 +1410,7 @@ build specified field is searchable in fulltext context
         Field => 'TicketNumber',
         Index => 'Ticket',
         Entity => 'Ticket',
+        Simple => 0 # optional, decide if simple index is used
     );
 
 =cut
@@ -1409,19 +1432,20 @@ sub FulltextSearchableFieldBuild {
         return;
     }
 
-    my $SearchIndexObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Ticket');
-    my $MappingDataTypes  = $Self->MappingDataTypesGet();
-    my $Index             = $Param{Index};
-    my $Field             = $Param{Field};
-    my $Entity            = $Param{Entity};
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
-    my %Field = $SearchIndexObject->ValidFieldsPrepare(
+    my $Index            = $Param{Index};
+    my $Field            = $Param{Field};
+    my $Entity           = $Param{Entity};
+    my $MappingDataTypes = $Self->MappingDataTypesGet();
+
+    my %Field = $SearchChildObject->ValidFieldsPrepare(
         Fields      => ["${Entity}_${Field}"],
         Object      => $Index,
         QueryParams => {},
     );
 
-    my $Type            = $Field{$Entity}->{$Field}->{Type};
+    my $Type            = $Param{Simple} ? $Field{$Field}->{Type} : $Field{$Entity}->{$Field}->{Type};
     my $MappingDataType = $MappingDataTypes->{$Type}->{type};
 
     if ( $MappingDataType && $MappingDataType eq 'text' ) {
@@ -1437,6 +1461,23 @@ sub FulltextSearchableFieldBuild {
         );
     }
     return;
+}
+
+=head2 RetrievableEngineDataSearchMappingGet()
+
+get mapping for engine data Search call
+
+    my %Mapping = $SearchMappingESObject->RetrievableEngineDataSearchMappingGet();
+
+=cut
+
+sub RetrievableEngineDataSearchMappingGet {
+    my ( $Self, %Param ) = @_;
+
+    return (
+        Shards       => '_shards',
+        ResponseTime => 'took',
+    );
 }
 
 =head2 _ResponseDataFormat()
@@ -1598,7 +1639,7 @@ sub _BuildQueryBodyFromParams {
 
             my $Query = $Result->{Query};
 
-            push @{ $Query{query}->{bool}->{ $Result->{Section} } }, $Query;
+            push @{ $Query{query}->{bool}->{ $Result->{Section} } }, $Query if !$Result->{Ignore};
         }
     }
 
@@ -1641,8 +1682,8 @@ sub _AppendQueryBodyFromParams {
 
             my $Query = $Result->{Query};
 
-            push @{ $Param{Query}->{Body}->{query}->{bool}->{ $Result->{Section} } }, $Query;
-            $Success = $Query ? 1 : 0 if $Success;
+            push @{ $Param{Query}->{Body}->{query}->{bool}->{ $Result->{Section} } }, $Query if !$Result->{Ignore};
+            $Success = $Query || $Result->{Ignore} ? 1 : 0 if $Success;
         }
     }
 

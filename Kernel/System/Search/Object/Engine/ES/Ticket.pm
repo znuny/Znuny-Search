@@ -434,54 +434,9 @@ On executing ticket search by Kernel::System::Search:
 sub Search {
     my ( $Self, %Param ) = @_;
 
-    my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
-    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
-    my $UserObject        = $Kernel::OM->Get('Kernel::System::User');
-
-    my %Params     = %Param;
-    my $IndexName  = 'Ticket';
-    my $ObjectData = $Params{Objects}->{$IndexName};
-
-    my $Loaded = $SearchChildObject->_LoadModule(
-        Module => "Kernel::System::Search::Object::Query::${IndexName}",
-    );
-
-    return if !$Loaded;
-
-    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${IndexName}");
-
-    # check/set valid result type
-    my $ValidResultType = $SearchChildObject->ValidResultType(
-        SupportedResultTypes => $IndexQueryObject->{IndexSupportedResultTypes},
-        ResultType           => $Param{ResultType},
-    );
-
-    # do not build query for objects
-    # with not valid result type
-    return if !$ValidResultType;
-
-    my $OrderBy = $ObjectData->{OrderBy};
-    my $Limit   = $ObjectData->{Limit};
-    my $Fields  = $ObjectData->{Fields};
-
-    my $SortBy = $Self->SortParamApply(
-        %Param,
-        SortBy     => $ObjectData->{SortBy},
-        ResultType => $ValidResultType,
-        OrderBy    => $OrderBy,
-    );
-
-    return $Self->ExecuteSearch(
-        %Param,
-        Limit => $Limit
-            || $IndexQueryObject->{IndexDefaultSearchLimit},    # default limit or override with limit from param
-        Fields        => $Fields,
-        QueryParams   => $Param{QueryParams},
-        SortBy        => $SortBy,
-        RealIndexName => $Self->{Config}->{IndexRealName},
-        ResultType    => $ValidResultType,
-    );
+    my $Data = $Self->PreSearch(%Param);
+    return $Self->SearchEmptyResponse(%Param) if !IsHashRefWithData($Data);
+    return $Self->ExecuteSearch( %{$Data} );
 }
 
 =head2 ExecuteSearch()
@@ -529,10 +484,8 @@ sub ExecuteSearch {
     my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$Self->{Config}->{IndexName}");
     my $ConfigObject     = $Kernel::OM->Get('Kernel::Config');
 
-    my @QueryParamsKey = keys %{ $Param{QueryParams} };
-    my $QueryParams    = $Param{QueryParams};
-
-    my $Fulltext = delete $QueryParams->{Fulltext};
+    my $QueryParams = $Param{QueryParams};
+    my $Fulltext    = delete $QueryParams->{Fulltext};
 
     # filter & prepare correct parameters
     my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
@@ -620,7 +573,7 @@ sub ExecuteSearch {
                 for my $Property ( @{$FulltextHighlight} ) {
                     my %Field = $Self->ValidFieldsPrepare(
                         Fields => [$Property],
-                        Object => 'Ticket',
+                        Object => $Self->{Config}->{IndexName},
                     );
 
                     FIELD:
@@ -812,7 +765,8 @@ sub ExecuteSearch {
                 my $AttachmentQuery = $Result->{Query};
 
                 # append query
-                push @{ $AttachmentNestedQuery->{nested}->{query}->{bool}->{ $Result->{Section} } }, $AttachmentQuery;
+                push @{ $AttachmentNestedQuery->{nested}->{query}->{bool}->{ $Result->{Section} } }, $AttachmentQuery
+                    if !$Result->{Ignore};
             }
         }
     }
@@ -865,7 +819,8 @@ sub ExecuteSearch {
                 my $ArticleQuery = $Result->{Query};
 
                 # append query
-                push @{ $ArticleNestedQuery->{nested}->{query}->{bool}->{ $Result->{Section} } }, $ArticleQuery;
+                push @{ $ArticleNestedQuery->{nested}->{query}->{bool}->{ $Result->{Section} } }, $ArticleQuery
+                    if !$Result->{Ignore};
             }
         }
     }
@@ -906,7 +861,8 @@ sub ExecuteSearch {
 
                 my $ArticleQuery = $Result->{Query};
 
-                push @{ $ArticleNestedQuery->{nested}->{query}->{bool}->{ $Result->{Section} } }, $ArticleQuery;
+                push @{ $ArticleNestedQuery->{nested}->{query}->{bool}->{ $Result->{Section} } }, $ArticleQuery
+                    if !$Result->{Ignore};
             }
         }
     }

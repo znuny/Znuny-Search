@@ -201,7 +201,11 @@ search for specified object data
             # [[],["TicketHistoryColumn1", "TicketHistoryColumn2"]]
             # - for getting all fields (both ways acceptable):
             # - [[][TicketHistory_*]]
-        UseSQLSearch => 1 # define if sql search should be used
+        UseSQLSearch => 1 # define if sql search should be used,
+        RetrieveEngineData => { # optional, get additional custom engine data alongside with the object results,
+                                # please look at Kernel::System::Search::Mapping::*ActiveEngine*::RetrievableEngineDataSearchMappingGet for more parameters
+            TotalHits => 1,     # example parameter
+        },
     );
 
     # simple call for all of single ticket history
