@@ -165,6 +165,7 @@ sub LookupFAQFieldsGet {
     #     };
 
     #     return $LookupFields;
+    return;
 }
 
 =head2 LookupFAQFields()
@@ -380,6 +381,7 @@ sub LookupFAQFields {
     #     }
 
     #     return $LookupQueryParams;
+    return;
 }
 
 =head2 _QueryParamsPrepare()
