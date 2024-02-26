@@ -20,6 +20,7 @@
                 <Item Key="Article">article</Item>
                 <Item Key="DynamicField">dynamic_field</Item>
                 <Item Key="CustomerUser">customer_user</Item>
+                <Item Key="FAQ">faq_item</Item>
             </Hash>
         </Value>
     </Setting>
@@ -302,6 +303,8 @@
                         <Item>Article</Item>
                         <Item>--index</Item>
                         <Item>CustomerUser</Item>
+                        <Item>--index</Item>
+                        <Item>FAQ</Item>
                     </Array>
                 </Item>
             </Hash>
@@ -326,6 +329,15 @@
         </Value>
     </Setting>
     <Setting Name="SearchEngine::Settings::Index::ES::Ticket###000-Framework" Required="0" Valid="1">
+        <Description Translatable="1">Settings used to configure specified index for Elasticsearch search engine.</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="IndexAttachments" ValueType="String" ValueRegex="^0|1$">1</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="SearchEngine::Settings::Index::ES::FAQ###000-Framework" Required="0" Valid="1">
         <Description Translatable="1">Settings used to configure specified index for Elasticsearch search engine.</Description>
         <Navigation>Core::Search</Navigation>
         <Value>

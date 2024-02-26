@@ -27,12 +27,14 @@
         <File Permission="660" Location="Kernel/System/Search/Mapping.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping/ES/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Mapping/ES/FAQ.pm"/>
         <File Permission="660" Location="Kernel/System/Search.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/FAQ.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Extensions/Ticket/CustomPackage.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicField.pm"/>
@@ -41,11 +43,13 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/CustomerUser.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/TicketHistory.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/FAQ.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/CustomerUser.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Query/FAQ.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/EngineQueryHelper/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/Reindex.pm"/>
         <File Permission="660" Location="Kernel/System/CustomerUser/Elasticsearch.pm"/>
