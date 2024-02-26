@@ -545,7 +545,10 @@ sub ExecuteSearch {
 
     # fulltext search
     if ( defined $Fulltext ) {
+        my $ESTicketSearchFieldsConfig = $ConfigObject->Get('SearchEngine::ES::TicketSearchFields');
         my $FulltextValue;
+        my $FulltextHighlight;
+        my $FulltextFields;
         my $FulltextQueryOperator = 'AND';
         my $StatementOperator     = 'OR';
         if ( ref $Fulltext eq 'HASH' && $Fulltext->{Text} ) {
@@ -554,6 +557,8 @@ sub ExecuteSearch {
                 if $Fulltext->{QueryOperator};
             $StatementOperator = $Fulltext->{StatementOperator}
                 if $Fulltext->{StatementOperator};
+            $FulltextHighlight = $Fulltext->{Highlight};
+            $FulltextFields    = $Fulltext->{Fields};
         }
         else {
             $FulltextValue = $Fulltext;
@@ -564,8 +569,6 @@ sub ExecuteSearch {
         if ( defined $FulltextValue )
         {
             my @FulltextQuery;
-
-            my $FulltextHighlight = $Fulltext->{Highlight};
             my @FulltextHighlightFieldsValid;
 
             # check validity of highlight fields
@@ -585,9 +588,7 @@ sub ExecuteSearch {
                 }
             }
 
-            # get fields to search
-            my $ESTicketSearchFieldsConfig = $ConfigObject->Get('SearchEngine::ES::TicketSearchFields');
-            my $FulltextSearchFields       = $Fulltext->{Fields} || $ESTicketSearchFieldsConfig->{Fulltext};
+            my $FulltextSearchFields = $FulltextFields || $ESTicketSearchFieldsConfig->{Fulltext};
             my @FulltextTicketFields;
             my %FulltextFieldsValid;
 
