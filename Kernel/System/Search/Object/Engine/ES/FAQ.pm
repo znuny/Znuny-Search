@@ -50,10 +50,10 @@ sub new {
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName        => 'faq_item',     # index name on the engine/sql side
-        IndexName            => 'FAQ',     # index name on the api side
-        Identifier           => 'ID',      # column name that represents object id in the field mapping
-        ChangeTimeColumnName => 'Changed', # column representing time of updated data entry
+        IndexRealName        => 'faq_item',    # index name on the engine/sql side
+        IndexName            => 'FAQ',         # index name on the api side
+        Identifier           => 'ID',          # column name that represents object id in the field mapping
+        ChangeTimeColumnName => 'Changed',     # column representing time of updated data entry
     };
 
     # load settings for index
@@ -187,26 +187,27 @@ sub new {
             Type       => 'Textarea',
             Alias      => 1,
         },
-        Inline =>{
+        Inline => {
             ColumnName => 'inlineattachment',
             Type       => 'Integer',
         },
-#         Created => {
-#             ColumnName => 'created',
-#             Type       => 'Date'
-#         },
-#         CreatedBy => {
-#             ColumnName => 'created_by',
-#             Type       => 'Integer'
-#         },
-#         Changed => {
-#             ColumnName => 'changed',
-#             Type       => 'Date'
-#         },
-#         ChangedBy => {
-#             ColumnName => 'changed_by',
-#             Type       => 'Integer'
-#         },
+
+        #         Created => {
+        #             ColumnName => 'created',
+        #             Type       => 'Date'
+        #         },
+        #         CreatedBy => {
+        #             ColumnName => 'created_by',
+        #             Type       => 'Integer'
+        #         },
+        #         Changed => {
+        #             ColumnName => 'changed',
+        #             Type       => 'Date'
+        #         },
+        #         ChangedBy => {
+        #             ColumnName => 'changed_by',
+        #             Type       => 'Integer'
+        #         },
     } if $Self->{Config}->{Settings}->{IndexAttachments};
 
     # define searchable fields
@@ -469,12 +470,12 @@ sub ExecuteSearch {
         }
     }
 
-    my $Fields               = $Param{Fields}                  || {};
-    my $FAQFields         = $Fields->{FAQ}               || {};
-    my $FAQDynamicFields  = $Fields->{FAQ_DynamicField}  || {};
-    my $AttachmentFields     = $Fields->{Attachment}           || {};
+    my $Fields           = $Param{Fields}              || {};
+    my $FAQFields        = $Fields->{FAQ}              || {};
+    my $FAQDynamicFields = $Fields->{FAQ_DynamicField} || {};
+    my $AttachmentFields = $Fields->{Attachment}       || {};
 
-    my %FAQFields  = ( %{$FAQFields},  %{$FAQDynamicFields} );
+    my %FAQFields        = ( %{$FAQFields}, %{$FAQDynamicFields} );
     my %AttachmentFields = %{$AttachmentFields};
 
     # build standard ticket query
@@ -633,7 +634,7 @@ sub ExecuteSearch {
     my $RetrieveHighlightData = IsHashRefWithData( $Query->{Body}->{highlight} )
         && IsArrayRefWithData( $Query->{Body}->{highlight}->{fields} );
 
-    my $AttachmentSearchParams           = $SegregatedQueryParams->{Attachments};
+    my $AttachmentSearchParams = $SegregatedQueryParams->{Attachments};
 
     my $AttachmentNestedQuery = {
         nested => {
@@ -726,7 +727,7 @@ sub ExecuteSearch {
 
 execute fallback for searching FAQs
 
-notice: fall-back does not support searching by dynamic fields/articles 
+notice: fall-back does not support searching by dynamic fields/articles
 
     my $FunctionResult = $SearchFAQESObject->FallbackExecuteSearch(
         %Params,
@@ -765,10 +766,10 @@ sub ObjectIndexAdd() {
 
     return $Self->ObjectIndexGeneric(
         %Param,
-        Function         => $Param{Function} || '_ObjectIndexAddAction',
+        Function            => $Param{Function} || '_ObjectIndexAddAction',
         SetEmptyAttachments => 1,
-        RunPipeline      => 1,
-        NoPermissions    => 1,
+        RunPipeline         => 1,
+        NoPermissions       => 1,
     );
 }
 
@@ -777,10 +778,10 @@ sub ObjectIndexSet() {
 
     return $Self->ObjectIndexGeneric(
         %Param,
-        Function         => '_ObjectIndexSetAction',
+        Function            => '_ObjectIndexSetAction',
         SetEmptyAttachments => 1,
-        RunPipeline      => 1,
-        NoPermissions    => 1,
+        RunPipeline         => 1,
+        NoPermissions       => 1,
     );
 }
 
@@ -873,7 +874,8 @@ update FAQs group id, do not use nested objects as query params
     );
 
 =cut
-    # TODO
+
+# TODO
 sub ObjectIndexUpdateGroupID {
     my ( $Self, %Param ) = @_;
 
@@ -1040,6 +1042,7 @@ sub ObjectIndexUpdateDFChanged {
             ctx._source.remove('DynamicField_$DynamicFieldName');
         ";
     }
+
     # change name of dynamic field
     elsif ( $DynamicFieldEvent eq 'NameChange' ) {
         if ( !$Param{Params}->{DynamicField}->{NewName} ) {
@@ -1185,7 +1188,7 @@ sub ObjectIndexGeneric {
                 my $SuccessLocal = $Self->$Function(
                     %Param,
                     DataToIndex => $SQLSearchResult,
-                    FAQIDs   => $SQLDataIDs,
+                    FAQIDs      => $SQLDataIDs,
                 );
 
                 $Success = $SuccessLocal if $Success && !$SuccessLocal;
@@ -1203,11 +1206,11 @@ sub ObjectIndexGeneric {
                         QueryParams => {
                             $Identifier => $SQLDataIDs,
                         },
-                        ResultType       => $Param{SQLSearchResultType} || 'ARRAY',
-                        IgnoreArticles   => 1,
-                        Offset           => $Offset,
-                        Limit            => $ReindexationStep,
-                        NoPermissions    => $Param{NoPermissions},
+                        ResultType          => $Param{SQLSearchResultType} || 'ARRAY',
+                        IgnoreArticles      => 1,
+                        Offset              => $Offset,
+                        Limit               => $ReindexationStep,
+                        NoPermissions       => $Param{NoPermissions},
                         SetEmptyAttachments => $Param{SetEmptyAttachments},
                     );
 
@@ -1216,7 +1219,7 @@ sub ObjectIndexGeneric {
                     my $PartSuccess = $Self->$Function(
                         %Param,
                         DataToIndex => $SQLSearchResult,
-                        FAQIDs   => \@ObjectDataIDsToProcess,
+                        FAQIDs      => \@ObjectDataIDsToProcess,
                     );
 
                     $Success = $PartSuccess if $Success && !$PartSuccess;
@@ -1304,12 +1307,13 @@ sub ObjectIndexArticle {
     my %AttachmentsToIndex;
     my @AllAttachments;
 
-    my $QuerySource = $IndexAttachments ?
+    my $QuerySource = $IndexAttachments
+        ?
         "
 ctx._source.AttachmentStorageClearTemp = params.AttachmentStorageClearTemp;
 ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
-" : '';
-
+"
+        : '';
 
     my $Success = 1;
 
@@ -1332,7 +1336,7 @@ ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
 
         if ($IndexAttachments) {
             my %Index = $ArticleObject->ArticleAttachmentIndex(
-                FAQID         => $Article->{FAQID},
+                FAQID            => $Article->{FAQID},
                 ArticleID        => $Article->{ArticleID},
                 ExcludePlainText => 1,
                 ExcludeHTMLBody  => 1,
@@ -1341,7 +1345,7 @@ ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
 
             for my $AttachmentID ( sort keys %Index ) {
                 my %Attachment = $ArticleObject->ArticleAttachment(
-                    FAQID  => $Article->{FAQID},
+                    FAQID     => $Article->{FAQID},
                     ArticleID => $Article->{ArticleID},
                     FileID    => $AttachmentID,
                 );
@@ -1540,7 +1544,7 @@ sub SQLObjectSearch {
     my $DBObject                  = $Kernel::OM->Get('Kernel::System::DB');
     my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
     my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
-    my $FAQObject = $Kernel::OM->Get('Kernel::System::FAQ');
+    my $FAQObject                 = $Kernel::OM->Get('Kernel::System::FAQ');
 
     my $QueryParams = $Param{QueryParams};
     my $Fields      = $Param{Fields};
@@ -1628,14 +1632,15 @@ sub SQLObjectSearch {
             my @Attachments;
 
             if ( !$Param{IgnoreAttachments} ) {
+
                 # search for attachments
                 my @Index = $FAQObject->AttachmentIndex(
                     ItemID     => $FAQ->{ID},
                     ShowInline => 1,
                     UserID     => 1,
                 );
-            
-                for my $Attachment ( @Index ) {
+
+                for my $Attachment (@Index) {
                     my %Attachment = $FAQObject->AttachmentGet(
                         ItemID => $FAQ->{ID},
                         FileID => $Attachment->{FileID},
@@ -1643,31 +1648,31 @@ sub SQLObjectSearch {
                     );
 
                     push @Attachments, {
-                        Inline       => $Attachment->{Inline},
-                        Filesize     => $Attachment{Filesize},
-                        FilesizeRaw  => $Attachment->{FilesizeRaw},
-                        ContentType  => $Attachment{ContentType},
-                        Filename     => $Attachment{Filename},
-                        FileID       => $Attachment->{FileID},
-                        Content      => $Attachment{Content}
+                        Inline      => $Attachment->{Inline},
+                        Filesize    => $Attachment{Filesize},
+                        FilesizeRaw => $Attachment->{FilesizeRaw},
+                        ContentType => $Attachment{ContentType},
+                        Filename    => $Attachment{Filename},
+                        FileID      => $Attachment->{FileID},
+                        Content     => $Attachment{Content}
                     };
                 }
 
-                    # there is need to store content as base64
-                    ATTACHMENT:
-                    for my $Result (@Attachments) {
-                        if ( $Result->{Content} ) {
-                            $EncodeObject->EncodeOutput( \$Result->{Content} );
-                            $Result->{Content} = encode_base64( $Result->{Content}, '' );
-                        }
-                        $Result->{ArticleID} = $Article->{ArticleID};
+                # there is need to store content as base64
+                ATTACHMENT:
+                for my $Result (@Attachments) {
+                    if ( $Result->{Content} ) {
+                        $EncodeObject->EncodeOutput( \$Result->{Content} );
+                        $Result->{Content} = encode_base64( $Result->{Content}, '' );
                     }
+                    $Result->{ArticleID} = $Article->{ArticleID};
+                }
 
-                    $Article->{Attachments} = \@Attachments;
+                $Article->{Attachments} = \@Attachments;
 
-                    if ( !$Param{IgnoreAttachmentsTemp} ) {
-                        push @{ $FAQ->{AttachmentStorageTemp} }, @Attachments;
-                    }
+                if ( !$Param{IgnoreAttachmentsTemp} ) {
+                    push @{ $FAQ->{AttachmentStorageTemp} }, @Attachments;
+                }
 
                 if ( !$Param{IgnoreAttachmentsTemp} ) {
                     $FAQ->{AttachmentStorageClearTemp} = {};
@@ -1976,8 +1981,7 @@ sub ObjectIndexQueueUpdateRule {
                 my $UpdateFAQQueuedNow    = $Param{QueueToAdd}->{Data}->{UpdateFAQ};
 
                 if ( $UpdateFAQQueuedNow && !$UpdateFAQQueuedBefore ) {
-                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateFAQ}
-                        = $UpdateFAQQueuedNow;
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateFAQ} = $UpdateFAQQueuedNow;
                     $Changed = 1;
                 }
 

@@ -61,9 +61,9 @@ sub new {
 
     # specify base config for index
     $Self->{Config} = {
-        IndexRealName        => 'faq_item',      # index name on the engine/sql side
-        IndexName            => 'FAQ',      # index name on the api side
-        Identifier           => 'ID',    # column name that represents object id in the field mapping
+        IndexRealName        => 'faq_item',    # index name on the engine/sql side
+        IndexName            => 'FAQ',         # index name on the api side
+        Identifier           => 'ID',          # column name that represents object id in the field mapping
         ChangeTimeColumnName => 'Changed',     # column representing time of updated data entry
     };
 

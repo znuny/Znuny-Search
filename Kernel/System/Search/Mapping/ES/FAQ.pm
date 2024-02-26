@@ -138,7 +138,7 @@ sub _ResponseDataFormat {
                                 $Hit->{_source}->{Attachments}->[$i]->{Content}
                                     = decode_base64( $Attachment->{Content} );
                             }
-                    
+
                         }
                     }
                     push @{$Objects}, $Hit->{_source};
