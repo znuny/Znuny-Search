@@ -282,17 +282,6 @@ sub Search {
 sub ObjectIndexAdd() {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    my $IndexCheck = $Self->IndexBaseCheck();
-    if ( !$IndexCheck->{Success} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $IndexCheck->{Message},
-        );
-        return;
-    }
-
     return $Self->SUPER::ObjectIndexAdd(
         %Param,
     );
@@ -301,17 +290,6 @@ sub ObjectIndexAdd() {
 sub ObjectIndexSet() {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    my $IndexCheck = $Self->IndexBaseCheck();
-    if ( !$IndexCheck->{Success} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $IndexCheck->{Message},
-        );
-        return;
-    }
-
     return $Self->SUPER::ObjectIndexSet(
         %Param,
     );
@@ -319,17 +297,6 @@ sub ObjectIndexSet() {
 
 sub ObjectIndexUpdate() {
     my ( $Self, %Param ) = @_;
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    my $IndexCheck = $Self->IndexBaseCheck();
-    if ( !$IndexCheck->{Success} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $IndexCheck->{Message},
-        );
-        return;
-    }
 
     # custom handling of update
     if ( IsHashRefWithData( $Param{CustomFunction} ) ) {
@@ -344,17 +311,6 @@ sub ObjectIndexUpdate() {
 
 sub ObjectIndexRemove() {
     my ( $Self, %Param ) = @_;
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    my $IndexCheck = $Self->IndexBaseCheck();
-    if ( !$IndexCheck->{Success} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $IndexCheck->{Message},
-        );
-        return;
-    }
 
     return if !$Self->{ActiveDBBackend}->{ValidBackend};
 

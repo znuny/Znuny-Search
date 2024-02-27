@@ -1210,6 +1210,15 @@ sub ObjectIndexQueueHandle {
         Index => $IndexName,
     );
 
+    my $IndexCheck = $Self->IndexBaseCheck();
+    if ( !$IndexCheck->{Success} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Indexation queue can't proceed due to the error: " . $IndexCheck->{Message},
+        );
+        return;
+    }
+
     my @QueuesToExecute = $Self->ObjectIndexQueueFormat(
         Queue => $Queue,
     );
