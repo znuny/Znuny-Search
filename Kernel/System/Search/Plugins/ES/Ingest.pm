@@ -152,7 +152,7 @@ sub ClusterInit {
             Status     => {
                 Success => $Success,
             },
-            Response => $Response,
+            Response     => $Response,
             ErrorMessage => $@,
         };
     }

@@ -838,11 +838,11 @@ sub ObjectIndexUpdate {
     # or update specified FAQ articles
     # or add specified FAQ articles
     my $IndexBaseData = $Param{UpdateFAQ};
-    my $RunPipeline = $Param{UpdateAttachments} && $Self->{Config}->{Settings}->{IndexAttachments};
+    my $RunPipeline   = $Param{UpdateAttachments} && $Self->{Config}->{Settings}->{IndexAttachments};
 
     $Success = $Self->ObjectIndexGeneric(
         %Param,
-        Function      => '_ObjectIndexUpdateAction',
+        Function            => '_ObjectIndexUpdateAction',
         SetEmptyAttachments => 0,
         NoPermissions       => 1,
         IndexDynamicFields  => $IndexBaseData,
@@ -1330,7 +1330,7 @@ sub IndexMappingSet {
 
     my $DataTypes = $Param{MappingObject}->MappingDataTypesGet();
 
-    my %FAQAttachmentFields       = %{ $Self->{AttachmentFields} };
+    my %FAQAttachmentFields = %{ $Self->{AttachmentFields} };
 
     # add nested type relation for FAQs
     if ( keys %FAQAttachmentFields ) {
@@ -1976,6 +1976,44 @@ sub ObjectIndexQueueUpdateRule {
     }
 
     return;
+}
+
+=head2 IndexBaseCheck()
+
+Checks index for specific base conditions to determine if it can be used.
+
+    my $Result = $SearchFAQESObject->IndexBaseCheck();
+
+=cut
+
+sub IndexBaseCheck {
+    my ( $Self, %Param ) = @_;
+
+    my $ConfigObject     = $Kernel::OM->Get('Kernel::Config');
+    my $ExampleFAQConfig = $ConfigObject->Get("FAQ::Agent::StateTypes");
+
+    return {
+        Success => 1,
+    } if defined $ExampleFAQConfig;
+
+    return {
+        Success => 0,
+        Message => $Self->MessageFAQNotInstalled(),
+    };
+}
+
+=head2 MessageFAQNotInstalled()
+
+return message about not installed faq package
+
+    my $Message = $SearchFAQESObject->MessageFAQNotInstalled();
+
+=cut
+
+sub MessageFAQNotInstalled {
+    my ( $Self, %Param ) = @_;
+
+    return 'FAQ index needs FAQ package to be installed!';
 }
 
 =head2 _PostValidFieldsPrepare()
