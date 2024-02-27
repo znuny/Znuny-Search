@@ -145,7 +145,7 @@ sub ClusterInit {
     if ($@) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => 'Could not set pipeline "attachment_nested" correctly!',
+            Message  => "Could not set pipeline \"attachment_nested_faq\" correctly! Error: $@",
         );
         return {
             PluginName => $Self->{PluginName},
@@ -153,6 +153,7 @@ sub ClusterInit {
                 Success => $Success,
             },
             Response => $Response,
+            ErrorMessage => $@,
         };
     }
     else {

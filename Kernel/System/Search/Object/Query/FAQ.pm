@@ -391,6 +391,7 @@ prepare valid structure output for query params
     my $QueryParams = $SearchQueryFAQObject->_QueryParamsPrepare(
         QueryParams => $Param{QueryParams},
         NoMappingCheck => $Param{NoMappingCheck},
+        QueryFor      => 'SQL', # also possible "Engine"
     );
 
 =cut

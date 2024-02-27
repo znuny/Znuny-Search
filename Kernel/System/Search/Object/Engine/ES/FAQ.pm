@@ -480,11 +480,11 @@ sub ExecuteSearch {
     my %FAQFields        = ( %{$FAQFields}, %{$FAQDynamicFields} );
     my %AttachmentFields = %{$AttachmentFields};
 
-    # build standard ticket query
+    # build standard faq query
     my $Query = $Param{MappingObject}->Search(
         %Param,
         Fields      => \%FAQFields,
-        QueryParams => $SegregatedQueryParams->{Ticket},
+        QueryParams => $SegregatedQueryParams->{FAQ},
         Object      => $IndexName,
         _Source     => 1,
     );
@@ -714,7 +714,7 @@ sub ExecuteSearch {
         %Param,
         Fields     => \%FAQFields,
         Result     => $Response,
-        IndexName  => 'Ticket',
+        IndexName  => $IndexName,
         ResultType => $Param{ResultType} || 'ARRAY',
         QueryData  => {
             Query                 => $Query,
@@ -770,8 +770,11 @@ sub ObjectIndexAdd() {
         %Param,
         Function            => $Param{Function} || '_ObjectIndexAddAction',
         SetEmptyAttachments => 1,
-        RunPipeline         => 1,
         NoPermissions       => 1,
+        IndexDynamicFields  => 1,
+        IndexBaseData       => 1,
+        IndexAttachments    => $Self->{Config}->{Settings}->{IndexAttachments},
+        RunPipeline         => $Self->{Config}->{Settings}->{IndexAttachments},
     );
 }
 
@@ -782,8 +785,11 @@ sub ObjectIndexSet() {
         %Param,
         Function            => '_ObjectIndexSetAction',
         SetEmptyAttachments => 1,
-        RunPipeline         => 1,
         NoPermissions       => 1,
+        IndexDynamicFields  => 1,
+        IndexBaseData       => 1,
+        IndexAttachments    => $Self->{Config}->{Settings}->{IndexAttachments},
+        RunPipeline         => $Self->{Config}->{Settings}->{IndexAttachments},
     );
 }
 
@@ -808,17 +814,8 @@ update object to specified index TODO
 
         # update FAQs found from query params
         # specify at least one, do not combine "UpdateArticle" with "AddArticle"
-        UpdateFAQ  => 1, # base FAQ properties with dynamic fields
-        RebuildAttachment => 5, # FAQ nested attachments with dynamic fields
-                            # possible:
-                            # - any article id: 1
-                            # - array of article ids: [1,2,3,4,5]
-                            # - every article: '*'
-
-        AddAttachment    => 1, # add nested attachments to FAQ
-                            # possible:
-                            # - any attachment id: 1
-                            # - array of attachment ids: [1,2,3,4,5]
+        UpdateFAQ         => 1, # base FAQ properties with dynamic fields
+        UpdateAttachments => 1, # FAQ nested attachments
 
         # perform custom handling
         CustomFunction => {
@@ -840,19 +837,19 @@ sub ObjectIndexUpdate {
     # update base FAQ properties
     # or update specified FAQ articles
     # or add specified FAQ articles
-    if ( $Param{ObjectID} ) {
-        $Param{UpdateFAQ} = 1;
-    }
-    if ( $Param{UpdateFAQ} || $Param{RebuildAttachment} || $Param{AddAttachment} ) {
-        my $RunPipeline = $Param{AddAttachment} || $Param{RebuildAttachment} ? 1 : 0;
+    my $IndexBaseData = $Param{UpdateFAQ};
+    my $RunPipeline = $Param{UpdateAttachments} && $Self->{Config}->{Settings}->{IndexAttachments};
 
-        $Success = $Self->ObjectIndexGeneric(
-            %Param,
-            Function      => '_ObjectIndexUpdateAction',
-            RunPipeline   => $RunPipeline,
-            NoPermissions => 1,
-        );
-    }
+    $Success = $Self->ObjectIndexGeneric(
+        %Param,
+        Function      => '_ObjectIndexUpdateAction',
+        SetEmptyAttachments => 0,
+        NoPermissions       => 1,
+        IndexDynamicFields  => $IndexBaseData,
+        IndexBaseData       => $IndexBaseData,
+        IndexAttachments    => $RunPipeline,
+        RunPipeline         => $RunPipeline,
+    );
 
     # custom handling of update
     if ( IsHashRefWithData( $Param{CustomFunction} ) ) {
@@ -1182,7 +1179,9 @@ sub ObjectIndexGeneric {
                         $Identifier => $SQLDataIDs,
                     },
                     ResultType          => $Param{SQLSearchResultType} || 'ARRAY',
-                    IgnoreAttachments   => 1,
+                    IgnoreBaseData      => !$Param{IndexBaseData},
+                    IgnoreAttachments   => !$Param{IndexAttachments},
+                    IgnoreDynamicFields => !$Param{IndexDynamicFields},
                     NoPermissions       => $Param{NoPermissions},
                     SetEmptyAttachments => $Param{SetEmptyAttachments},
                 );
@@ -1201,15 +1200,16 @@ sub ObjectIndexGeneric {
 
                 # index data in parts
                 for my $OffsetMultiplier ( 0 .. $IterationCount - 1 ) {
-                    my $Offset = $OffsetMultiplier * $ReindexationStep;
-
+                    my $Offset          = $OffsetMultiplier * $ReindexationStep;
                     my $SQLSearchResult = $Self->SQLObjectSearch(
                         %Param,
                         QueryParams => {
                             $Identifier => $SQLDataIDs,
                         },
                         ResultType          => $Param{SQLSearchResultType} || 'ARRAY',
-                        IgnoreArticles      => 1,
+                        IgnoreBaseData      => !$Param{IndexBaseData},
+                        IgnoreAttachments   => !$Param{IndexAttachments},
+                        IgnoreDynamicFields => !$Param{IndexDynamicFields},
                         Offset              => $Offset,
                         Limit               => $ReindexationStep,
                         NoPermissions       => $Param{NoPermissions},
@@ -1242,7 +1242,7 @@ sub ObjectIndexGeneric {
                     Body   => {
                         query => {
                             terms => {
-                                FAQID => $SQLDataIDs,
+                                ID => $SQLDataIDs,
                             },
                         },
                     },
@@ -1265,154 +1265,6 @@ sub ObjectIndexGeneric {
             }
         }
     } while ( $DataCount == $IDLimit );
-
-    return $Success;
-}
-
-=head2 ObjectIndexArticle()
-
-update nested article data on FAQ index
-
-    my $Result = $SearchFAQESObject->ObjectIndexArticle(
-        ArticleData => $Param{ArticleData},
-        Action => 'UpdateArticle', # also possible: 'AddArticle'
-    );
-
-=cut
-
-sub ObjectIndexArticle {
-    my ( $Self, %Param ) = @_;
-
-    my $SearchChildObject         = $Kernel::OM->Get('Kernel::System::Search::Object');
-    my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
-    my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
-    my $ArticleObject             = $Kernel::OM->Get('Kernel::System::Ticket::Article');
-    my $EncodeObject              = $Kernel::OM->Get('Kernel::System::Encode');
-
-    my $ArticleData      = $Param{ArticleData};
-    my $IndexAttachments = $Self->{Config}->{Settings}->{IndexAttachments};
-
-    my $IndexIsValid = $SearchChildObject->IndexIsValid(
-        IndexName => 'FAQ',
-    );
-
-    return if !$IndexIsValid;
-    return if !$ArticleData->{Success};
-    return if !IsArrayRefWithData( $ArticleData->{Data} );
-
-    # check all configured article dynamic fields
-    my $ArticleDynamicFields = $DynamicFieldObject->DynamicFieldListGet(
-        ObjectType => 'Article',
-    );
-
-    my %ArticlesToIndex;
-    my %AttachmentsToIndex;
-    my @AllAttachments;
-
-    my $QuerySource = $IndexAttachments
-        ?
-        "
-ctx._source.AttachmentStorageClearTemp = params.AttachmentStorageClearTemp;
-ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
-"
-        : '';
-
-    my $Success = 1;
-
-    for my $Article ( @{ $ArticleData->{Data} } ) {
-
-        # add article dynamic fields
-        DYNAMICFIELDCONFIG:
-        for my $DynamicFieldConfig ( @{$ArticleDynamicFields} ) {
-
-            # get the current value for each dynamic field
-            my $Value = $DynamicFieldBackendObject->ValueGet(
-                DynamicFieldConfig => $DynamicFieldConfig,
-                ObjectID           => $Article->{ArticleID},
-            );
-
-            $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
-        }
-
-        my @Attachments = ();
-
-        if ($IndexAttachments) {
-            my %Index = $ArticleObject->ArticleAttachmentIndex(
-                FAQID            => $Article->{FAQID},
-                ArticleID        => $Article->{ArticleID},
-                ExcludePlainText => 1,
-                ExcludeHTMLBody  => 1,
-                ExcludeInline    => 1,
-            );
-
-            for my $AttachmentID ( sort keys %Index ) {
-                my %Attachment = $ArticleObject->ArticleAttachment(
-                    FAQID     => $Article->{FAQID},
-                    ArticleID => $Article->{ArticleID},
-                    FileID    => $AttachmentID,
-                );
-
-                push @Attachments, {
-                    ContentAlternative => $Attachment{ContentAlternative},
-                    ContentID          => $Attachment{ContentID},
-                    Disposition        => $Attachment{Disposition},
-                    ContentType        => $Attachment{ContentType},
-                    Filename           => $Attachment{Filename},
-                    ID                 => $AttachmentID,
-                    Content            => $Attachment{Content}
-                };
-            }
-
-            # there is a need to store content as base64
-            # as ingest pipeline needs it to create
-            # readable attachment content
-            ATTACHMENT:
-            for my $Result (@Attachments) {
-                if ( $Result->{Content} ) {
-                    $EncodeObject->EncodeOutput( \$Result->{Content} );
-                    $Result->{Content} = encode_base64( $Result->{Content}, '' );
-                }
-                $Result->{ArticleID} = $Article->{ArticleID};
-            }
-        }
-
-        $Article->{Attachments} = \@Attachments;
-
-        my $ArticleTemp = $Article;
-
-        undef $Article;
-        push @{ $ArticlesToIndex{ $ArticleTemp->{FAQID} } },    $ArticleTemp;
-        push @{ $AttachmentsToIndex{ $ArticleTemp->{FAQID} } }, @{ $ArticleTemp->{Attachments} };
-
-    }
-
-    for my $FAQID ( sort keys %ArticlesToIndex ) {
-
-        my $Query = {
-            Method => 'POST',
-            Path   => "$Self->{Config}->{IndexRealName}/_update/$FAQID",
-            Body   => {
-                script => {
-                    source => $QuerySource,
-                    params => {
-                        Articles              => $ArticlesToIndex{$FAQID}    || [],
-                        AttachmentStorageTemp => $AttachmentsToIndex{$FAQID} || [],
-                        AttachmentStorageClearTemp => {},
-                    }
-                },
-            },
-        };
-
-        my $Response = $Param{EngineObject}->QueryExecute(
-            Operation     => 'Generic',
-            Query         => $Query,
-            ConnectObject => $Param{ConnectObject},
-        );
-
-        $Success = $Param{MappingObject}->ResponseIsSuccess(
-            Response => $Response,
-        ) if $Success;
-    }
 
     return $Success;
 }
@@ -1478,8 +1330,7 @@ sub IndexMappingSet {
 
     my $DataTypes = $Param{MappingObject}->MappingDataTypesGet();
 
-    my $SearchFAQAttachmentObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::FAQAttachment');
-    my %FAQAttachmentFields       = %{ $SearchFAQAttachmentObject->{Fields} };
+    my %FAQAttachmentFields       = %{ $Self->{AttachmentFields} };
 
     # add nested type relation for FAQs
     if ( keys %FAQAttachmentFields ) {
@@ -1503,14 +1354,12 @@ sub IndexMappingSet {
 
     return $Param{MappingObject}->IndexMappingSetFormat(
         %Param,
-        Result => $Response,
-        Config => $Param{Config},
+        Response => $Response,
+        Config   => $Param{Config},
     );
 }
 
 =head2 SQLObjectSearch()
-
-TODO: add support for child "Field" parameters.
 
 search in sql database for objects index related
 
@@ -1623,10 +1472,7 @@ sub SQLObjectSearch {
         FAQ:
         for my $FAQ ( @{ $SQLSearchResult->{Data} } ) {
 
-            #             if ( !$Param{IgnoreAttachmentsTemp} ) {
             $FAQ->{AttachmentStorageTemp} = [];
-
-            #             }
 
             if ( !$Param{IgnoreDynamicFields} ) {
                 DYNAMICFIELDCONFIG:
@@ -1681,16 +1527,8 @@ sub SQLObjectSearch {
                 }
 
                 $FAQ->{Attachments} = \@Attachments;
-
-                #                 if ( !$Param{IgnoreAttachmentsTemp} ) {
                 push @{ $FAQ->{AttachmentStorageTemp} }, @Attachments;
-
-                #                 }
-
-                #                 if ( !$Param{IgnoreAttachmentsTemp} ) {
                 $FAQ->{AttachmentStorageClearTemp} = {};
-
-                #                 }
             }
             elsif ( $Param{SetEmptyAttachments} ) {
                 $FAQ->{Attachments} = [];
@@ -2172,140 +2010,31 @@ sub _PostValidFieldsPrepare {
 sub _ObjectIndexAddAction {
     my ( $Self, %Param ) = @_;
 
-    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-
-    # some FAQs ids with a data to index should be found
     return if !$Param{FAQIDs};
-
-    # index FAQ base values with dfs
-    my $Success = $Self->SUPER::_ObjectIndexAction(
+    return $Self->SUPER::_ObjectIndexAction(
         %Param,
         Function => 'ObjectIndexAdd',
     );
-
-    return if !$Success;
-
-    # index FAQ articles
-    # use article module, but specify index into
-    # "FAQ", so that "ObjectIndexArticle" function will be executed
-    $SearchArticleObject->ObjectIndexAdd(
-        IndexInto   => 'FAQ',
-        QueryParams => {
-            FAQID => $Param{FAQIDs},
-        },
-        Index         => 'Article',
-        MappingObject => $Param{MappingObject},
-        ConnectObject => $Param{ConnectObject},
-        EngineObject  => $Param{EngineObject},
-        Config        => $Param{Config},
-    );
-
-    return $Success;
 }
 
 sub _ObjectIndexUpdateAction {
     my ( $Self, %Param ) = @_;
 
-    my $Success             = 1;
-    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    if ( $Param{UpdateFAQ} ) {
-
-        # index FAQ base values with dfs
-        $Success = $Self->SUPER::_ObjectIndexAction(
-            %Param,
-            Function => 'ObjectIndexUpdate',
-        );
-    }
-    if ( $Param{UpdateAttachment} ) {
-
-        # add FAQ articles
-        $Success = $SearchArticleObject->ObjectIndexUpdateFAQArticles(
-            IndexInto   => 'FAQ',
-            QueryParams => {
-                ArticleID => $Param{AddArticle},
-            },
-            Index         => 'Article',
-            Action        => 'AddArticle',
-            MappingObject => $Param{MappingObject},
-            EngineObject  => $Param{EngineObject},
-            ConnectObject => $Param{ConnectObject},
-            Config        => $Param{Config},
-        ) if $Success;
-    }
-    ARTICLE: {
-        if ( $Param{UpdateArticle} ) {
-            my $QueryParams = {
-                ArticleID => $Param{UpdateArticle}
-            };
-
-            # update all articles
-            if ( $Param{UpdateArticle} eq '*' ) {
-                my @FAQIDs;
-
-                if (
-                    IsHashRefWithData( $Param{DataToIndex} )
-                    &&
-                    IsArrayRefWithData( $Param{DataToIndex}->{Data} )
-                    )
-                {
-                    FAQ:
-                    for my $FAQ ( @{ $Param{DataToIndex}->{Data} } ) {
-                        next FAQ if !IsHashRefWithData($FAQ) || !$FAQ->{FAQID};
-                        push @FAQIDs, $FAQ->{FAQID};
-                    }
-                }
-                last ARTICLE if !scalar @FAQIDs;
-                $QueryParams = {
-                    FAQID => \@FAQIDs,
-                };
-            }
-
-            # update FAQ articles
-            $Success = $SearchArticleObject->ObjectIndexUpdateFAQArticles(
-                IndexInto     => 'FAQ',
-                QueryParams   => $QueryParams,
-                Index         => 'Article',
-                Action        => 'UpdateArticle',
-                MappingObject => $Param{MappingObject},
-                EngineObject  => $Param{EngineObject},
-                ConnectObject => $Param{ConnectObject},
-                Config        => $Param{Config},
-            ) if $Success;
-        }
-    }
-
-    return $Success;
+    return if !$Param{FAQIDs};
+    return $Self->SUPER::_ObjectIndexAction(
+        %Param,
+        Function => 'ObjectIndexUpdate',
+    );
 }
 
 sub _ObjectIndexSetAction {
     my ( $Self, %Param ) = @_;
 
-    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-
     return if !$Param{FAQIDs};
-
-    # index FAQ base values with dfs
-    my $Success = $Self->SUPER::_ObjectIndexAction(
+    return $Self->SUPER::_ObjectIndexAction(
         %Param,
         Function => 'ObjectIndexSet',
     );
-
-    return if !$Success;
-
-    # index FAQ articles
-    $SearchArticleObject->ObjectIndexAdd(
-        IndexInto   => 'FAQ',
-        QueryParams => {
-            FAQID => $Param{FAQIDs},
-        },
-        Index         => 'Article',
-        MappingObject => $Param{MappingObject},
-        ConnectObject => $Param{ConnectObject},
-        EngineObject  => $Param{EngineObject},
-        Config        => $Param{Config},
-    );
-
-    return $Success;
 }
 
 1;
