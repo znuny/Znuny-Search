@@ -143,7 +143,7 @@ sub new {
             Type       => 'Textarea'
         },
         Created => {
-            ColumnName => 'create_time',
+            ColumnName => 'created',
             Type       => 'Date'
         },
         CreatedBy => {

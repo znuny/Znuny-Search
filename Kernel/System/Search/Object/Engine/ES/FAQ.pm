@@ -132,19 +132,19 @@ sub new {
             Type       => 'Textarea'
         },
         Created => {
-            ColumnName => 'create_time',
+            ColumnName => 'created',
             Type       => 'Date'
         },
         CreatedBy => {
-            ColumnName => 'create_by',
+            ColumnName => 'created_by',
             Type       => 'Integer'
         },
         Changed => {
-            ColumnName => 'change_time',
+            ColumnName => 'changed',
             Type       => 'Date'
         },
         ChangedBy => {
-            ColumnName => 'change_by',
+            ColumnName => 'changed_by',
             Type       => 'Integer'
         },
     };
@@ -157,8 +157,10 @@ sub new {
         },
     };
 
+    $Self->{AttachmentFieldID} = 'FileID';
+
     $Self->{AttachmentFields} = {
-        FileID => {
+        $Self->{AttachmentFieldID} => {
             ColumnName => 'id',
             Type       => 'Integer'
         },
