@@ -106,7 +106,10 @@ sub Fallback {
             ReturnDefaultSQLColumnNames => 0,
         );
 
-        return if !$SQLSearchResult->{Success};
+        return {
+            EngineData => {},
+            ObjectData => {},
+        } if !$SQLSearchResult->{Success};
     }
 
     my $Result = {
