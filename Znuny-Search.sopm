@@ -96,6 +96,7 @@
         <File Permission="660" Location="Kernel/System/Search/Admin/Reindexation.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Plugins/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Plugins/ES/Ingest.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Plugins/ES/IngestFAQ.pm"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>

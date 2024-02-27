@@ -1476,29 +1476,19 @@ sub IndexMappingSet {
 
     my $DataTypes = $Param{MappingObject}->MappingDataTypesGet();
 
-    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    my %ArticleFields       = ( %{ $SearchArticleObject->{Fields} }, %{ $SearchArticleObject->{ExternalFields} } );
-    my $AttachmentFields    = $Self->{AttachmentFields};
+    my $SearchFAQAttachmentObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::FAQAttachment');
+    my %FAQAttachmentFields       = %{ $SearchFAQAttachmentObject->{Fields} };
 
-    # add nested type relation for articles
-    if ( keys %ArticleFields ) {
-        $MappingQuery->{Body}->{properties}->{Articles} = {
+    # add nested type relation for FAQs
+    if ( keys %FAQAttachmentFields ) {
+        $MappingQuery->{Body}->{properties}->{Attachments} = {
             type       => 'nested',
-            properties => {
-                Attachments => {
-                    type => 'nested'
-                }
-            }
+            properties => {}
         };
 
-        for my $ArticleFieldName ( sort keys %ArticleFields ) {
-            $MappingQuery->{Body}->{properties}->{Articles}->{properties}->{$ArticleFieldName}
-                = $DataTypes->{ $ArticleFields{$ArticleFieldName}->{Type} };
-        }
-        for my $ArticleFieldName ( sort keys %{$AttachmentFields} ) {
-
-            $MappingQuery->{Body}->{properties}->{Articles}->{properties}->{Attachments}->{properties}
-                ->{$ArticleFieldName} = $DataTypes->{ $AttachmentFields->{$ArticleFieldName}->{Type} };
+        for my $AttachmentFieldName ( sort keys %FAQAttachmentFields ) {
+            $MappingQuery->{Body}->{properties}->{Attachments}->{properties}->{$AttachmentFieldName}
+                = $DataTypes->{ $FAQAttachmentFields{$AttachmentFieldName}->{Type} };
         }
     }
 
@@ -1545,10 +1535,30 @@ sub SQLObjectSearch {
     my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
     my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
     my $FAQObject                 = $Kernel::OM->Get('Kernel::System::FAQ');
+    my $LogObject                 = $Kernel::OM->Get('Kernel::System::Log');
+
+    return {
+        Success => 0,
+        Data    => [],
+    } if !$Param{NoPermissions};
 
     my $QueryParams = $Param{QueryParams};
     my $Fields      = $Param{Fields};
     my $GroupField;
+
+    if ( $Param{IgnoreBaseData} ) {
+        if ( !$Param{NoPermissions} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Can't ignore base data without NoPermissions parameter!",
+            );
+            return {
+                Success => 0,
+                Data    => [],
+            };
+        }
+        $Fields = [ $Self->{Config}->{Identifier} ];
+    }
 
     # fields passed as hash needs to be
     # converted into array due to further calculations
@@ -1611,9 +1621,10 @@ sub SQLObjectSearch {
         FAQ:
         for my $FAQ ( @{ $SQLSearchResult->{Data} } ) {
 
-            if ( !$Param{IgnoreAttachmentsTemp} ) {
-                $FAQ->{AttachmentStorageTemp} = [];
-            }
+            #             if ( !$Param{IgnoreAttachmentsTemp} ) {
+            $FAQ->{AttachmentStorageTemp} = [];
+
+            #             }
 
             if ( !$Param{IgnoreDynamicFields} ) {
                 DYNAMICFIELDCONFIG:
@@ -1665,23 +1676,22 @@ sub SQLObjectSearch {
                         $EncodeObject->EncodeOutput( \$Result->{Content} );
                         $Result->{Content} = encode_base64( $Result->{Content}, '' );
                     }
-                    $Result->{ArticleID} = $Article->{ArticleID};
                 }
 
-                $Article->{Attachments} = \@Attachments;
+                $FAQ->{Attachments} = \@Attachments;
 
-                if ( !$Param{IgnoreAttachmentsTemp} ) {
-                    push @{ $FAQ->{AttachmentStorageTemp} }, @Attachments;
-                }
+                #                 if ( !$Param{IgnoreAttachmentsTemp} ) {
+                push @{ $FAQ->{AttachmentStorageTemp} }, @Attachments;
 
-                if ( !$Param{IgnoreAttachmentsTemp} ) {
-                    $FAQ->{AttachmentStorageClearTemp} = {};
-                }
+                #                 }
 
-                $FAQ->{Articles} = $Articles->{Data};
+                #                 if ( !$Param{IgnoreAttachmentsTemp} ) {
+                $FAQ->{AttachmentStorageClearTemp} = {};
+
+                #                 }
             }
             elsif ( $Param{SetEmptyAttachments} ) {
-                $FAQ->{Articles} = [];
+                $FAQ->{Attachments} = [];
             }
         }
     }
@@ -1703,39 +1713,41 @@ sub SQLObjectSearch {
             push @GroupQueryParam, keys %GroupList;
         }
 
+        my $AllCategoryGroupHashRef;
+        if ( scalar @GroupQueryParam ) {
+            $AllCategoryGroupHashRef = $FAQObject->CategoryGroupGetAll(
+                UserID => 1,
+            );
+        }
+
+        my $NoPermissionCheck = !scalar @GroupQueryParam;
+
+        ROW:
         for my $Row ( @{ $SQLSearchResult->{Data} } ) {
-            if ( $Row->{QueueID} ) {
 
-                # do not use standard queue get function as it
-                # would return cached (old) queue group id
-                # on queue update events
-                # optionally to-do - can be optimized in a way that a parameter
-                # will decide if we can use cached response
-                return if !$DBObject->Prepare(
-                    SQL => '
-                        SELECT group_id
-                        FROM   queue
-                        WHERE  id = ?
-                    ',
-                    Bind => [
-                        \$Row->{QueueID},
-                    ],
-                    Limit => 1,
-                );
+            my $PermissionOk        = $NoPermissionCheck;
+            my $CategoryPermissions = $AllCategoryGroupHashRef->{ $Row->{CategoryID} };
 
-                my @Data         = $DBObject->FetchrowArray();
-                my $QueueGroupID = $Data[0];
+            if ( !$PermissionOk ) {
+                my $GroupIDs;
 
-                # check if FAQ exists in specified groups of user/group params
-                if ( !scalar @GroupQueryParam || grep { $_ == $QueueGroupID } @GroupQueryParam ) {
-
-                    # additionally append GroupID to the response
-                    if ($GroupField) {
-                        $Row->{GroupID} = $QueueGroupID;
+                GROUP:
+                for my $GroupID (@GroupQueryParam) {
+                    if ( $CategoryPermissions->{$GroupID} ) {
+                        $PermissionOk = 1;
+                        last GROUP;
                     }
-                    push @GroupFilteredResult, $Row;
                 }
+            }
 
+            # check if FAQ exists in specified groups of user/group params
+            if ($PermissionOk) {
+
+                # additionally append GroupID to the response
+                if ($GroupField) {
+                    @{ $Row->{GroupID} } = keys %{$CategoryPermissions};
+                }
+                push @GroupFilteredResult, $Row;
             }
         }
         return {
@@ -1928,7 +1940,7 @@ sub ObjectListIDs {
         ResultType          => $Param{ResultType} || 'ARRAY_SIMPLE',
         Limit               => $Param{Limit},
         Offset              => $Param{Offset},
-        IgnoreArticles      => 1,
+        IgnoreAttachments   => 1,
         IgnoreDynamicFields => 1,
         NoPermissions       => 1,
     );
@@ -2143,7 +2155,7 @@ sub _PostValidFieldsPrepare {
 
     my %ValidFields = %{ $Param{ValidFields} };
 
-    for my $Type (qw(FAQ Article)) {
+    for my $Type (qw(FAQ Attachment)) {
         for my $Field ( sort keys %ValidFields ) {
             if ( $ValidFields{$Type}->{$Field} ) {
                 $ValidFields{$Type}->{$Field}->{ReturnType} = 'SCALAR'

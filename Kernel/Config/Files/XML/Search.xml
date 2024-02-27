@@ -352,6 +352,7 @@
         <Value>
             <Hash>
                 <Item Key="Ingest">Kernel::System::Search::Plugins::ES::Ingest</Item>
+                <Item Key="IngestFAQ">Kernel::System::Search::Plugins::ES::IngestFAQ</Item>
             </Hash>
         </Value>
     </Setting>
