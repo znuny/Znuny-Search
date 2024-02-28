@@ -1434,11 +1434,14 @@ sub SQLObjectSearch {
             push @GroupQueryParam, keys %GroupList;
         }
 
-        my $AllCategoryGroupHashRef;
-        if ( scalar @GroupQueryParam ) {
-            $AllCategoryGroupHashRef = $FAQObject->CategoryGroupGetAll(
-                UserID => 1,
-            );
+        my $AllCategoryHashArray;
+        my $AllCategory = $FAQObject->CategoryGroupGetAll(
+            UserID => 1,
+        );
+        if ( scalar @GroupQueryParam || $GroupField ) {
+            for my $CategoryID ( sort keys %{$AllCategory} ) {
+                $AllCategoryHashArray->{$CategoryID} = [ keys %{ $AllCategory->{$CategoryID} } ];
+            }
         }
 
         my $NoPermissionCheck = !scalar @GroupQueryParam;
@@ -1446,8 +1449,10 @@ sub SQLObjectSearch {
         ROW:
         for my $Row ( @{ $SQLSearchResult->{Data} } ) {
 
+            my $CategoryID = $Row->{CategoryID};
+
             my $PermissionOk        = $NoPermissionCheck;
-            my $CategoryPermissions = $AllCategoryGroupHashRef->{ $Row->{CategoryID} };
+            my $CategoryPermissions = $AllCategory->{$CategoryID};
 
             if ( !$PermissionOk ) {
                 my $GroupIDs;
@@ -1466,7 +1471,7 @@ sub SQLObjectSearch {
 
                 # additionally append GroupID to the response
                 if ($GroupField) {
-                    @{ $Row->{GroupID} } = keys %{$CategoryPermissions};
+                    $Row->{GroupID} = $AllCategoryHashArray->{$CategoryID};
                 }
                 push @GroupFilteredResult, $Row;
             }
