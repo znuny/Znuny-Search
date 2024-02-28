@@ -11,7 +11,7 @@ package Kernel::System::Search::Object::Engine::ES::CustomerUser;
 use strict;
 use warnings;
 
-use parent qw( Kernel::System::Search::Object::Default::CustomerUser );
+use parent qw( Kernel::System::Search::Object::Default::CustomerUser Kernel::System::Search::Object::Engine::ES );
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (

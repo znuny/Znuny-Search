@@ -39,6 +39,7 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Default/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/CustomerUser.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/CustomerUser.pm"/>

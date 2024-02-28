@@ -15,10 +15,11 @@ use warnings;
 use MIME::Base64;
 use POSIX qw/ceil/;
 
-use parent qw( Kernel::System::Search::Object::Default::FAQ );
+use parent qw( Kernel::System::Search::Object::Default::FAQ Kernel::System::Search::Object::Engine::ES );
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
+
 );
 
 =head1 NAME
@@ -489,149 +490,29 @@ sub ExecuteSearch {
         _Source     => 1,
     );
 
-    my $FulltextFAQQuery;
-    my $FulltextAttachmentQuery;
+    my $FulltextQuery = $Self->DefaultFulltextQueryBuild(
+        Query               => $Query,
+        AppendIntoQuery     => 1,
+        EngineObject        => $Param{EngineObject},
+        MappingObject       => $Param{MappingObject},
+        Fulltext            => $Fulltext,
+        EntitiesPathMapping => {
+            FAQ => {
+                Path             => '',
+                FieldBuildPrefix => '',
+                Nested           => 0,
+            },
+            Attachment => {
+                Path             => 'Attachments',
+                FieldBuildPrefix => 'Attachments.',
+                Nested           => 1,
+            },
+        },
+        DefaultFields => {},
+        Simple        => 0,
+    );
 
-    # fulltext search
-    if ( defined $Fulltext ) {
-        my $FulltextValue;
-        my $FulltextQueryOperator = 'AND';
-        my $StatementOperator     = 'OR';
-        if ( ref $Fulltext eq 'HASH' && $Fulltext->{Text} ) {
-            $FulltextValue         = $Fulltext->{Text};
-            $FulltextQueryOperator = $Fulltext->{QueryOperator}
-                if $Fulltext->{QueryOperator};
-            $StatementOperator = $Fulltext->{StatementOperator}
-                if $Fulltext->{StatementOperator};
-        }
-        else {
-            $FulltextValue = $Fulltext;
-        }
-        if ( IsArrayRefWithData($FulltextValue) ) {
-            $FulltextValue = join " $StatementOperator ", @{$FulltextValue};
-        }
-        if ( defined $FulltextValue )
-        {
-            my @FulltextQuery;
-
-            my $FulltextHighlight = $Fulltext->{Highlight};
-            my @FulltextHighlightFieldsValid;
-
-            # check validity of highlight fields
-            if ( IsArrayRefWithData($FulltextHighlight) ) {
-                for my $Property ( @{$FulltextHighlight} ) {
-                    my %Field = $Self->ValidFieldsPrepare(
-                        Fields => [$Property],
-                        Object => $IndexName,
-                    );
-
-                    FIELD:
-                    for my $Entity ( sort keys %Field ) {
-                        next FIELD if !IsHashRefWithData( $Field{$Entity} );
-                        push @FulltextHighlightFieldsValid, $Property;
-                        last FIELD;
-                    }
-                }
-            }
-
-            # get fields to search
-            my $FulltextSearchFields = $Fulltext->{Fields};
-            my @FulltextFAQFields;
-            my %FulltextFieldsValid;
-
-            if ( IsArrayRefWithData( $FulltextSearchFields->{FAQ} ) ) {
-                for my $Property ( @{ $FulltextSearchFields->{FAQ} } ) {
-                    my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
-                        Index  => $IndexName,
-                        Entity => $IndexName,
-                        Field  => $Property,
-                    );
-
-                    if ($FulltextField) {
-                        my $Field = $FulltextField;
-                        push @FulltextFAQFields, $Field;
-                        $FulltextFieldsValid{"${IndexName}_${Property}"} = $Field;
-                    }
-                }
-            }
-
-            my @FulltextAttachmentFields;
-            if (
-                IsArrayRefWithData( $FulltextSearchFields->{Attachment} )
-                && $Self->{Config}->{Settings}->{IndexAttachments}
-                )
-            {
-                for my $Property ( @{ $FulltextSearchFields->{Attachment} } ) {
-                    my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
-                        Index  => $IndexName,
-                        Entity => 'Attachment',
-                        Field  => $Property,
-                    );
-
-                    if ($FulltextField) {
-                        my $Field = 'Attachments.' . $FulltextField;
-                        push @FulltextAttachmentFields, $Field;
-                        $FulltextFieldsValid{"Attachment_${Property}"} = $Field;
-                    }
-                }
-            }
-
-            # build highlight query
-            my @HighlightQueryFields;
-            HIGHLIGHT:
-            for my $HighlightField (@FulltextHighlightFieldsValid) {
-                next HIGHLIGHT if !( $FulltextFieldsValid{$HighlightField} );
-                push @HighlightQueryFields, {
-                    $FulltextFieldsValid{$HighlightField} => {},
-                };
-            }
-
-            # clean special characters
-            $FulltextValue = $Param{EngineObject}->QueryStringReservedCharactersClean(
-                String => $FulltextValue,
-            );
-
-            if ( scalar @FulltextFAQFields ) {
-                $FulltextFAQQuery = {
-                    query_string => {
-                        fields           => \@FulltextFAQFields,
-                        query            => "*$FulltextValue*",
-                        default_operator => $FulltextQueryOperator,
-                    },
-                };
-                push @FulltextQuery, $FulltextFAQQuery;
-            }
-
-            if ( scalar @FulltextAttachmentFields ) {
-                $FulltextAttachmentQuery = {
-                    query_string => {
-                        fields           => \@FulltextAttachmentFields,
-                        query            => "*$FulltextValue*",
-                        default_operator => $FulltextQueryOperator,
-                    },
-                };
-                push @FulltextQuery, {
-                    nested => {
-                        path => [
-                            "Attachments"
-                        ],
-                        query => $FulltextAttachmentQuery,
-                    }
-                };
-            }
-
-            if ( scalar @FulltextQuery ) {
-                push @{ $Query->{Body}->{query}->{bool}->{must} }, {
-                    bool => {
-                        should => \@FulltextQuery,
-                    }
-                };
-                if (@HighlightQueryFields) {
-                    $Query->{Body}->{highlight}->{fields} = \@HighlightQueryFields;
-                }
-            }
-        }
-    }
+    return $Self->SearchEmptyResponse(%Param) if !$FulltextQuery->{Success};
 
     my $RetrieveHighlightData = IsHashRefWithData( $Query->{Body}->{highlight} )
         && IsArrayRefWithData( $Query->{Body}->{highlight}->{fields} );

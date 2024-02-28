@@ -12,7 +12,7 @@ use strict;
 use warnings;
 use POSIX qw/ceil/;
 
-use parent qw( Kernel::System::Search::Object::Default::Article );
+use parent qw( Kernel::System::Search::Object::Default::Article Kernel::System::Search::Object::Engine::ES );
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
