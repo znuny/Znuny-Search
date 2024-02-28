@@ -11,6 +11,9 @@ package Kernel::System::Search::Plugins::ES::Ingest;
 use strict;
 use warnings;
 
+use JSON::PP;
+use Kernel::System::VariableCheck qw(IsHashRefWithData);
+
 use parent qw( Kernel::System::Search::Plugins::Base );
 
 our @ObjectDependencies = (
@@ -59,85 +62,117 @@ sub ClusterInit {
 
     my $SearchObject  = $Kernel::OM->Get('Kernel::System::Search');
     my $ConnectObject = $SearchObject->{ConnectObject};
+    my $LogObject     = $Kernel::OM->Get('Kernel::System::Log');
 
-    my $AttachmentNestedPipeline = $ConnectObject->transport()->perform_request(
-        method => "PUT",
-        path   => "_ingest/pipeline/attachment_nested",
-        body   => {
-            description => "Process with ingest attachment",
-            processors  => [
-                {
-                    "foreach" => {
-                        field     => "AttachmentStorageTemp",
-                        processor => {
-                            attachment => {
-                                target_field => "_ingest._value.attachment",
-                                field        => "_ingest._value.Content",
+    my $Response;
+
+    eval {
+        $Response = $ConnectObject->transport()->perform_request(
+            method => "PUT",
+            path   => "_ingest/pipeline/attachment_nested",
+            body   => {
+                description => "Process with ingest attachment",
+                processors  => [
+                    {
+                        "foreach" => {
+                            field     => "AttachmentStorageTemp",
+                            processor => {
+                                attachment => {
+                                    target_field => "_ingest._value.attachment",
+                                    field        => "_ingest._value.Content",
+                                }
                             }
                         }
-                    }
-                },
-                {
-                    script => {
-                        description => "Set attachment content to clear temporary field",
-                        lang        => "painless",
-                        source      => "
-                            for(int i=0;i<ctx.AttachmentStorageTemp.size();i++){
-                                ctx.AttachmentStorageClearTemp[ctx.AttachmentStorageTemp[i].ArticleID + '_' + ctx.AttachmentStorageTemp[i].ID] = ctx.AttachmentStorageTemp[i].attachment.content
-                            }
-                      "
-                    }
-                },
-                {
-                    script => {
-                        description => "Remove temporary attribute",
-                        lang        => "painless",
-                        source      => "
-                            ctx.AttachmentStorageTemp = null;
-                      "
-                    }
-                },
-                {
-                    script => {
-                        description => "Set content type to attachment",
-                        lang        => "painless",
-                        source      => "
-                            ArrayList Articles = ctx.Articles;
-                            for(int i=0;i<Articles.size();i++){
-                                String ArticleID = Articles.get(i).ArticleID;
-                                ArrayList Attachments = Articles.get(i).Attachments;
-                                for(int j=0; j<Attachments.size();j++){
-                                    String AttachmentID = Attachments.get(j).ID;
-                                    for(int k=0; k<ctx.AttachmentStorageClearTemp.size();k++){
-                                        String Key = ArticleID + '_' + AttachmentID;
-                                        if(ctx.AttachmentStorageClearTemp[Key] !== null){
-                                            Attachments[j].AttachmentContent = ctx.AttachmentStorageClearTemp[Key];
+                    },
+                    {
+                        script => {
+                            description => "Set attachment content to clear temporary field",
+                            lang        => "painless",
+                            source      => "
+                                for(int i=0;i<ctx.AttachmentStorageTemp.size();i++){
+                                    ctx.AttachmentStorageClearTemp[ctx.AttachmentStorageTemp[i].ArticleID + '_' + ctx.AttachmentStorageTemp[i].ID] = ctx.AttachmentStorageTemp[i].attachment.content
+                                }
+                          "
+                        }
+                    },
+                    {
+                        script => {
+                            description => "Remove temporary attribute",
+                            lang        => "painless",
+                            source      => "
+                                ctx.AttachmentStorageTemp = null;
+                          "
+                        }
+                    },
+                    {
+                        script => {
+                            description => "Set content type to attachment",
+                            lang        => "painless",
+                            source      => "
+                                ArrayList Articles = ctx.Articles;
+                                for(int i=0;i<Articles.size();i++){
+                                    long ArticleID = Articles.get(i).ArticleID;
+                                    ArrayList Attachments = Articles.get(i).Attachments;
+                                    for(int j=0; j<Attachments.size();j++){
+                                        String AttachmentID = Attachments.get(j).ID;
+                                        for(int k=0; k<ctx.AttachmentStorageClearTemp.size();k++){
+                                            String Key = ArticleID + '_' + AttachmentID;
+                                            if(ctx.AttachmentStorageClearTemp[Key] !== null){
+                                                Attachments[j].AttachmentContent = ctx.AttachmentStorageClearTemp[Key];
+                                            }
                                         }
                                     }
                                 }
-                            }
-                      "
+                          "
+                        }
+                    },
+                    {
+                        script => {
+                            description => "Remove temporary attribute",
+                            lang        => "painless",
+                            source      => "
+                                ctx.AttachmentStorageClearTemp = null;
+                          "
+                        }
                     }
-                },
-                {
-                    script => {
-                        description => "Remove temporary attribute",
-                        lang        => "painless",
-                        source      => "
-                            ctx.AttachmentStorageClearTemp = null;
-                      "
-                    }
-                }
-            ]
-        },
-    );
-
-    return {
-        PluginName => $Self->{PluginName},
-        Status     => {
-            Success => 1,
-        }
+                ]
+            },
+        );
     };
+
+    my $Success = 0;
+
+    if ($@) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => 'Could not set pipeline "attachment_nested" correctly!',
+        );
+        return {
+            PluginName => $Self->{PluginName},
+            Status     => {
+                Success => $Success,
+            },
+            Response => $Response,
+        };
+    }
+    else {
+        if (
+            IsHashRefWithData($Response)
+            && $Response->{acknowledged}
+            && $Response->{acknowledged} == JSON::PP::true()
+            )
+        {
+            $Success = 1;
+        }
+
+        return {
+            PluginName => $Self->{PluginName},
+            Status     => {
+                Success => $Success,
+            },
+            Response => $Response,
+        };
+    }
 }
 
 1;

@@ -127,6 +127,9 @@ Removed temp. changelog entry again.</ChangeLog>
     <CodeInstall Type="post"><![CDATA[
         $Kernel::OM->Get('var::packagesetup::ZnunySearch')->CodeInstall();
     ]]></CodeInstall>
+    <CodeUpgrade Type="post" Version="7.0.2"><![CDATA[
+        $Kernel::OM->Get('var::packagesetup::ZnunySearch')->CodeUpgrade(PreVersion => '7.0.2');
+    ]]></CodeUpgrade>
     <CodeUninstall Type="pre"><![CDATA[
         $Kernel::OM->Get('var::packagesetup::ZnunySearch')->CodeUninstall();
     ]]></CodeUninstall>
