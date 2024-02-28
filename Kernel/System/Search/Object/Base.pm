@@ -1917,7 +1917,7 @@ load fields, custom field mapping
 sub _Load {
     my ( $Self, %Param ) = @_;
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
     if ( $Param{CustomConfigNotSupported} ) {
         $Self->{Fields} = $Param{Fields};

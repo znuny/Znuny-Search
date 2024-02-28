@@ -18,6 +18,7 @@ use parent qw( Kernel::System::Search::Plugins::Base );
 
 our @ObjectDependencies = (
     'Kernel::System::Search',
+    'Kernel::System::Log',
 );
 
 =head1 NAME

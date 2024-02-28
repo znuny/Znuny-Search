@@ -388,7 +388,7 @@ On executing ticket search by Kernel::System::Search:
             Fulltext      => ['elasticsearch', 'kibana'],
             #    OR
             Fulltext      => {
-                Highlight => ['Ticket_Title, 'Article_Body'], # support ResultType: "HASH","ARRAY"
+                Highlight => ['Ticket_Title', 'Article_Body'], # support ResultType: "HASH","ARRAY"
                 Fields => {
                     Ticket => [ 'Title' ],
                     Article => [ 'Body' ],
