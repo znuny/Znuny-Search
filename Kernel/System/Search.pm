@@ -1030,6 +1030,45 @@ sub IndexClear {
     );
 }
 
+=head2 IndexBaseCheck()
+
+checks index for specific base conditions to determine if it can be used
+
+    my $Result = $SearchObject->IndexBaseCheck(
+        Index => $Index,
+    );
+
+=cut
+
+sub IndexBaseCheck {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    return if $Self->{Fallback};
+
+    NEEDED:
+    for my $Needed (qw(Index)) {
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my $MappingObject = $Self->{MappingIndexObject}->{ $Param{Index} };
+
+    return $Kernel::OM->Get("Kernel::System::Search::Object::Default::$Param{Index}")->IndexBaseCheck(
+        %Param,
+        Config        => $Self->{Config},
+        MappingObject => $MappingObject,
+        EngineObject  => $Self->{EngineObject},
+        ConnectObject => $Self->{ConnectObject},
+    );
+}
+
 =head2 ConfigGet()
 
 get basic config for search

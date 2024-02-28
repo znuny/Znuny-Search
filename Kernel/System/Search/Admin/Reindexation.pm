@@ -94,10 +94,10 @@ sub BuildReindexationSection {
             ClusterID => $ClusterConfig->{ClusterID},
             IndexName => $IndexName,
         );
-        my $Percentage = $DataEquality->{$IndexName}->{Percentage};
-        my $Date       = $DataEquality->{$IndexName}->{Date};
+        my $Percentage           = $DataEquality->{$IndexName}->{Percentage};
+        my $LastReindexationTime = $DataEquality->{$IndexName}->{LastReindexationTime};
 
-        my $DisplayData = $Percentage ? "$Percentage% ($Date)" : "Not found";
+        my $DisplayData = $Percentage ? "$Percentage% ($LastReindexationTime)" : "Not found";
         my $Icon        = $ReindexationStatus->{$IndexName}->{Status}
             ? $IconMapping{ $ReindexationStatus->{$IndexName}->{Status} }
             : '';
@@ -224,7 +224,8 @@ set information about data equality for given cluster
         ClusterID                        => $ClusterID,
         Indexes                          => $Indexes,
         NoPermissions                    => 1, # optional
-        UpdateReindexationTimeForIndexes => ['Ticket', 'Article'], # optional
+        IndexesToClearDataEquality       => {"CustomerUser" => 1}, # optional,
+        Verbose                          => 1, # optional
     );
 
 =cut
@@ -236,6 +237,7 @@ sub DataEqualitySet {
     my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $ClusterObject     = $Kernel::OM->Get('Kernel::System::Search::Cluster');
+    my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
 
     return if !IsArrayRefWithData( $Param{Indexes} );
 
@@ -243,11 +245,9 @@ sub DataEqualitySet {
 
     return if $Param{ClusterID} && $ClusterConfig->{ClusterID} != $Param{ClusterID};
 
-    my %IndexesToUpdateReindexTime;
-    %IndexesToUpdateReindexTime = map { $_ => 1 } @{ $Param{UpdateReindexationTimeForIndexes} }
-        if IsArrayRefWithData( $Param{UpdateReindexationTimeForIndexes} );
-
     my @IndexList = $SearchObject->IndexList();
+
+    my $IndexesToClearDataEquality = $Param{IndexesToClearDataEquality} || {};
 
     my @ActiveIndexes;
     INDEX:
@@ -259,9 +259,33 @@ sub DataEqualitySet {
             RealName  => 0,
         );
 
-        if ( $IsValid && ( grep { $_ eq $IndexRealName } @IndexList ) ) {
-            push @ActiveIndexes, $Index;
-            next INDEX;
+        if (
+            $IsValid
+            && ( grep { $_ eq $IndexRealName } @IndexList )
+            &&
+            !$IndexesToClearDataEquality->{$Index}
+            )
+        {
+
+            # index needs to pass base check to apply equality data
+            # otherwise simply reset it
+            my $IndexCheck = $SearchObject->IndexBaseCheck( Index => $Index );
+            if ( $IndexCheck->{Success} ) {
+                push @ActiveIndexes, $Index;
+                next INDEX;
+            }
+            elsif ( $Param{Verbose} ) {
+                my $Message = '';
+
+                if ( $IndexCheck->{Message} ) {
+                    $Message = "\nError: $IndexCheck->{Message}";
+                }
+
+                $LogObject->Log(
+                    Priority => 'error',
+                    Message => "Could not calculate index $Index data equality as it does not pass base check.$Message",
+                );
+            }
         }
 
         my $EntryExists = $Self->DataEqualityGet(
@@ -269,35 +293,22 @@ sub DataEqualitySet {
             IndexName => $Index,
         );
 
-        my $ReindexationTimeUpdateSQL  = '';
-        my $ReindexationTimeUpdateSQL2 = '';
-
         if ($EntryExists) {
-            if ( $IndexesToUpdateReindexTime{$Index} ) {
-                $ReindexationTimeUpdateSQL = ', last_reindexation = current_timestamp';
-            }
-
             return if !$DBObject->Do(
                 SQL => '
                     UPDATE   search_cluster_data_equality
-                    SET      percentage = 0, change_time = current_timestamp ' . $ReindexationTimeUpdateSQL . '
+                    SET      percentage = 0, change_time = current_timestamp, last_reindexation = current_timestamp
                     WHERE    cluster_id = ? AND index_name = ?
                 ',
                 Bind => [ \$Param{ClusterID}, \$Index, ]
             );
         }
         else {
-            if ( $IndexesToUpdateReindexTime{$Index} ) {
-                $ReindexationTimeUpdateSQL  = ', last_reindexation';
-                $ReindexationTimeUpdateSQL2 = ', current_timestamp';
-            }
-
             # cannot find index on engine side, set it percentage on 0%
             return if !$DBObject->Do(
                 SQL => '
-                    INSERT INTO   search_cluster_data_equality (cluster_id, index_name, percentage, create_time, change_time'
-                    . $ReindexationTimeUpdateSQL . ')
-                    VALUES        (?, ?, 0, current_timestamp, current_timestamp' . $ReindexationTimeUpdateSQL2 . ')
+                    INSERT INTO   search_cluster_data_equality (cluster_id, index_name, percentage, create_time, change_time, last_reindexation)
+                    VALUES        (?, ?, 0, current_timestamp, current_timestamp, current_timestamp)
                 ',
                 Bind => [ \$Param{ClusterID}, \$Index, ]
             );
@@ -340,33 +351,21 @@ sub DataEqualitySet {
             IndexName => $Index,
         );
 
-        my $ReindexationTimeUpdateSQL  = '';
-        my $ReindexationTimeUpdateSQL2 = '';
-
         if ($EntryExists) {
-            if ( $IndexesToUpdateReindexTime{$Index} ) {
-                $ReindexationTimeUpdateSQL = ', last_reindexation = current_timestamp';
-            }
-
             return if !$DBObject->Do(
                 SQL => '
                     UPDATE   search_cluster_data_equality
-                    SET      percentage = ?, change_time = current_timestamp' . $ReindexationTimeUpdateSQL . '
+                    SET      percentage = ?, change_time = current_timestamp, last_reindexation = current_timestamp
                     WHERE    cluster_id = ? AND index_name = ?
                 ',
                 Bind => [ \$IndexEqualityPercentage->{$Index}, \$Param{ClusterID}, \$Index ]
             );
         }
         else {
-            if ( $IndexesToUpdateReindexTime{$Index} ) {
-                $ReindexationTimeUpdateSQL  = ', last_reindexation';
-                $ReindexationTimeUpdateSQL2 = ', current_timestamp';
-            }
             return if !$DBObject->Do(
                 SQL => '
-                    INSERT INTO   search_cluster_data_equality (cluster_id, index_name, percentage, create_time, change_time'
-                    . $ReindexationTimeUpdateSQL . ')
-                    VALUES        (?, ?, ?, current_timestamp, current_timestamp' . $ReindexationTimeUpdateSQL2 . ')
+                    INSERT INTO   search_cluster_data_equality (cluster_id, index_name, percentage, create_time, change_time, last_reindexation)
+                    VALUES        (?, ?, ?, current_timestamp, current_timestamp, current_timestamp)
                 ',
                 Bind => [ \$Param{ClusterID}, \$Index, \$IndexEqualityPercentage->{$Index} ]
             );

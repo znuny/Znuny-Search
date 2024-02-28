@@ -302,6 +302,7 @@ sub Run {
                 $Index,
                 '--recreate',
                 'latest',
+                '--from-gui'
             );
         }
 
@@ -392,6 +393,7 @@ sub Run {
             Indexes       => \@IndexArray,
             ClusterID     => $ClusterID,
             NoPermissions => 1,
+            Verbose       => 1,
         );
 
         my $JSON = $LayoutObject->JSONEncode(
