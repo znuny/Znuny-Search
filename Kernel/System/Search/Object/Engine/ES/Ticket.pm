@@ -71,6 +71,11 @@ sub new {
         ChangeTimeColumnName => 'Changed',     # column representing time of updated data entry
     };
 
+    # load settings for index
+    $Self->{Config}->{Settings} = $Self->LoadSettings(
+        IndexName => $Self->{Config}->{IndexName},
+    );
+
     # define schema for data
     my $FieldMapping = {
         TicketID => {
@@ -241,7 +246,7 @@ sub new {
             Type       => 'Textarea',
             Alias      => 1,
         },
-    };
+    } if $Self->{Config}->{Settings}->{IndexAttachments};
 
     # define searchable fields
     # that can be used as query parameters
@@ -634,7 +639,11 @@ sub ExecuteSearch {
             }
 
             my @FulltextAttachmentFields;
-            if ( IsArrayRefWithData( $FulltextSearchFields->{Attachment} ) ) {
+            if (
+                IsArrayRefWithData( $FulltextSearchFields->{Attachment} )
+                && $Self->{Config}->{Settings}->{IndexAttachments}
+                )
+            {
                 for my $Property ( @{ $FulltextSearchFields->{Attachment} } ) {
                     my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
                         Index  => 'Ticket',
@@ -1472,8 +1481,9 @@ sub ObjectIndexGeneric {
                 }
             }
 
-            # run pipeline if needed
-            if ( $Param{RunPipeline} ) {
+            # run pipeline if needed, but only when indexing attachments
+            # as pipeline is only for them to build readable content
+            if ( $Param{RunPipeline} && $Self->{Config}->{Settings}->{IndexAttachments} ) {
                 $SearchObject->IndexRefresh(
                     Index => 'Ticket',
                 );
@@ -1532,7 +1542,8 @@ sub ObjectIndexArticle {
     my $ArticleObject             = $Kernel::OM->Get('Kernel::System::Ticket::Article');
     my $EncodeObject              = $Kernel::OM->Get('Kernel::System::Encode');
 
-    my $ArticleData = $Param{ArticleData};
+    my $ArticleData      = $Param{ArticleData};
+    my $IndexAttachments = $Self->{Config}->{Settings}->{IndexAttachments};
 
     my $IndexIsValid = $SearchChildObject->IndexIsValid(
         IndexName => 'Ticket',
@@ -1583,7 +1594,7 @@ for(int i=0;i<ArticlesToIndex.size();i++){
         "
 ctx._source.AttachmentStorageClearTemp = params.AttachmentStorageClearTemp;
 ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
-";
+" if $IndexAttachments;
 
     my $Success = 1;
 
@@ -1602,44 +1613,46 @@ ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
             $Article->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
         }
 
-        my %Index = $ArticleObject->ArticleAttachmentIndex(
-            TicketID         => $Article->{TicketID},
-            ArticleID        => $Article->{ArticleID},
-            ExcludePlainText => 1,
-            ExcludeHTMLBody  => 1,
-            ExcludeInline    => 1,
-        );
-
         my @Attachments = ();
 
-        for my $AttachmentID ( sort keys %Index ) {
-            my %Attachment = $ArticleObject->ArticleAttachment(
-                TicketID  => $Article->{TicketID},
-                ArticleID => $Article->{ArticleID},
-                FileID    => $AttachmentID,
+        if ($IndexAttachments) {
+            my %Index = $ArticleObject->ArticleAttachmentIndex(
+                TicketID         => $Article->{TicketID},
+                ArticleID        => $Article->{ArticleID},
+                ExcludePlainText => 1,
+                ExcludeHTMLBody  => 1,
+                ExcludeInline    => 1,
             );
 
-            push @Attachments, {
-                ContentAlternative => $Attachment{ContentAlternative},
-                ContentID          => $Attachment{ContentID},
-                Disposition        => $Attachment{Disposition},
-                ContentType        => $Attachment{ContentType},
-                Filename           => $Attachment{Filename},
-                ID                 => $AttachmentID,
-                Content            => $Attachment{Content}
-            };
-        }
+            for my $AttachmentID ( sort keys %Index ) {
+                my %Attachment = $ArticleObject->ArticleAttachment(
+                    TicketID  => $Article->{TicketID},
+                    ArticleID => $Article->{ArticleID},
+                    FileID    => $AttachmentID,
+                );
 
-        # there is a need to store content as base64
-        # as ingest pipeline needs it to create
-        # readable attachment content
-        ATTACHMENT:
-        for my $Result (@Attachments) {
-            if ( $Result->{Content} ) {
-                $EncodeObject->EncodeOutput( \$Result->{Content} );
-                $Result->{Content} = encode_base64( $Result->{Content}, '' );
+                push @Attachments, {
+                    ContentAlternative => $Attachment{ContentAlternative},
+                    ContentID          => $Attachment{ContentID},
+                    Disposition        => $Attachment{Disposition},
+                    ContentType        => $Attachment{ContentType},
+                    Filename           => $Attachment{Filename},
+                    ID                 => $AttachmentID,
+                    Content            => $Attachment{Content}
+                };
             }
-            $Result->{ArticleID} = $Article->{ArticleID};
+
+            # there is a need to store content as base64
+            # as ingest pipeline needs it to create
+            # readable attachment content
+            ATTACHMENT:
+            for my $Result (@Attachments) {
+                if ( $Result->{Content} ) {
+                    $EncodeObject->EncodeOutput( \$Result->{Content} );
+                    $Result->{Content} = encode_base64( $Result->{Content}, '' );
+                }
+                $Result->{ArticleID} = $Article->{ArticleID};
+            }
         }
 
         $Article->{Attachments} = \@Attachments;
@@ -2131,6 +2144,7 @@ sub ValidFieldsPrepare {
                     Name => $DynamicFieldName,
                 );
 
+                next PARAMFIELD if !IsHashRefWithData($DynamicFieldConfig);
                 next PARAMFIELD if $ObjectType ne $DynamicFieldConfig->{ObjectType};
 
                 if ( IsHashRefWithData($DynamicFieldConfig) && $DynamicFieldConfig->{Name} ) {
@@ -2185,7 +2199,7 @@ sub ValidFieldsPrepare {
         }
 
         # apply "Attachment" fields
-        elsif ( $ParamField =~ m{^Attachment_(.+)$} ) {
+        elsif ( $ParamField =~ m{^Attachment_(.+)$} && $Self->{Config}->{Settings}->{IndexAttachments} ) {
             my $AttachmentField = $1;
 
             if ( $AttachmentField && $AttachmentField eq '*' ) {

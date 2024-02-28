@@ -325,6 +325,15 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="SearchEngine::Settings::Index::ES::Ticket###000-Framework" Required="0" Valid="1">
+        <Description Translatable="1">Settings used to configure specified index for Elasticsearch search engine.</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="IndexAttachments" ValueType="String" ValueRegex="^0|1$">1</Item>
+            </Hash>
+        </Value>
+    </Setting>
     <Setting Name="SearchEngine::Loader::Index::ES::Plugins###000-Framework" Required="0" Valid="1">
         <Description Translatable="1">Registers Elasticsearch engine plugin.</Description>
         <Navigation>Core::Search</Navigation>

@@ -473,6 +473,10 @@ sub _QueryFieldCheck {
     my ( $Self, %Param ) = @_;
 
     return 1 if $Param{Name} eq "GroupID";
+    if ( $Param{Name} =~ m{\A(Attachment_.+)} && !$Self->{IndexConfig}->{Settings}->{IndexAttachments} ) {
+        return;
+    }
+
     return 1 if $Param{Name} =~ m{\A(DynamicField_.+)|(Article_DynamicField_.+)|(Attachment_.+)};
 
     if ( $Param{Name} =~ m{\AArticle_(.+)} ) {

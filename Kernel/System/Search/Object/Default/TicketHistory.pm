@@ -66,6 +66,11 @@ sub new {
         ChangeTimeColumnName => 'Changed',            # column representing time of updated data entry
     };
 
+    # load settings for index
+    $Self->{Config}->{Settings} = $Self->LoadSettings(
+        IndexName => $Self->{Config}->{IndexName},
+    );
+
     # define schema for data
     my $FieldMapping = {
         TicketHistoryID => {

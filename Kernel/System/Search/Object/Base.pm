@@ -1753,6 +1753,51 @@ sub CustomFunction {
     return $Result;
 }
 
+=head2 LoadSettings()
+
+load object settings for index
+
+    my $Settings = $SearchBaseObject->LoadSettings(
+        IndexName => 'Ticket',
+    );
+
+=cut
+
+sub LoadSettings {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    my $IndexSettings = {};
+    return $IndexSettings if !$SearchObject->{Config}->{ActiveEngine};
+
+    if ( !$Param{IndexName} ) {
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter 'IndexName' is needed!",
+        );
+
+        return $IndexSettings;
+    }
+
+    my $SettingsConfig = $ConfigObject->Get(
+        "SearchEngine::Settings::Index::$SearchObject->{Config}->{ActiveEngine}::$Param{IndexName}"
+    );
+
+    if ( IsHashRefWithData($SettingsConfig) ) {
+
+        # priority of settings is supported
+        for my $Setting ( sort values %{$SettingsConfig} ) {
+            %{$IndexSettings} = ( %{$IndexSettings}, %{$Setting} );
+        }
+    }
+
+    return $IndexSettings;
+}
+
 =head2 _Load()
 
 load fields, custom field mapping
