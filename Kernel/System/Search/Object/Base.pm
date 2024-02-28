@@ -1931,7 +1931,7 @@ sub _Load {
         %{ $Self->{Fields} } = ( %{ $Param{Fields} }, %{ $Config->{Fields} } );
     }
 
-    $Self->{OperatorMapping} = $SearchObject->{DefaultOperatorMapping};
+    $Self->{OperatorMapping} = $SearchChildObject->{DefaultOperatorMapping};
 
     return 1;
 }
