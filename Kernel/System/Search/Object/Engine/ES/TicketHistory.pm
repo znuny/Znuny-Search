@@ -199,6 +199,8 @@ sub ExecuteSearch {
 
     if ( defined $Fulltext ) {
         my $FulltextValue;
+        my $FulltextHighlight;
+        my $FulltextFields;
         my $FulltextQueryOperator = 'AND';
         my $StatementOperator     = 'OR';
         if ( ref $Fulltext eq 'HASH' && $Fulltext->{Text} ) {
@@ -207,6 +209,8 @@ sub ExecuteSearch {
                 if $Fulltext->{QueryOperator};
             $StatementOperator = $Fulltext->{StatementOperator}
                 if $Fulltext->{StatementOperator};
+            $FulltextHighlight = $Fulltext->{Highlight};
+            $FulltextFields    = $Fulltext->{Fields};
         }
         else {
             $FulltextValue = $Fulltext;
@@ -217,8 +221,6 @@ sub ExecuteSearch {
         if ( defined $FulltextValue && $Fulltext->{Fields} )
         {
             my @FulltextQuery;
-
-            my $FulltextHighlight = $Fulltext->{Highlight};
             my @FulltextHighlightFieldsValid;
 
             # check validity of highlight fields
@@ -239,7 +241,7 @@ sub ExecuteSearch {
             }
 
             # get fields to search
-            my $FulltextSearchFields = $Fulltext->{Fields};
+            my $FulltextSearchFields = $FulltextFields;
             my @FulltextFields;
             my %FulltextFieldsValid;
 
