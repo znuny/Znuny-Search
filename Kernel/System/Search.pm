@@ -204,7 +204,7 @@ search for specified object data
         UseSQLSearch => 1 # define if sql search should be used,
         RetrieveEngineData => { # optional, get additional custom engine data alongside with the object results,
                                 # please look at Kernel::System::Search::Mapping::*ActiveEngine*::RetrievableEngineDataSearchMappingGet for more parameters
-            TotalHits => 1,     # example parameter
+            TotalHits => 'All',     # example parameter
         },
     );
 
