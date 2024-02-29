@@ -107,7 +107,14 @@ sub Search {
             @{ $Body{fields} } = keys %{ $Param{Fields} };
         }
 
-        $Body{track_total_hits} = 'true' if $Param{RetrieveEngineData}->{TotalHits};
+        if ( $Param{RetrieveEngineData}->{TotalHits} ) {
+            if ( $Param{RetrieveEngineData}->{TotalHits} eq 'All' ) {
+                $Body{track_total_hits} = 'true';
+            }
+            else {
+                $Body{track_total_hits} = $Param{RetrieveEngineData}->{TotalHits};
+            }
+        }
     }
     else {
         $QueryPath .= '_count';
