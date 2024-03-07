@@ -421,7 +421,7 @@ sub _QueryParamsPrepare {
     # so response would always be empty
     if ( delete $LookupQueryParams->{Error} ) {
         %QueryParams = (
-            ID => -1,
+            ItemID => -1,
         );
     }
 
