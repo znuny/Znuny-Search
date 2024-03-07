@@ -537,23 +537,10 @@ sub ExecuteSearch {
         }
     }
 
-    my $NestedAttachmentQueryBuilt     = IsHashRefWithData( $AttachmentNestedQuery->{nested}->{query} ) ? 1 : 0;
-    my $NestedAttachmentFieldsToSelect = keys %AttachmentFields                                         ? 1 : 0;
+    my $NestedAttachmentQueryBuilt = IsHashRefWithData( $AttachmentNestedQuery->{nested}->{query} ) ? 1 : 0;
 
-    # apply nested article query if there is any valid query param
-    # from either article or attachment
-    if (
-        $NestedAttachmentQueryBuilt
-        )
-    {
-        # apply in article query an attachment query if there is any
-        # query param or field regarding attachment
-        if ($NestedAttachmentQueryBuilt) {
-            push @{ $AttachmentNestedQuery->{nested}->{query}->{bool}->{must} }, $AttachmentNestedQuery;
-        }
-
-        push @{ $Query->{Body}->{query}->{bool}->{must} }, $AttachmentNestedQuery;
-    }
+    # apply nested attachment query if it was built
+    push @{ $Query->{Body}->{query}->{bool}->{must} }, $AttachmentNestedQuery if $NestedAttachmentQueryBuilt;
 
     # execute query
     my $Response = $Param{EngineObject}->QueryExecute(
