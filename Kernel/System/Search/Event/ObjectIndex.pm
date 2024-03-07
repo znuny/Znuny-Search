@@ -65,9 +65,12 @@ sub Run {
     my $IndexName              = $Param{Config}->{IndexName};
     my $IndexSearchObject      = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
     my $ObjectIdentifierColumn = $IndexSearchObject->{Config}->{Identifier};
-    my $ObjectID               = $Param{Data}->{$ObjectIdentifierColumn};
+    my $ObjectIDs              = ref $Param{Data}->{$ObjectIdentifierColumn} eq 'ARRAY'
+        ?
+        $Param{Data}->{$ObjectIdentifierColumn}
+        : [ $Param{Data}->{$ObjectIdentifierColumn} ];
 
-    if ( !$ObjectID ) {
+    if ( !IsArrayRefWithData($ObjectIDs) ) {
         $LogObject->Log(
             Priority => 'error',
             Message  => "Need ObjectID ($ObjectIdentifierColumn) in event Data!"
@@ -85,14 +88,16 @@ sub Run {
         $AdditionalValueParameters = $DecodedJSON // '';
     }
 
-    $SearchChildObject->IndexObjectQueueEntry(
-        Index => $IndexName,
-        Value => {
-            Operation => $Param{Config}->{FunctionName},
-            ObjectID  => $ObjectID,
-            Data      => $AdditionalValueParameters,
-        },
-    );
+    for my $ID ( @{$ObjectIDs} ) {
+        $SearchChildObject->IndexObjectQueueEntry(
+            Index => $IndexName,
+            Value => {
+                Operation => $Param{Config}->{FunctionName},
+                ObjectID  => $ID,
+                Data      => $AdditionalValueParameters,
+            },
+        );
+    }
 
     return 1;
 }
