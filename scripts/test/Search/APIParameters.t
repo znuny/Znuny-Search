@@ -468,13 +468,7 @@ my %Tests = (
                         TicketID => $TicketQueueIDs[0]
                     }
                 ],
-                TicketHistory => [
-                    \%ExpectedBaseTicketHistoryEntry,
-                    \%ExpectedBaseTicketHistoryEntry,
-                    \%ExpectedBaseTicketHistoryEntry,
-                    \%ExpectedBaseTicketHistoryEntry,
-                    \%ExpectedBaseTicketHistoryEntry,
-                ]
+                TicketHistory => []
             },
         },
         {

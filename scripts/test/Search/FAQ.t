@@ -590,8 +590,26 @@ $Search = $SearchObject->Search(
 # user that did not had any permissions initially should have it now
 $Self->True(
     scalar @{ $Search->{FAQ} },
-    "Base FAQ search response check after changed no permissions to permissions access - user without permissions.",
+    "Base FAQ search response check after changed no permissions to permissions access - user without initial permissions.",
 );
+
+$Search = $SearchObject->Search(
+    Objects     => ["FAQ"],
+    QueryParams => {
+        ItemID => $ItemID,
+        UserID => $UserIDWithGrantedAccess,    # test permissions
+    },
+    Fields => [ [ 'FAQ_*', 'Attachment_*' ] ]
+);
+
+# user that had initially permissions should not have it anymore
+$Self->False(
+    scalar @{ $Search->{FAQ} },
+    "Base FAQ search response check after changed permissions to no permissions access - user with initial permissions.",
+);
+
+# switch users
+$UserIDWithGrantedAccess = $UserIDWithNoAccess;
 
 # add two attachments to FAQ
 my @AttachmentIDs;
