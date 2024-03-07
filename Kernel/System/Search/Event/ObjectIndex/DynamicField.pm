@@ -27,6 +27,7 @@ sub new {
         Ticket       => 1,
         Article      => 1,
         CustomerUser => 1,
+        FAQ          => 1,
     };
 
     return $Self;
