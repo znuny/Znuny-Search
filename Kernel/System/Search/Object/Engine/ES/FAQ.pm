@@ -250,26 +250,23 @@ On executing FAQ search by Kernel::System::Search:
         Objects => ["FAQ"],
         QueryParams => {
             # standard FAQ fields
-            FAQID => 1,
-            FAQNumber => 2022101276000016,
+            ItemID => 1,
+            Number => 2022101276000016,
             Title => 'some-title',
-            QueueID => 1,
-            LockID => 1,
-            TypeID => 1,
-            ServiceID => 1,
-            SLAID => 1,
-            OwnerID => 1,
-            ResponsibleID => 1,
-            PriorityID => 1,
+            Name => 'faq-name',
+            LanguageID => 1,
             StateID => 1,
-            CustomerID => '333',
-            CustomerUserID => 'some-customer-user-id',
-            UnlockTimeout => 0,
-            EscalationTime => 0,
-            EscalationUpdateTime => 0,
-            EscalationResponseTime => 0,
-            EscalationSolutionTime => 0,
-            ArchiveFlag => 1,
+            CategoryID => 1,
+            Approved => 1,
+            ValidID => 1,
+            ContentType => 'text/html',
+            Keywords => 'some keywords here',
+            Field1 => 'field1',
+            Field2 => 'field2',
+            Field3 => 'field3',
+            Field4 => 'field4',
+            Field5 => 'field5',
+            Field6 => 'field6',
             Created => "2022-08-17 13:13:23",
             CreateBy => 1,
             Changed => "2022-08-17 13:13:39",
@@ -279,28 +276,19 @@ On executing FAQ search by Kernel::System::Search:
             DynamicField_Text => 'TextValue',
             DynamicField_Multiselect => [1,2,3],
 
-            # article fields (denormalized)
-            Article_From => 'value',
-            Article_To => 'value',
-            Article_Cc => 'value',
-            Article_Subject => 'value',
-            Article_Body => 'value',
-            Article_*OtherArticleValues* => 'value',
-            Article_SenderTypeID => 'value',
-            Article_CommunicationChannelID => 'value',
-            Article_IsVisibleForCustomer => 1/0
-
-            # article dynamic fields
-            Article_DynamicField_Text => 'TextValue',
-            Article_DynamicField_Multiselect => [1,2,3],
-
             # attachments
-            Attachment_ContentAlternative => 'value',
-            Attachment_ContentID          => 'value',
-            Attachment_Disposition        => 'value',
-            Attachment_ContentType        => 'value',
-            Attachment_Filename           => 'value',
-            Attachment_ID                 => 'value',
+            Attachment_FileID            => 'value',
+            Attachment_Filename          => 'value',
+            Attachment_Filesize          => 'value',
+            Attachment_FilesizeRaw       => 'value',
+            Attachment_ContentType       => 'value',
+            Attachment_Content           => 'value',
+            Attachment_AttachmentContent => 'value', # readable content
+            Attachment_Inline            => 'value',
+            Attachment_Created           => "2022-08-17 13:13:23",
+            Attachment_CreateBy          => 1,
+            Attachment_Changed           => "2022-08-17 13:13:39",
+            Attachment_ChangeBy          => 1,
 
             # attachment ingest plugin field, use to search in attachment content as pdf, ppt, xls etc.
             Attachment_AttachmentContent => {
@@ -325,23 +313,13 @@ On executing FAQ search by Kernel::System::Search:
             # can be combined with its IDs alternative (will match
             # by "AND" operator as any other fields)
             # operators syntax is not supported on those fields
-            Queue        => ['Misc', 'Junk'], # search by queue name
-            SLA          => ['SLA5min'],
-            SLAID        => [1],
-            Lock         => ['Locked'],
-            Type         => ['Unclassified', 'Classified'],
-            Service      => ['PremiumService'],
-            Owner        => ['root@localhost'],
-            Responsible  => ['root@localhost'],
-            Priority     => ['3 normal'],
-            State        => ['open'],
-            StateType    => ['new', 'open'],
-            Customer     => ['customer123', 'customer12345'], # search by customer name
-            CustomerUser => ['customeruser123', 'customeruser12345'], # same as CustomerUserID,
-                                                                      # possible to use because of compatibility with
-                                                                      # FAQ API
-            ChangeByLogin => ['root@localhost'],
-            CreateByLogin => ['root@localhost'],
+            CategoryName        => ['Misc', 'Junk'], # search by queue name
+            CategoryShortName          => ['SLA5min'],
+            Language        => [1],
+            Valid         => ['Locked'],
+            State         => ['Unclassified', 'Classified'],
+            StateTypeName      => ['PremiumService'],
+
 
             # fulltext parameter can be used to search by properties specified
             # in sysconfig "SearchEngine::ES::FAQSearchFields###Fulltext"
@@ -350,6 +328,11 @@ On executing FAQ search by Kernel::System::Search:
             Fulltext      => ['elasticsearch', 'kibana'],
             #    OR
             Fulltext      => {
+                Fields => {             # or specify fields yourselves
+                   FAQ => ['Name', 'Title'],
+                   Attachment => ['Filename', 'Filesize']
+                },
+                Highlight => ['FAQ_Name', 'FAQ_Title', 'Attachment_Filename'],
                 Text => ['elasticsearch', 'kibana'],
                 QueryOperator => 'AND', # determine if all words from specified
                                         # value needs to match
@@ -376,15 +359,9 @@ On executing FAQ search by Kernel::System::Search:
             # - FAQ dynamic fields (all): [['FAQ_DynamicField_*']]
             # - FAQ dynamic fields (specified): [['FAQ_DynamicField_multiselect', 'FAQ_DynamicField_dropdown']]
             # - FAQ "GroupID" field (external field): [['FAQ_GroupID']]
-            # - article fields (all): [['Article_*']]
-            # - article field (specified): [['Article_Body']]
-            # - article dynamic fields (all): [['Article_DynamicField_*']]
-            # - article dynamic field (specified): [['Article_DynamicField_Body']]
             # - attachment (all standard fields + AttachmentContent): [['Attachment_*']]
             # - attachment (specified): [['Attachment_ContentID']]
     );
-
-    Parameter "AdvancedSearchQuery" is not supported on this object.
 
 =cut
 
