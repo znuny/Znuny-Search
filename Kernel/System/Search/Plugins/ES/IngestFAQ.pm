@@ -69,27 +69,32 @@ sub ClusterInit {
 
     eval {
         $Response = $ConnectObject->transport()->perform_request(
-            method => "PUT",
-            path   => "_ingest/pipeline/attachment_nested_faq",
+            method => 'PUT',
+            path   => '_ingest/pipeline/attachment_nested_faq',
             body   => {
-                description => "Process with ingest attachment for FAQ",
+                description => 'Process with ingest attachment for FAQ',
                 processors  => [
                     {
                         "foreach" => {
-                            field     => "AttachmentStorageTemp",
+                            field     => 'AttachmentStorageTemp',
+                            if        => "ctx['AttachmentStorageTemp'] != null",
                             processor => {
                                 attachment => {
-                                    target_field => "_ingest._value.attachment",
-                                    field        => "_ingest._value.Content",
+                                    target_field   => '_ingest._value.attachment',
+                                    field          => '_ingest._value.Content',
+                                    properties     => ['content'],
+                                    ignore_missing => JSON::PP::true(),
                                 }
                             }
-                        }
+                        },
                     },
                     {
                         script => {
+                            if          => "ctx['AttachmentStorageTemp'] != null",
                             description => "Set attachment content to clear temporary field",
                             lang        => "painless",
                             source      => "
+
                                 for(int i=0;i<ctx.AttachmentStorageTemp.size();i++){
                                     ctx.AttachmentStorageClearTemp[Integer.toString(ctx.AttachmentStorageTemp[i].FileID)] = ctx.AttachmentStorageTemp[i].attachment.content
                                 }
@@ -98,15 +103,17 @@ sub ClusterInit {
                     },
                     {
                         script => {
+                            if          => "ctx['AttachmentStorageTemp'] != null",
                             description => "Remove temporary attribute",
                             lang        => "painless",
                             source      => "
-                                ctx.remove('AttachmentStorageTemp');
+                                ctx.AttachmentStorageTemp = null;
                           "
                         }
                     },
                     {
                         script => {
+                            if          => "ctx['AttachmentStorageClearTemp'] != null",
                             description => "Set content type to attachment",
                             lang        => "painless",
                             source      => "
@@ -122,10 +129,11 @@ sub ClusterInit {
                     },
                     {
                         script => {
+                            if          => "ctx['AttachmentStorageClearTemp'] != null",
                             description => "Remove temporary attribute",
                             lang        => "painless",
                             source      => "
-                                ctx.remove('AttachmentStorageClearTemp');
+                                ctx.AttachmentStorageClearTemp = null
                           "
                         }
                     }

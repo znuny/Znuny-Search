@@ -114,6 +114,16 @@ sub Run {
             }
         };
     }
+    elsif ( $DynamicFieldConfig->{ObjectType} eq 'FAQ' ) {
+        $AdditionalParameters = {
+            UpdateFAQ => 1,
+        };
+        $IndexToUpdate = 'FAQ';
+        $ObjectID      = $Param{Data}->{ItemID};
+        $SearchQuery   = {
+            ObjectID => $ObjectID,
+        };
+    }
 
     # create unique id
     my $UniqueID = 'f' . $DynamicFieldConfig->{ID} . 'o' . $ObjectID;

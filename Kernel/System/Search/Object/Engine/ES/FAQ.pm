@@ -53,7 +53,7 @@ sub new {
     $Self->{Config} = {
         IndexRealName        => 'faq_item',    # index name on the engine/sql side
         IndexName            => 'FAQ',         # index name on the api side
-        Identifier           => 'ID',          # column name that represents object id in the field mapping
+        Identifier           => 'ItemID',      # column name that represents object id in the field mapping
         ChangeTimeColumnName => 'Changed',     # column representing time of updated data entry
     };
 
@@ -64,7 +64,7 @@ sub new {
 
     # define schema for data
     my $FieldMapping = {
-        ID => {
+        ItemID => {
             ColumnName => 'id',
             Type       => 'Integer'
         },
@@ -158,10 +158,8 @@ sub new {
         },
     };
 
-    $Self->{AttachmentFieldID} = 'FileID';
-
     $Self->{AttachmentFields} = {
-        $Self->{AttachmentFieldID} => {
+        FileID => {
             ColumnName => 'id',
             Type       => 'Integer'
         },
@@ -676,7 +674,7 @@ sub ObjectIndexSet() {
 
 =head2 ObjectIndexUpdate()
 
-update object to specified index TODO
+update object faq or/and attachment, additionally execute custom function if needed
 
     my $Success = $SearchObject->ObjectIndexUpdate(
         Index    => 'FAQ',
@@ -684,19 +682,19 @@ update object to specified index TODO
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
                        # indexing (for example in elastic search engine)
+        # or
+        QueryParams => { # do not combine QueryParams with AddAttachment/DeleteAttachment
+                         # this is mainly used to execute CustomFunctions or index base data
+            FAQID => [1,2,3],
+        },
 
         ObjectID => 1, # possible:
                        # - for single object indexing: 1
                        # - for multiple object indexing: [1,2,3]
-        # or
-        QueryParams => {
-            FAQID => [1,2,3],
-        },
 
-        # update FAQs found from query params
-        # specify at least one, do not combine "UpdateArticle" with "AddArticle"
-        UpdateFAQ         => 1, # base FAQ properties with dynamic fields
-        UpdateAttachments => 1, # FAQ nested attachments
+        UpdateFAQ        => 1, # base FAQ properties with dynamic fields
+        AddAttachment    => [1,2,3], # add FAQ nested attachments
+        DeleteAttachment => [4,5,6], # delete FAQ nested attachments
 
         # perform custom handling
         CustomFunction => {
@@ -715,22 +713,42 @@ sub ObjectIndexUpdate {
     my $Success   = 1;
     my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
 
+    my $AddOrDeleteAttachmentAction = $Param{AddAttachment} || $Param{DeleteAttachment};
+
+    if ($AddOrDeleteAttachmentAction) {
+        if ( $Param{QueryParams} ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "QueryParams parameter not supported!",
+            );
+        }
+        elsif ( IsArrayRefWithData( $Param{ObjectID} ) ) {
+            $LogObject->Log(
+                Priority => 'error',
+                Message  => "Multiple ObjectID parameter not supported!",
+            );
+        }
+    }
+
     # update base FAQ properties
-    # or update specified FAQ articles
-    # or add specified FAQ articles
+    # or delete specified FAQ attachments
+    # or add specified FAQ attachments
     my $IndexBaseData = $Param{UpdateFAQ};
-    my $RunPipeline   = $Param{UpdateAttachments} && $Self->{Config}->{Settings}->{IndexAttachments};
+    my $RunPipeline   = $Self->{Config}->{Settings}->{IndexAttachments} && (
+        $AddOrDeleteAttachmentAction
+    ) ? 1 : 0;
 
     $Success = $Self->ObjectIndexGeneric(
         %Param,
-        Function            => '_ObjectIndexUpdateAction',
-        SetEmptyAttachments => 0,
-        NoPermissions       => 1,
-        IndexDynamicFields  => $IndexBaseData,
-        IndexBaseData       => $IndexBaseData,
-        IndexAttachments    => $RunPipeline,
-        RunPipeline         => $RunPipeline,
-    );
+        Function                 => '_ObjectIndexUpdateAction',
+        SetEmptyAttachments      => 0,
+        NoPermissions            => 1,
+        IndexDynamicFields       => $IndexBaseData,
+        IndexBaseData            => $IndexBaseData,
+        IndexAttachments         => 0,
+        IndexAttachmentsSeparate => $RunPipeline,
+        RunPipeline              => $RunPipeline,
+    ) if $AddOrDeleteAttachmentAction || $IndexBaseData;
 
     # custom handling of update
     if ( IsHashRefWithData( $Param{CustomFunction} ) ) {
@@ -742,11 +760,11 @@ sub ObjectIndexUpdate {
 
 =head2 ObjectIndexUpdateGroupID()
 
-update FAQs group id, do not use nested objects as query params
+update FAQs group ids
 
     my $Success = $SearchFAQESObject->ObjectIndexUpdateGroupID(
         Params => {
-            NewGroupID => 1,
+            NewGroupID => [1,2,3],
         }
         ConnectObject => $ConnectObject,
         EngineObject => $EngineObject,
@@ -755,7 +773,6 @@ update FAQs group id, do not use nested objects as query params
 
 =cut
 
-# TODO
 sub ObjectIndexUpdateGroupID {
     my ( $Self, %Param ) = @_;
 
@@ -771,7 +788,7 @@ sub ObjectIndexUpdateGroupID {
         }
     }
 
-    if ( !$Param{Params}->{NewGroupID} ) {
+    if ( !$Param{Params}->{NewGroupID} || ref $Param{Params}->{NewGroupID} ne 'ARRAY' ) {
         $LogObject->Log(
             Priority => 'error',
             Message  => "Need 'NewGroupID'!"
@@ -1113,7 +1130,7 @@ sub ObjectIndexGeneric {
             # as pipeline is only for them to build readable content
             if ( $Param{RunPipeline} && $Self->{Config}->{Settings}->{IndexAttachments} ) {
                 $SearchObject->IndexRefresh(
-                    Index => 'FAQ',
+                    Index => $Self->{Config}->{IndexName},
                 );
 
                 # run attachment pipeline after indexation
@@ -1123,7 +1140,7 @@ sub ObjectIndexGeneric {
                     Body   => {
                         query => {
                             terms => {
-                                ID => $SQLDataIDs,
+                                $Self->{Config}->{Identifier} => $SQLDataIDs,
                             },
                         },
                     },
@@ -1138,7 +1155,7 @@ sub ObjectIndexGeneric {
                     },
                 };
 
-                $Param{EngineObject}->QueryExecute(
+                my $Response = $Param{EngineObject}->QueryExecute(
                     Operation     => 'Generic',
                     Query         => $Query,
                     ConnectObject => $Param{ConnectObject},
@@ -1353,8 +1370,6 @@ sub SQLObjectSearch {
         FAQ:
         for my $FAQ ( @{ $SQLSearchResult->{Data} } ) {
 
-            $FAQ->{AttachmentStorageTemp} = [];
-
             if ( !$Param{IgnoreDynamicFields} ) {
                 DYNAMICFIELDCONFIG:
                 for my $DynamicFieldConfig ( @{$FAQDynamicFieldList} ) {
@@ -1362,7 +1377,7 @@ sub SQLObjectSearch {
                     # get the current value for each dynamic field
                     my $Value = $DynamicFieldBackendObject->ValueGet(
                         DynamicFieldConfig => $DynamicFieldConfig,
-                        ObjectID           => $FAQ->{FAQID},
+                        ObjectID           => $FAQ->{ItemID},
                     );
 
                     $FAQ->{ 'DynamicField_' . $DynamicFieldConfig->{Name} } = $Value;
@@ -1373,39 +1388,13 @@ sub SQLObjectSearch {
 
             if ( !$Param{IgnoreAttachments} ) {
 
-                # search for attachments
-                my @Index = $FAQObject->AttachmentIndex(
-                    ItemID     => $FAQ->{ID},
+                $FAQ->{AttachmentStorageTemp} = [];
+
+                my @Attachments = $Self->_AttachmentsGet(
+                    ItemID     => $FAQ->{ItemID},
                     ShowInline => 1,
                     UserID     => 1,
                 );
-
-                for my $Attachment (@Index) {
-                    my %Attachment = $FAQObject->AttachmentGet(
-                        ItemID => $FAQ->{ID},
-                        FileID => $Attachment->{FileID},
-                        UserID => 1,
-                    );
-
-                    push @Attachments, {
-                        Inline      => $Attachment->{Inline},
-                        Filesize    => $Attachment{Filesize},
-                        FilesizeRaw => $Attachment->{FilesizeRaw},
-                        ContentType => $Attachment{ContentType},
-                        Filename    => $Attachment{Filename},
-                        FileID      => $Attachment->{FileID},
-                        Content     => $Attachment{Content}
-                    };
-                }
-
-                # there is need to store content as base64
-                ATTACHMENT:
-                for my $Result (@Attachments) {
-                    if ( $Result->{Content} ) {
-                        $EncodeObject->EncodeOutput( \$Result->{Content} );
-                        $Result->{Content} = encode_base64( $Result->{Content}, '' );
-                    }
-                }
 
                 $FAQ->{Attachments} = \@Attachments;
                 push @{ $FAQ->{AttachmentStorageTemp} }, @Attachments;
@@ -1440,7 +1429,7 @@ sub SQLObjectSearch {
         );
         if ( scalar @GroupQueryParam || $GroupField ) {
             for my $CategoryID ( sort keys %{$AllCategory} ) {
-                $AllCategoryHashArray->{$CategoryID} = [ keys %{ $AllCategory->{$CategoryID} } ];
+                $AllCategoryHashArray->{$CategoryID} = [ sort keys %{ $AllCategory->{$CategoryID} } ];
             }
         }
 
@@ -1534,9 +1523,6 @@ sub ValidFieldsPrepare {
     my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
     my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
 
-    my $SearchArticleObject = $Kernel::OM->Get('Kernel::System::Search::Object::Default::Article');
-    my %AllArticleFields    = ( %{ $SearchArticleObject->{Fields} }, %{ $SearchArticleObject->{ExternalFields} } );
-
     my $AllAttachmentFields = $Self->{AttachmentFields};
 
     PARAMFIELD:
@@ -1544,13 +1530,12 @@ sub ValidFieldsPrepare {
 
         # get information about field types if field
         # matches specified regexp
-        if ( $ParamField =~ m{\A(FAQ|Article)_DynamicField_(.+)} ) {
-            my $ObjectType       = $1;
-            my $DynamicFieldName = $2;
+        if ( $ParamField =~ m{\AFAQ_DynamicField_(.+)} ) {
+            my $DynamicFieldName = $1;
 
             if ( $DynamicFieldName eq '*' ) {
                 my $DynamicFieldList = $DynamicFieldObject->DynamicFieldListGet(
-                    ObjectType => $ObjectType,
+                    ObjectType => 'FAQ',
                 );
 
                 for my $DynamicFieldConfig ( @{$DynamicFieldList} ) {
@@ -1559,7 +1544,7 @@ sub ValidFieldsPrepare {
                     );
 
                     next PARAMFIELD if !$Info->{ColumnName};
-                    $ValidFields{ $ObjectType . '_DynamicField' }->{ $Info->{ColumnName} } = $Info;
+                    $ValidFields{'FAQ_DynamicField'}->{ $Info->{ColumnName} } = $Info;
                 }
             }
             else {
@@ -1569,16 +1554,16 @@ sub ValidFieldsPrepare {
                 );
 
                 next PARAMFIELD if !IsHashRefWithData($DynamicFieldConfig);
-                next PARAMFIELD if $ObjectType ne $DynamicFieldConfig->{ObjectType};
+                next PARAMFIELD if 'FAQ' ne $DynamicFieldConfig->{ObjectType};
 
                 if ( IsHashRefWithData($DynamicFieldConfig) && $DynamicFieldConfig->{Name} ) {
                     my $Info = $SearchQueryObject->_QueryDynamicFieldInfoGet(
-                        ObjectType         => $ObjectType,
+                        ObjectType         => 'FAQ',
                         DynamicFieldConfig => $DynamicFieldConfig,
                     );
 
                     next PARAMFIELD if !$Info->{ColumnName};
-                    $ValidFields{ $ObjectType . '_DynamicField' }->{ $Info->{ColumnName} } = $Info;
+                    $ValidFields{'FAQ_DynamicField'}->{ $Info->{ColumnName} } = $Info;
                 }
             }
         }
@@ -1723,85 +1708,76 @@ sub ObjectIndexQueueUpdateRule {
                     $Changed = 1;
                 }
 
-                my $AddArticleQueuedBefore    = $QueuedOperation->{Data}->{AddArticle}    || '';
-                my $UpdateArticleQueuedBefore = $QueuedOperation->{Data}->{UpdateArticle} || '';
-                my $UpdateArticleQueuedNow    = $Param{QueueToAdd}->{Data}->{UpdateArticle};
-
-                # check if articles to update has been queued now
-                if ( IsArrayRefWithData($UpdateArticleQueuedNow) && $UpdateArticleQueuedBefore ne '*' ) {
-                    my $ArticlesToQueue     = $UpdateArticleQueuedNow;
-                    my %QueuedArticleIDsNow = map { $_ => 1 } @{$ArticlesToQueue};
-
-                    # if there was any article add queued before
-                    # then check if any of the same ids was also
-                    # queued to update and prevent it as add operation
-                    # have higher priority
-                    if ( IsArrayRefWithData($AddArticleQueuedBefore) ) {
-                        my %QueuedArticleAddIDsBefore = map { $_ => 1 } @{$AddArticleQueuedBefore};
-                        for my $QueuedArticleAddBefore ( sort keys %QueuedArticleAddIDsBefore ) {
-                            delete $QueuedArticleIDsNow{$QueuedArticleAddBefore};
-                        }
-                        @{$ArticlesToQueue} = keys %QueuedArticleIDsNow;
+                my %AttachmentQueue = (
+                    Add => {
+                        Actual => ref( $QueuedOperation->{Data}->{AddAttachment} ) eq 'ARRAY'
+                        ? { map { $_ => 1 } @{ $QueuedOperation->{Data}->{AddAttachment} } }
+                        : {},
+                        Now => ref( $Param{QueueToAdd}->{Data}->{AddAttachment} ) eq 'ARRAY'
+                        ? { map { $_ => 1 } @{ $Param{QueueToAdd}->{Data}->{AddAttachment} } }
+                        : {},
+                    },
+                    Delete => {
+                        Actual => ref( $QueuedOperation->{Data}->{DeleteAttachment} ) eq 'ARRAY'
+                        ? { map { $_ => 1 } @{ $QueuedOperation->{Data}->{DeleteAttachment} } }
+                        : {},
+                        Now => ref( $Param{QueueToAdd}->{Data}->{DeleteAttachment} ) eq 'ARRAY'
+                        ? { map { $_ => 1 } @{ $Param{QueueToAdd}->{Data}->{DeleteAttachment} } }
+                        : {},
                     }
-                    if ( IsArrayRefWithData($UpdateArticleQueuedBefore) ) {
-                        my %QueuedArticleIDsBefore = map { $_ => 1 } @{$UpdateArticleQueuedBefore};
-                        my %MergedArticleIDs       = ( %QueuedArticleIDsBefore, %QueuedArticleIDsNow );
-                        my @MergedArticleIDsArray  = keys %MergedArticleIDs;
+                );
 
-                        $ArticlesToQueue = \@MergedArticleIDsArray;
-                    }
-                    if ( IsArrayRefWithData($ArticlesToQueue) ) {
-                        $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle}
-                            = $ArticlesToQueue;
-                        $Changed = 1;
-                    }
-                }
-                elsif ( $UpdateArticleQueuedNow && $UpdateArticleQueuedNow eq '*' ) {
-                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle} = '*';
-                    $Changed = 1;
-                }
+                if ( keys( %{ $AttachmentQueue{Add}->{Now} } ) || ( keys %{ $AttachmentQueue{Delete}->{Now} } ) ) {
 
-                my $AddArticleQueuedNow = $Param{QueueToAdd}->{Data}->{AddArticle};
+                    # case added now
+                    ATTACHMENT:
+                    for my $AttachmentID ( sort keys %{ $AttachmentQueue{Add}->{Now} } ) {
 
-                # check if articles to add has been queued now
-                if ( IsArrayRefWithData($AddArticleQueuedNow) ) {
-                    my $ArticlesToQueue     = $AddArticleQueuedNow;
-                    my %QueuedArticleIDsNow = map { $_ => 1 } @{$ArticlesToQueue};
-
-                    # if there was any article update queued before
-                    # then check if any of the same ids was also
-                    # queued to add and override it as add operation
-                    # have higher priority
-                    if ( IsArrayRefWithData($UpdateArticleQueuedBefore) ) {
-                        my %QueuedArticleUpdateIDsBefore = map { $_ => 1 } @{$UpdateArticleQueuedBefore};
-                        for my $QueuedArticleAddNow ( sort keys %QueuedArticleIDsNow ) {
-                            delete $QueuedArticleUpdateIDsBefore{$QueuedArticleAddNow};
-                        }
-                        my @ArticlesToUpdate = keys %QueuedArticleUpdateIDsBefore;
-
-                        if ( scalar @ArticlesToUpdate ) {
-                            $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle}
-                                = \@ArticlesToUpdate;
-                        }
-                        else {
-                            delete $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{UpdateArticle};
-                        }
-
+                        # already exists
+                        next ATTACHMENT if $AttachmentQueue{Add}->{Actual}->{$AttachmentID};
+                        # queue to add
+                        $AttachmentQueue{Add}->{Actual}->{$AttachmentID} = 1;
                         $Changed = 1;
                     }
 
-                    if ( IsArrayRefWithData($AddArticleQueuedBefore) ) {
-                        my %QueuedArticleIDsBefore = map { $_ => 1 } @{$AddArticleQueuedBefore};
-                        my %MergedArticleIDs       = ( %QueuedArticleIDsBefore, %QueuedArticleIDsNow );
-                        my @MergedArticleIDsArray  = keys %MergedArticleIDs;
+                    # case deleted now
+                    ATTACHMENT:
+                    for my $AttachmentID ( sort keys %{ $AttachmentQueue{Delete}->{Now} } ) {
 
-                        $ArticlesToQueue = \@MergedArticleIDsArray;
+                        # already exists
+                        next ATTACHMENT if $AttachmentQueue{Delete}->{Actual}->{$AttachmentID};
+
+                        # check if attachment to be queued to delete is added to add action
+                        my $AttachmentAddExists = $AttachmentQueue{Add}->{Actual}->{$AttachmentID};
+
+                        # attachment queued to be added, then to be deleted
+                        # clear both queue actions as doing nothing is equal to add, then delete an attachment
+                        if ($AttachmentAddExists) {
+                            # delete attachment from add queue
+                            delete $AttachmentQueue{Add}->{Actual}->{$AttachmentID};
+                            # delete attachment from delete queue
+                            delete $AttachmentQueue{Delete}->{Actual}->{$AttachmentID};
+                            $Changed = 1;
+                            next ATTACHMENT;
+                        }
+
+                        # queue attachment to delete
+                        $AttachmentQueue{Delete}->{Actual}->{$AttachmentID} = 1;
+                        $Changed = 1;
                     }
-                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{AddArticle} = $ArticlesToQueue;
-                    $Changed = 1;
                 }
 
+                # attachment queue was changed in some way
                 if ($Changed) {
+                    my @AttachmentsToQueueToAdd    = sort keys %{ $AttachmentQueue{Add}->{Actual} };
+                    my @AttachmentsToQueueToDelete = sort keys %{ $AttachmentQueue{Delete}->{Actual} };
+
+                    # update queue
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{AddAttachment}
+                        = \@AttachmentsToQueueToAdd;
+                    $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1]->{Data}->{DeleteAttachment}
+                        = \@AttachmentsToQueueToDelete;
+
                     return 2 if $SearchChildObject->IndexObjectQueueUpdate(
                         %{ $Param{Queue}->{ObjectID}->{$ObjectIDQueueToAdd}->[-1] },
                         ID => $QueuedOperation->{ID},
@@ -1945,10 +1921,27 @@ sub _ObjectIndexUpdateAction {
     my ( $Self, %Param ) = @_;
 
     return if !$Param{FAQIDs};
-    return $Self->SUPER::_ObjectIndexAction(
+
+    my $DataToIndex = $Param{DataToIndex};
+    my $Success;
+
+    if ( $Param{IndexAttachmentsSeparate} ) {
+        my $FAQID = $Param{DataToIndex}->{Data}->[0]->{ItemID};
+
+        $Success = $Self->_AttachmentsIndex(
+            %Param,
+            ItemID => $FAQID,
+        ) if $FAQID;
+    }
+
+    # index standard properties
+    $Success = $Self->SUPER::_ObjectIndexAction(
         %Param,
-        Function => 'ObjectIndexUpdate',
-    );
+        Function    => 'ObjectIndexUpdate',
+        DataToIndex => $DataToIndex,
+    ) if $Param{IndexBaseData} || $Param{IndexDynamicFields};
+
+    return $Success;
 }
 
 sub _ObjectIndexSetAction {
@@ -1959,6 +1952,220 @@ sub _ObjectIndexSetAction {
         %Param,
         Function => 'ObjectIndexSet',
     );
+}
+
+=head2 _AttachmentsIndex()
+
+add or delete specified attachment ids for faq
+
+    my $Success = $SearchFAQESObject->_AttachmentsIndex(
+        ItemID            => 1,
+        AddAttachment    => [1,2,3],
+        DeleteAttachment => [4,5,6],
+    );
+
+=cut
+
+sub _AttachmentsIndex {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(ItemID)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    return 1 if !IsArrayRefWithData( $Param{AddAttachment} ) && !IsArrayRefWithData( $Param{DeleteAttachment} );
+    my $ItemID = $Param{ItemID};
+
+    my @AttachmentsToAdd;
+    my $AttachmentsToDelete = $Param{DeleteAttachment};
+
+    my $QuerySourceBase = "
+ArrayList Attachments = ctx._source.Attachments;";
+    my $QuerySourceFull = '';
+
+    if ( IsArrayRefWithData( $Param{AddAttachment} ) ) {
+        @AttachmentsToAdd = $Self->_AttachmentsGet(
+            ItemID     => $ItemID,
+            FilesID    => $Param{AddAttachment},
+            ShowInline => 1,
+            UserID     => 1,
+        );
+
+        # add attachments
+        $QuerySourceFull .= '
+ArrayList AttachmentsToAdd = params.AttachmentsToAdd;
+for(int i=0;i<AttachmentsToAdd.size();i++){
+    ctx._source.Attachments.add(AttachmentsToAdd[i]);
+}
+ctx._source.AttachmentStorageTemp = AttachmentsToAdd;
+ctx._source.AttachmentStorageClearTemp = new HashMap();
+' if scalar @AttachmentsToAdd;
+
+    }
+    if ( IsArrayRefWithData($AttachmentsToDelete) ) {
+
+        # add attachments
+        $QuerySourceFull .= "
+for(int i=0;i<AttachmentsToDelete.size();i++){
+    for(int j=0;j<Attachments.size();j++){
+        if(Attachments[j].FileID == AttachmentsToDelete[i].FileID){
+            ctx._source.Attachments.remove(j);
+            break;
+        }
+    }
+}
+"
+    }
+
+    return if !$QuerySourceFull;
+    $QuerySourceFull = $QuerySourceBase . $QuerySourceFull;
+
+    my $Query = {
+        Method => 'POST',
+        Path   => "$Self->{Config}->{IndexRealName}/_update/$ItemID",
+        Body   => {
+            script => {
+                source => $QuerySourceFull,
+                params => {
+                    AttachmentsToAdd    => \@AttachmentsToAdd   || [],
+                    AttachmentsToDelete => $AttachmentsToDelete || [],
+                }
+            },
+        },
+        QS => {
+            timeout => '30s',
+            refresh => 'true',
+        }
+    };
+
+    my $Response = $Param{EngineObject}->QueryExecute(
+        Operation     => 'Generic',
+        Query         => $Query,
+        ConnectObject => $Param{ConnectObject},
+    );
+
+    my $Success = $Param{MappingObject}->ResponseIsSuccess(
+        Response => $Response,
+    );
+
+    # response did not thrown an error and there was some attachments added
+    # in that case run pipeline that will process it's content into readable content
+    if ( $Success && scalar @AttachmentsToAdd ) {
+
+        # run attachment pipeline after indexation
+        my $Query = {
+            Method => 'POST',
+            Path   => "$Self->{Config}->{IndexRealName}/_update_by_query",
+            Body   => {
+                query => {
+                    terms => {
+                        $Self->{Config}->{Identifier} => [$ItemID],
+                    },
+                },
+            },
+            QS => {
+                pipeline => 'attachment_nested_faq',
+                timeout  => '30s',
+                refresh  => 'true',
+            },
+        };
+
+        my $Response = $Param{EngineObject}->QueryExecute(
+            Operation     => 'Generic',
+            Query         => $Query,
+            ConnectObject => $Param{ConnectObject},
+        );
+
+        return $Param{MappingObject}->ResponseIsSuccess(
+            Response => $Response,
+        );
+    }
+
+    return;
+}
+
+=head2 _AttachmentsGet()
+
+get attachments for faq item
+
+    my @Attachments = $SearchFAQESObject->_AttachmentsGet(
+        ItemID => 1,
+        FilesID => [1,2,3],
+        ShowInline => 1,
+    );
+
+=cut
+
+sub _AttachmentsGet {
+    my ( $Self, %Param ) = @_;
+
+    my $FAQObject    = $Kernel::OM->Get('Kernel::System::FAQ');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $EncodeObject = $Kernel::OM->Get('Kernel::System::Encode');
+
+    NEEDED:
+    for my $Needed (qw(ItemID UserID)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    # search for attachments
+    my @Index = $FAQObject->AttachmentIndex(
+        ItemID     => $Param{ItemID},
+        ShowInline => $Param{ShowInline} || 1,
+        UserID     => $Param{UserID},
+    );
+
+    my @Attachments;
+
+    my $FilesIDParam = $Param{FilesID} // [];
+    my %FilesID      = map { $_ => 1 } @{$FilesIDParam};
+
+    ATTACHMENT:
+    for my $Attachment (@Index) {
+
+        # ignore attachment if needed to be filtered by id
+        next ATTACHMENT if keys %FilesID && !$FilesID{ $Attachment->{FileID} };
+
+        my %Attachment = $FAQObject->AttachmentGet(
+            ItemID => $Param{ItemID},
+            FileID => $Attachment->{FileID},
+            UserID => 1,
+        );
+
+        if ( $Attachment{Content} ) {
+            $EncodeObject->EncodeOutput( \$Attachment{Content} );
+            $Attachment{Content} = encode_base64( $Attachment{Content}, '' );
+        }
+
+        push @Attachments, {
+            Inline      => $Attachment->{Inline},
+            Filesize    => $Attachment{Filesize},
+            FilesizeRaw => $Attachment->{FilesizeRaw},
+            ContentType => $Attachment{ContentType},
+            Filename    => $Attachment{Filename},
+            FileID      => $Attachment->{FileID},
+            Content     => $Attachment{Content}
+        };
+    }
+
+    return @Attachments;
 }
 
 1;

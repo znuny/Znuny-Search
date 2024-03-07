@@ -76,16 +76,20 @@ sub ClusterInit {
                     {
                         "foreach" => {
                             field     => "AttachmentStorageTemp",
+                            if        => "ctx['AttachmentStorageTemp'] != null",
                             processor => {
                                 attachment => {
-                                    target_field => "_ingest._value.attachment",
-                                    field        => "_ingest._value.Content",
+                                    target_field   => "_ingest._value.attachment",
+                                    field          => "_ingest._value.Content",
+                                    properties     => ['content'],
+                                    ignore_missing => JSON::PP::true(),
                                 }
                             }
                         }
                     },
                     {
                         script => {
+                            if          => "ctx['AttachmentStorageTemp'] != null",
                             description => "Set attachment content to clear temporary field",
                             lang        => "painless",
                             source      => "
@@ -97,6 +101,7 @@ sub ClusterInit {
                     },
                     {
                         script => {
+                            if          => "ctx['AttachmentStorageTemp'] != null",
                             description => "Remove temporary attribute",
                             lang        => "painless",
                             source      => "
@@ -106,6 +111,7 @@ sub ClusterInit {
                     },
                     {
                         script => {
+                            if          => "ctx['AttachmentStorageClearTemp'] != null",
                             description => "Set content type to attachment",
                             lang        => "painless",
                             source      => "
@@ -128,6 +134,7 @@ sub ClusterInit {
                     },
                     {
                         script => {
+                            if          => "ctx['AttachmentStorageClearTemp'] != null",
                             description => "Remove temporary attribute",
                             lang        => "painless",
                             source      => "
