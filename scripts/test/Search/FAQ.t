@@ -132,12 +132,6 @@ my $Object = {
                     NoPermission => 1,
                 }
             ],
-            Update => [
-                {
-                    Name    => 'some-category2',
-                    GroupID => [ 2, 3 ],
-                }
-            ],
         },
         State => {
             Name => 'some-state',
@@ -247,13 +241,6 @@ my $UserIDWithGrantedAccess = $UserObject->UserAdd(
 # grant user permissions to Category groups
 for my $GroupID ( @{ $SetCategoryGroup{PermissionGrant} } ) {
 
-    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
-
-    my %NewTableData;
-    return if !$DBObject->Prepare(
-        SQL => "SELECT * FROM permission_groups WHERE id = $GroupID",
-    );
-
     $GroupObject->PermissionGroupUserAdd(
         GID        => $GroupID,
         UID        => $UserIDWithGrantedAccess,
@@ -282,14 +269,6 @@ my $UserIDWithNoAccess = $UserObject->UserAdd(
 
 # grant user permissions to Category groups
 for my $GroupID ( @{ $SetCategoryGroup{PermissionReject} } ) {
-
-    my $DBObject = $Kernel::OM->Get('Kernel::System::DB');
-
-    my %NewTableData;
-    return if !$DBObject->Prepare(
-        SQL => "SELECT * FROM permission_groups WHERE id = $GroupID",
-    );
-
     $GroupObject->PermissionGroupUserAdd(
         GID        => $GroupID,
         UID        => $UserIDWithNoAccess,

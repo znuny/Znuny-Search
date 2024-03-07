@@ -19,6 +19,7 @@ our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search::Object::Operators',
     'Kernel::System::Search',
+    'Kernel::System::Search::Object',
 );
 
 =head1 NAME

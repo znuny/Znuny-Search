@@ -220,7 +220,6 @@
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
                 <Item Key="Event">TicketDynamicFieldUpdate_*|ArticleDynamicFieldUpdate</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
             </Hash>
         </Value>
     </Setting>

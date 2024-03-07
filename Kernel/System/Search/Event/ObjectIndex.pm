@@ -37,6 +37,7 @@ sub Run {
     my $JSONObject        = $Kernel::OM->Get('Kernel::System::JSON');
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+
     return if $SearchObject->{Fallback};
 
     NEEDED:

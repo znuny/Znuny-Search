@@ -26,8 +26,6 @@
         <File Permission="660" Location="Kernel/System/Search/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping/ES.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Mapping/ES/Ticket.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Mapping/ES/FAQ.pm"/>
         <File Permission="660" Location="Kernel/System/Search.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Base.pm"/>

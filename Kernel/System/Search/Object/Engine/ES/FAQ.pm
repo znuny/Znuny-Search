@@ -184,7 +184,7 @@ sub new {
             Type       => 'Blob'
         },
         AttachmentContent => {
-            ColumnName => 'attachment.content',
+            ColumnName => '',
             Type       => 'Textarea',
             Alias      => 1,
         },
@@ -192,23 +192,22 @@ sub new {
             ColumnName => 'inlineattachment',
             Type       => 'Integer',
         },
-
-        #         Created => {
-        #             ColumnName => 'created',
-        #             Type       => 'Date'
-        #         },
-        #         CreatedBy => {
-        #             ColumnName => 'created_by',
-        #             Type       => 'Integer'
-        #         },
-        #         Changed => {
-        #             ColumnName => 'changed',
-        #             Type       => 'Date'
-        #         },
-        #         ChangedBy => {
-        #             ColumnName => 'changed_by',
-        #             Type       => 'Integer'
-        #         },
+        Created => {
+            ColumnName => 'created',
+            Type       => 'Date'
+        },
+        CreatedBy => {
+            ColumnName => 'created_by',
+            Type       => 'Integer'
+        },
+        Changed => {
+            ColumnName => 'changed',
+            Type       => 'Date'
+        },
+        ChangedBy => {
+            ColumnName => 'changed_by',
+            Type       => 'Integer'
+        },
     } if $Self->{Config}->{Settings}->{IndexAttachments};
 
     # define searchable fields
@@ -1590,23 +1589,6 @@ sub ValidFieldsPrepare {
             }
         }
 
-        # apply "Article" fields
-        elsif ( $ParamField =~ m{\AArticle_(.+)\z} ) {
-            my $ArticleField = $1;
-
-            # get single "Article" field
-            if ( $AllArticleFields{$ArticleField} ) {
-                $ValidFields{Article}->{$ArticleField} = $AllArticleFields{$ArticleField};
-            }
-
-            # get all "Article" fields
-            elsif ( $ArticleField && $ArticleField eq '*' ) {
-                for my $ArticleField ( sort keys %AllArticleFields ) {
-                    $ValidFields{Article}->{$ArticleField} = $AllArticleFields{$ArticleField};
-                }
-            }
-        }
-
         # apply "Attachment" fields
         elsif ( $ParamField =~ m{^Attachment_(.+)$} && $Self->{Config}->{Settings}->{IndexAttachments} ) {
             my $AttachmentField = $1;
@@ -1735,6 +1717,7 @@ sub ObjectIndexQueueUpdateRule {
 
                         # already exists
                         next ATTACHMENT if $AttachmentQueue{Add}->{Actual}->{$AttachmentID};
+
                         # queue to add
                         $AttachmentQueue{Add}->{Actual}->{$AttachmentID} = 1;
                         $Changed = 1;
@@ -1753,8 +1736,10 @@ sub ObjectIndexQueueUpdateRule {
                         # attachment queued to be added, then to be deleted
                         # clear both queue actions as doing nothing is equal to add, then delete an attachment
                         if ($AttachmentAddExists) {
+
                             # delete attachment from add queue
                             delete $AttachmentQueue{Add}->{Actual}->{$AttachmentID};
+
                             # delete attachment from delete queue
                             delete $AttachmentQueue{Delete}->{Actual}->{$AttachmentID};
                             $Changed = 1;

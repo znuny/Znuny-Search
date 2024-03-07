@@ -52,17 +52,6 @@ sub Run {
         return;
     }
 
-    NEEDED:
-    for my $Needed (qw(FunctionName)) {
-        next NEEDED if $Param{Config}->{$Needed};
-
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => "Need $Needed in Config!"
-        );
-        return;
-    }
-
     my $DynamicFieldConfig = $DynamicFieldObject->DynamicFieldGet(
         Name => $Param{Data}->{FieldName},
     );
@@ -77,7 +66,6 @@ sub Run {
     return if !IsHashRefWithData($FieldValueTypeGet);
 
     my $FieldValueType = $FieldValueTypeGet->{ 'DynamicField_' . $DynamicFieldConfig->{Name} };
-    my $FunctionName   = $Param{Config}->{FunctionName};
     my $Success;
     my $AdditionalParameters;
     my $IndexToUpdate;

@@ -46,6 +46,15 @@ if ( !$SearchObject->{ConnectObject} ) {
     return 1;
 }
 
+my $ActiveEngine = $SearchObject->{Config}->{ActiveEngine};
+
+$Self->True(
+    $ActiveEngine,
+    "Active engine ($SearchObject->{Config}->{ActiveEngine}) exists, search engine.",
+);
+
+return if !$ActiveEngine;
+
 my $StartQueuedIndexation = sub {
     my ( $Self, %Param ) = @_;
 
@@ -82,15 +91,6 @@ $ConfigObject->Set(
     Key   => 'Ticket::Responsible',
     Value => 1,
 );
-
-my $ActiveEngine = $SearchObject->{Config}->{ActiveEngine};
-
-$Self->True(
-    $ActiveEngine,
-    "Active engine ($SearchObject->{Config}->{ActiveEngine}) exists, search engine.",
-);
-
-return if !$ActiveEngine;
 
 # enable attachment indexation if for some reason it was disabled
 $ConfigObject->Set(
