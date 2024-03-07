@@ -1281,6 +1281,8 @@ sub ObjectIndexGeneric {
             Fields      => [$Identifier],
             Limit       => $IDLimit,
             Offset      => $TicketOffset,
+            SortBy      => $Identifier,
+            OrderBy     => 'Down',
         );
 
         $DataCount = scalar @{$SQLDataIDs};
@@ -1298,6 +1300,8 @@ sub ObjectIndexGeneric {
                     IgnoreArticles   => 1,
                     NoPermissions    => $Param{NoPermissions},
                     SetEmptyArticles => $Param{SetEmptyArticles},
+                    SortBy           => $Identifier,
+                    OrderBy          => 'Down',
                 );
 
                 my $SuccessLocal = $Self->$Function(
@@ -1327,6 +1331,8 @@ sub ObjectIndexGeneric {
                         Limit            => $ReindexationStep,
                         NoPermissions    => $Param{NoPermissions},
                         SetEmptyArticles => $Param{SetEmptyArticles},
+                        SortBy           => $Identifier,
+                        OrderBy          => 'Down',
                     );
 
                     my @ObjectDataIDsToProcess = @{$SQLDataIDs}[ $Offset .. ( $Offset + $ReindexationStep - 1 ) ];

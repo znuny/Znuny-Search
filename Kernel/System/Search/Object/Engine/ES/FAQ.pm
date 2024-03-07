@@ -1026,6 +1026,8 @@ sub ObjectIndexGeneric {
             Fields      => [$Identifier],
             Limit       => $IDLimit,
             Offset      => $FAQOffset,
+            SortBy      => $Identifier,
+            OrderBy     => 'Down',
         );
 
         $DataCount = scalar @{$SQLDataIDs};
@@ -1045,6 +1047,8 @@ sub ObjectIndexGeneric {
                     IgnoreDynamicFields => !$Param{IndexDynamicFields},
                     NoPermissions       => $Param{NoPermissions},
                     SetEmptyAttachments => $Param{SetEmptyAttachments},
+                    SortBy              => $Identifier,
+                    OrderBy             => 'Down',
                 );
 
                 my $SuccessLocal = $Self->$Function(
@@ -1075,6 +1079,8 @@ sub ObjectIndexGeneric {
                         Limit               => $ReindexationStep,
                         NoPermissions       => $Param{NoPermissions},
                         SetEmptyAttachments => $Param{SetEmptyAttachments},
+                        SortBy              => $Identifier,
+                        OrderBy             => 'Down',
                     );
 
                     my @ObjectDataIDsToProcess = @{$SQLDataIDs}[ $Offset .. ( $Offset + $ReindexationStep - 1 ) ];
