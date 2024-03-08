@@ -315,7 +315,7 @@ On executing FAQ search by Kernel::System::Search:
             # operators syntax is not supported on those fields
             CategoryShortName          => ['CategoryShortName1'],
             Language        => ['en'],
-            Valid         => ['Valid', 'Invalid'],
+            Valid         => ['valid', 'invalid'],
             State         => ['State1', 'State2'],
 
             # fulltext parameter can be used to search by properties specified
