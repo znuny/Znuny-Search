@@ -313,13 +313,10 @@ On executing FAQ search by Kernel::System::Search:
             # can be combined with its IDs alternative (will match
             # by "AND" operator as any other fields)
             # operators syntax is not supported on those fields
-            CategoryName        => ['Misc', 'Junk'], # search by queue name
-            CategoryShortName          => ['SLA5min'],
-            Language        => [1],
-            Valid         => ['Locked'],
-            State         => ['Unclassified', 'Classified'],
-            StateTypeName      => ['PremiumService'],
-
+            CategoryShortName          => ['CategoryShortName1'],
+            Language        => ['en'],
+            Valid         => ['Valid', 'Invalid'],
+            State         => ['State1', 'State2'],
 
             # fulltext parameter can be used to search by properties specified
             # in sysconfig "SearchEngine::ES::FAQSearchFields###Fulltext"
