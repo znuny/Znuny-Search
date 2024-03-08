@@ -22,34 +22,22 @@ $Kernel::OM->ObjectParamAdd(
     },
 );
 
-my $TicketObject              = $Kernel::OM->Get('Kernel::System::Ticket');
-my $StateObject               = $Kernel::OM->Get('Kernel::System::State');
-my $PriorityObject            = $Kernel::OM->Get('Kernel::System::Priority');
-my $HelperObject              = $Kernel::OM->Get('Kernel::System::UnitTest::Helper');
 my $SearchObject              = $Kernel::OM->Get('Kernel::System::Search');
+my $HelperObject              = $Kernel::OM->Get('Kernel::System::UnitTest::Helper');
 my $SearchChildObject         = $Kernel::OM->Get('Kernel::System::Search::Object');
-my $ZnunyHelperObject         = $Kernel::OM->Get('Kernel::System::ZnunyHelper');
 my $ConfigObject              = $Kernel::OM->Get('Kernel::Config');
 my $DBObject                  = $Kernel::OM->Get('Kernel::System::DB');
 my $UserObject                = $Kernel::OM->Get('Kernel::System::User');
-my $CustomerUserObject        = $Kernel::OM->Get('Kernel::System::CustomerUser');
-my $CustomerCompanyObject     = $Kernel::OM->Get('Kernel::System::CustomerCompany');
-my $ServiceObject             = $Kernel::OM->Get('Kernel::System::Service');
-my $TypeObject                = $Kernel::OM->Get('Kernel::System::Type');
-my $QueueObject               = $Kernel::OM->Get('Kernel::System::Queue');
-my $SLAObject                 = $Kernel::OM->Get('Kernel::System::SLA');
-my $JSONObject                = $Kernel::OM->Get('Kernel::System::JSON');
-my $ArticleObject             = $Kernel::OM->Get('Kernel::System::Ticket::Article');
 my $GroupObject               = $Kernel::OM->Get('Kernel::System::Group');
 my $DynamicFieldObject        = $Kernel::OM->Get('Kernel::System::DynamicField');
 my $DynamicFieldBackendObject = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
-
-my $FAQObject = $Kernel::OM->Get('Kernel::System::FAQ');
 
 # just for gitlab pipeline to pass this test
 if ( !$SearchObject->{ConnectObject} ) {
     return 1;
 }
+
+my $FAQObject                 = $Kernel::OM->Get('Kernel::System::FAQ');
 
 my $IndexName = 'FAQ';
 
