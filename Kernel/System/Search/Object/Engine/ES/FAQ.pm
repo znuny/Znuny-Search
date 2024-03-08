@@ -568,7 +568,7 @@ sub ExecuteSearch {
 
 execute fallback for searching FAQs
 
-notice: fall-back does not support searching by dynamic fields/articles
+notice: fall-back is not supported
 
     my $FunctionResult = $SearchFAQESObject->FallbackExecuteSearch(
         %Params,
