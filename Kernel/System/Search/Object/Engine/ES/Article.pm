@@ -278,6 +278,8 @@ sub ObjectIndexGeneric {
             Fields      => [$Identifier],
             Limit       => $IDLimit,
             Offset      => $ArticleOffset,
+            SortBy      => $Identifier,
+            OrderBy     => 'Down',
         );
 
         $DataCount = scalar @{$SQLDataIDs};
@@ -290,6 +292,8 @@ sub ObjectIndexGeneric {
                     QueryParams => {
                         $Identifier => $SQLDataIDs,
                     },
+                    SortBy     => $Identifier,
+                    OrderBy    => 'Down',
                     ResultType => $Param{SQLSearchResultType} || 'ARRAY',
                 );
 
@@ -314,6 +318,8 @@ sub ObjectIndexGeneric {
                         QueryParams => {
                             $Identifier => $SQLDataIDs,
                         },
+                        SortBy     => $Identifier,
+                        OrderBy    => 'Down',
                         ResultType => $Param{SQLSearchResultType} || 'ARRAY',
                         Offset     => $Offset,
                         Limit      => $ReindexationStep,

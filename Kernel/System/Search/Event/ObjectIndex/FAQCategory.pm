@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Event::ObjectIndex::TicketMerge;
+package Kernel::System::Search::Event::ObjectIndex::FAQCategory;
 
 use strict;
 use warnings;
@@ -46,29 +46,35 @@ sub Run {
         return;
     }
 
-    for my $Ticket (qw(TicketID MainTicketID)) {
+    my $IsValid = $SearchChildObject->IndexIsValid(
+        IndexName => 'FAQ',
+    );
 
-        # update articles of changed tickets
-        $SearchChildObject->IndexObjectQueueEntry(
-            Index => 'Article',
-            Value => {
-                Operation   => 'ObjectIndexSet',
-                QueryParams => {
-                    TicketID => $Param{Data}->{$Ticket},
+    return if !$IsValid;
+    return if $Param{Event} ne 'FAQSetCategoryGroup';
+
+    my $IndexName    = 'FAQ';
+    my $NewGroupsIDs = $Param{Data}->{GroupIDs};
+    my $CategoryID   = $Param{Data}->{CategoryID};
+
+    $SearchChildObject->IndexObjectQueueEntry(
+        Index => $IndexName,
+        Value => {
+            Operation   => 'ObjectIndexUpdate',
+            QueryParams => {
+                CategoryID => $CategoryID,
+            },
+            Data => {
+                CustomFunction => {
+                    Name   => 'ObjectIndexUpdateGroupID',
+                    Params => {
+                        NewGroupID => $NewGroupsIDs,
+                    }
                 },
-                Context => "ObjectIndexSet_TicketMerge_$Param{Data}->{$Ticket}",
             },
-        );
-
-        # update tickets that contains changed articles
-        $SearchChildObject->IndexObjectQueueEntry(
-            Index => 'Ticket',
-            Value => {
-                Operation => 'ObjectIndexSet',
-                ObjectID  => $Param{Data}->{$Ticket},
-            },
-        );
-    }
+            Context => "ObjectIndexUpdate_GroupReassign_${CategoryID}",
+        },
+    );
 
     return 1;
 }

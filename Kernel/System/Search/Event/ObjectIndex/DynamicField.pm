@@ -11,8 +11,6 @@ package Kernel::System::Search::Event::ObjectIndex::DynamicField;
 use strict;
 use warnings;
 
-use Kernel::System::VariableCheck qw(:all);
-
 our @ObjectDependencies = (
     'Kernel::System::Log',
     'Kernel::System::Search',
@@ -29,6 +27,7 @@ sub new {
         Ticket       => 1,
         Article      => 1,
         CustomerUser => 1,
+        FAQ          => 1,
     };
 
     return $Self;

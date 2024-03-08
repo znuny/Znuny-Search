@@ -121,6 +121,76 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="FAQ::EventModulePost###000-FAQ-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::FAQ</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
+                <Item Key="Event">FAQAdd</Item>
+                <Item Key="FunctionName">ObjectIndexAdd</Item>
+                <Item Key="IndexName">FAQ</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="FAQ::EventModulePost###001-FAQ-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::FAQ</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
+                <Item Key="Event">FAQUpdate</Item>
+                <Item Key="FunctionName">ObjectIndexUpdate</Item>
+                <Item Key="AdditionalValueParameters">{"UpdateFAQ":1}</Item>
+                <Item Key="IndexName">FAQ</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="FAQ::EventModulePost###002-FAQ-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::Queue</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::FAQCategory</Item>
+                <Item Key="Event">FAQSetCategoryGroup</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="FAQ::EventModulePost###003-FAQ-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::FAQ</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
+                <Item Key="Event">FAQContentTypeSet</Item>
+                <Item Key="FunctionName">ObjectIndexUpdate</Item>
+                <Item Key="AdditionalValueParameters">{"UpdateFAQ":1}</Item>
+                <Item Key="IndexName">FAQ</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="FAQ::EventModulePost###004-FAQ-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::FAQ</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::FAQAttachment</Item>
+                <Item Key="Event">FAQAttachmentAdd|FAQAttachmentDelete</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="FAQ::EventModulePost###005-FAQ-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::FAQ</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex</Item>
+                <Item Key="Event">FAQDelete</Item>
+                <Item Key="FunctionName">ObjectIndexRemove</Item>
+                <Item Key="IndexName">FAQ</Item>
+            </Hash>
+        </Value>
+    </Setting>
     <Setting Name="DynamicField::EventModulePost###000-DynamicField-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::DynamicField</Navigation>
@@ -150,7 +220,6 @@
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
                 <Item Key="Event">TicketDynamicFieldUpdate_*|ArticleDynamicFieldUpdate</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
             </Hash>
         </Value>
     </Setting>
@@ -161,7 +230,16 @@
             <Hash>
                 <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
                 <Item Key="Event">CustomerUserDynamicFieldUpdate</Item>
-                <Item Key="FunctionName">ObjectIndexSet</Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="FAQ::EventModulePost###000-DynamicFieldValue-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::FAQ</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue</Item>
+                <Item Key="Event">FAQDynamicFieldUpdate_*</Item>
             </Hash>
         </Value>
     </Setting>

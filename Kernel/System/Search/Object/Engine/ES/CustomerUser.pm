@@ -431,7 +431,7 @@ sub ExecuteSearch {
 
 execute full fallback for searching CustomerUsers
 
-notice: fall-back does not support searching by dynamic fields yet
+notice: fall-back does not support searching by dynamic fields
 
     my $FunctionResult = $SearchCustomerUserESObject->FallbackExecuteSearch(
         %Params,
@@ -444,7 +444,6 @@ sub FallbackExecuteSearch {
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
-    # TODO: support for fallback
     return $Self->SearchEmptyResponse(%Param)
         if !$Param{ResultType} || ( $Param{ResultType} && $Param{ResultType} ne 'COUNT' ) && !$Param{Force};
 
