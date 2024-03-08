@@ -86,86 +86,25 @@ return lookup fields for FAQ
 sub LookupFAQFieldsGet {
     my ( $Self, %Param ) = @_;
 
-    #TODO
-    #     my $LookupFields = {
-    #         Queue => {
-    #             Module           => "Kernel::System::Queue",
-    #             FunctionName     => 'QueueLookup',
-    #             FunctionNameList => 'GetAllQueues',
-    #             ParamName        => 'Queue'
-    #         },
-    #         SLA => {
-    #             Module           => "Kernel::System::SLA",
-    #             FunctionName     => "SLALookup",
-    #             FunctionNameList => 'SLAList',
-    #             ParamName        => "Name"
-    #         },
-    #         Lock => {
-    #             Module           => "Kernel::System::Lock",
-    #             FunctionName     => "LockLookup",
-    #             FunctionNameList => 'LockList',
-    #             ParamName        => "Lock"
-    #         },
-    #         Type => {
-    #             Module           => "Kernel::System::Type",
-    #             FunctionName     => "TypeLookup",
-    #             FunctionNameList => 'TypeList',
-    #             ParamName        => "Type"
-    #         },
-    #         Service => {
-    #             Module           => "Kernel::System::Service",
-    #             FunctionName     => "ServiceLookup",
-    #             FunctionNameList => 'ServiceList',
-    #             ParamName        => "Name"
-    #         },
-    #         Owner => {
-    #             Module           => "Kernel::System::User",
-    #             FunctionName     => "UserLookup",
-    #             FunctionNameList => 'UserList',
-    #             ParamName        => "UserLogin"
-    #         },
-    #         Responsible => {
-    #             Module           => "Kernel::System::User",
-    #             FunctionName     => "UserLookup",
-    #             FunctionNameList => 'UserList',
-    #             ParamName        => "UserLogin"
-    #         },
-    #         Priority => {
-    #             Module           => "Kernel::System::Priority",
-    #             FunctionName     => "PriorityLookup",
-    #             FunctionNameList => 'PriorityList',
-    #             ParamName        => "Priority"
-    #         },
-    #         State => {
-    #             Module           => "Kernel::System::State",
-    #             FunctionName     => "StateLookup",
-    #             FunctionNameList => 'StateList',
-    #             ParamName        => "State"
-    #         },
-    #         Customer => {
-    #             Module           => "Kernel::System::CustomerCompany",
-    #             FunctionName     => "CustomerCompanyList",
-    #             FunctionNameList => 'CustomerCompanyList',
-    #             ParamName        => "Search"
-    #         },
-    #         ChangeByLogin => {
-    #             Module           => "Kernel::System::User",
-    #             FunctionName     => "UserLookup",
-    #             FunctionNameList => 'UserList',
-    #             ParamName        => "UserLogin",
-    #             AttributeName    => "ChangeBy"
-    #         },
-    #         CreateByLogin => {
-    #             Module           => "Kernel::System::User",
-    #             FunctionName     => "UserLookup",
-    #             FunctionNameList => 'UserList',
-    #             ParamName        => "UserLogin",
-    #             AttributeName    => "CreateBy"
-    #         }
-    #     };
+    my $LookupFields = {
+        CategoryShortName => {
+            Module        => "Kernel::System::FAQ",
+            FunctionName  => 'CategorySearch',
+            ParamName     => 'Name',
+            AttributeName => 'CategoryID'
+        },
+        Language => {},
+        Valid    => {
+            Module        => "Kernel::System::Valid",
+            FunctionName  => 'ValidLookup',
+            ParamName     => 'Valid',
+            AttributeName => 'ValidID'
+        },
+        State         => {},
+        StateTypeName => {},
+    };
 
-    #     return $LookupFields;
-    return;
+    return $LookupFields;
 }
 
 =head2 LookupFAQFields()
@@ -182,206 +121,112 @@ of deleted fields and return it
 sub LookupFAQFields {
     my ( $Self, %Param ) = @_;
 
-    #TODO
-    #     my $LookupFields = $Self->LookupFAQFieldsGet();
+    my $FAQObject         = $Kernel::OM->Get('Kernel::System::FAQ');
+    my $DBObject          = $Kernel::OM->Get('Kernel::System::DB');
+    my $LookupFields      = $Self->LookupFAQFieldsGet();
+    my $LookupQueryParams = {};
 
-    #     my $LookupQueryParams;
+    # get lookup fields that exists in "QueryParams" parameter
+    my %UsedLookupFields = map { $_ => $LookupFields->{$_} }
+        grep { $LookupFields->{$_} }
+        keys %{ $Param{QueryParams} };
 
-    #     if ( $Param{QueryParams}->{Customer} ) {
-    #         my $Key   = 'Customer';
-    #         my $Param = $Param{QueryParams}->{$Key};
+    # support language
+    my $LanguageLookupField = delete $UsedLookupFields{Language};
+    if ($LanguageLookupField) {
+        my $Param = delete $Param{QueryParams}->{Language};
 
-    #         if ( defined $Param ) {
-    #             my $LookupField = $LookupFields->{$Key};
-    #             my $Module      = $Kernel::OM->Get( $LookupField->{Module} );
-    #             my $ParamName   = $LookupField->{ParamName};
+        if ( defined $Param ) {
 
-    #             my $FunctionName = $LookupField->{FunctionName};
+            my %Languages = reverse $FAQObject->LanguageList(
+                UserID => 1,
+            );
 
-    #             my @IDs;
-    #             my @Param = IsString( delete $Param{QueryParams}->{Customer} )
-    #                 ?
-    #                 ($Param)
-    #                 : @{$Param};
-    #             VALUE:
-    #             for my $Value (@Param) {
-    #                 my %CustomerCompanyList = $Module->$FunctionName(
-    #                     "$ParamName" => $Value
-    #                 );
+            my $Result = $Self->_LookupFieldWithTypeList(
+                Param        => $Param,
+                List         => \%Languages,
+                ListToAppend => $LookupQueryParams,
+                Attribute    => 'LanguageID',
+            );
 
-    #                 my $CustomerID;
-    #                 CUSTOMER_COMPANY:
-    #                 for my $CustomerCompanyID ( sort keys %CustomerCompanyList ) {
-    #                     my %CustomerCompany = $Module->CustomerCompanyGet(
-    #                         CustomerID => $CustomerCompanyID,
-    #                     );
+            return $Result if ref $Result eq 'HASH' && $Result->{Error};
+        }
+    }
 
- #                     if ( $CustomerCompany{CustomerCompanyName} && $CustomerCompany{CustomerCompanyName} eq $Value ) {
- #                         $CustomerID = $CustomerCompanyID;
- #                     }
- #                 }
+    # support state
+    my $StateLookupField = delete $UsedLookupFields{State};
+    if ($StateLookupField) {
+        my $Param = delete $Param{QueryParams}->{State};
 
-    #                 delete $Param{QueryParams}->{$Key};
-    #                 next VALUE if !$CustomerID;
-    #                 push @IDs, $CustomerID;
-    #             }
+        if ( defined $Param ) {
+            my %States = reverse $FAQObject->StateList(
+                UserID => 1,
+            );
 
-    #             if ( !@IDs ) {
-    #                 return {
-    #                     Error => 'LookupValuesNotFound'
-    #                 };
-    #             }
+            my $Result = $Self->_LookupFieldWithTypeList(
+                Param        => $Param,
+                List         => \%States,
+                ListToAppend => $LookupQueryParams,
+                Attribute    => 'StateID',
+            );
 
-    #             my $LookupQueryParam = {
-    #                 Operator   => "=",
-    #                 Value      => \@IDs,
-    #                 ReturnType => 'SCALAR',
-    #                 Type       => 'String',
-    #             };
+            return $Result if ref $Result eq 'HASH' && $Result->{Error};
+        }
+    }
 
-    #             $LookupQueryParams->{ $Key . 'ID' } = $LookupQueryParam;
-    #         }
-    #         else {
-    #             delete $Param{QueryParams}->{$Key};
-    #         }
-    #     }
+    LOOKUPFIELD:
+    for my $Key ( sort keys %UsedLookupFields ) {
 
-    #     if ( $Param{QueryParams}->{CustomerUser} ) {
-    #         my $Param = $Param{QueryParams}->{CustomerUser};
+        my $Param = delete $Param{QueryParams}->{$Key};
+        next LOOKUPFIELD if ( !defined $Param );
 
-    #         if ( defined $Param ) {
-    #             my @Param = IsString( delete $Param{QueryParams}->{CustomerUser} )
-    #                 ?
-    #                 ($Param)
-    #                 : @{$Param};
-    #             my $LookupQueryParam = {
-    #                 Operator   => "=",
-    #                 Value      => \@Param,
-    #                 ReturnType => 'SCALAR',
-    #                 Type       => 'String',
-    #             };
+        # lookup every field for ID
+        my $LookupField   = $LookupFields->{$Key};
+        my $Module        = $Kernel::OM->Get( $LookupField->{Module} );
+        my $FunctionName  = $LookupField->{FunctionName};
+        my $ParamName     = $LookupField->{ParamName};
+        my $AttributeName = $LookupField->{AttributeName} || $Key . 'ID';
+        my @IDs;
+        my @Param = IsString($Param)
+            ?
+            ($Param)
+            : @{$Param};
 
-    #             $LookupQueryParams->{CustomerUserID} = $LookupQueryParam;
-    #         }
-    #         else {
-    #             delete $Param{QueryParams}->{CustomerUser};
-    #         }
-    #     }
+        VALUE:
+        for my $Value (@Param) {
 
-    #     # get lookup fields that exists in "QueryParams" parameter
-    #     my %UsedLookupFields = map { $_ => $LookupFields->{$_} }
-    #         grep { $LookupFields->{$_} }
-    #         keys %{ $Param{QueryParams} };
+            my $FieldID = $Module->$FunctionName(
+                "$ParamName" => $Value,
+                UserID       => 1,
+            );
 
-    #     LOOKUPFIELD:
-    #     for my $Key ( sort keys %UsedLookupFields ) {
+            next VALUE if !$FieldID;
+            if ( ref $FieldID eq 'ARRAY' ) {
+                push @IDs, @{$FieldID};
+            }
+            else {
+                push @IDs, $FieldID;
+            }
 
-    #         my $Param = $Param{QueryParams}->{$Key};
-    #         if ( !defined $Param ) {
-    #             delete $Param{QueryParams}->{$Key};
-    #             next LOOKUPFIELD;
-    #         }
+        }
 
-    #         # lookup every field for ID
-    #         my $LookupField   = $LookupFields->{$Key};
-    #         my $Module        = $Kernel::OM->Get( $LookupField->{Module} );
-    #         my $FunctionName  = $LookupField->{FunctionName};
-    #         my $ParamName     = $LookupField->{ParamName};
-    #         my $AttributeName = $LookupField->{AttributeName} || $Key . 'ID';
-    #         my @IDs;
-    #         my @Param = IsString($Param)
-    #             ?
-    #             ($Param)
-    #             : @{$Param};
+        if ( !@IDs ) {
+            return {
+                Error => 'LookupValuesNotFound'
+            };
+        }
 
-    #         VALUE:
-    #         for my $Value (@Param) {
+        my $LookupQueryParam = {
+            Operator   => "=",
+            Value      => \@IDs,
+            ReturnType => 'SCALAR',
+            Type       => 'Integer',
+        };
 
-    #             my $FieldID = $Module->$FunctionName(
-    #                 "$ParamName" => $Value
-    #             );
+        $LookupQueryParams->{$AttributeName} = $LookupQueryParam;
+    }
 
-    #             delete $Param{QueryParams}->{$Key};
-    #             next VALUE if !$FieldID;
-    #             push @IDs, $FieldID;
-    #         }
-
-    #         if ( !@IDs ) {
-    #             return {
-    #                 Error => 'LookupValuesNotFound'
-    #             };
-    #         }
-
-    #         my $LookupQueryParam = {
-    #             Operator   => "=",
-    #             Value      => \@IDs,
-    #             ReturnType => 'SCALAR',
-    #             Type       => 'Integer',
-    #         };
-
-    #         $LookupQueryParams->{$AttributeName} = $LookupQueryParam;
-    #     }
-
-    #     if ( $Param{QueryParams}->{StateType} ) {
-
-    #         my $StateObject = $Kernel::OM->Get('Kernel::System::State');
-    #         my $Param       = $Param{QueryParams}->{StateType};
-    #         if ( defined $Param ) {
-    #             my @Param = IsString( delete $Param{QueryParams}->{StateType} )
-    #                 ?
-    #                 ($Param)
-    #                 : @{$Param};
-
-    #             my @StateIDList = $StateObject->StateGetStatesByType(
-    #                 StateType => \@Param,
-    #                 Result    => 'ID',
-    #             );
-
-    #             if ( !@StateIDList ) {
-    #                 return {
-    #                     Error => 'LookupValuesNotFound',
-    #                 };
-    #             }
-
-    #             my $LookupQueryParam = {
-    #                 Operator   => "=",
-    #                 Value      => \@StateIDList,
-    #                 ReturnType => 'SCALAR',
-    #                 Type       => 'String',
-    #             };
-
-    #             # "State" filter is present, check if states found by "StateType" parameter
-    #             # are in states from "State" filter - those are matched together by "AND"
-    #             if ( $LookupQueryParams->{StateID} && IsArrayRefWithData( $LookupQueryParams->{StateID}->{Value} ) ) {
-    #                 my @NewStateIDFilter;
-
-    #                 for my $AlreadyAddedStateID ( @{ $LookupQueryParams->{StateID}->{Value} } ) {
-    #                     my @FoundInStateTypeFilter = grep { $_ eq $AlreadyAddedStateID } @StateIDList;
-
-    #                     if ( $FoundInStateTypeFilter[0] ) {
-    #                         push @NewStateIDFilter, $FoundInStateTypeFilter[0];
-    #                     }
-    #                 }
-
-    #                 # state from "StateID" query param was found, but afterwards
-    #                 # those states did not match any state types from "StateType" param
-    #                 if ( !@NewStateIDFilter ) {
-    #                     return {
-    #                         Error => 'StateTypesFilteredEmptyResponse',
-    #                     };
-    #                 }
-    #             }
-    #             else {
-    #                 $LookupQueryParams->{StateID} = $LookupQueryParam;
-    #             }
-    #         }
-    #         else {
-    #             delete $Param{QueryParams}->{StateType};
-    #         }
-    #     }
-
-    #     return $LookupQueryParams;
-    return;
+    return $LookupQueryParams;
 }
 
 =head2 _QueryParamsPrepare()
@@ -591,6 +436,91 @@ sub _QueryFieldDataSet {
     }
 
     return $Data;
+}
+
+=head2 _LookupFieldWithTypeList()
+
+perform lookup for fields with list functions
+
+    my $FunctionResult = $Object->_LookupFieldWithTypeList(
+        Param           => ['valid'],
+        List            => { valid => 1, invalid => 0 },
+        ListToAppend    => {},
+        Attribute       => 'ValidID',
+    );
+
+=cut
+
+sub _LookupFieldWithTypeList {
+    my ( $Self, %Param ) = @_;
+
+    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+
+    NEEDED:
+    for my $Needed (qw(Param List ListToAppend Attribute)) {
+
+        next NEEDED if defined $Param{$Needed};
+
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Parameter '$Needed' is needed!",
+        );
+        return;
+    }
+
+    my @Param = IsString( $Param{Param} )
+        ?
+        ( $Param{Param} )
+        : @{ $Param{Param} };
+
+    my @IDs;
+
+    VALUE:
+    for my $Value (@Param) {
+        next VALUE if !defined $Value;
+        my $FieldID = $Param{List}->{$Value};
+
+        next VALUE if !$FieldID;
+        push @IDs, $FieldID;
+    }
+
+    if ( !@IDs ) {
+        return {
+            Error => 'LookupValuesNotFound'
+        };
+    }
+
+    # if there was some filter already applied
+    # it needs to match currect and previous one (AND connection)
+    if ( IsArrayRefWithData( $Param{ListToAppend}->{ $Param{Attribute} }->{Value} ) ) {
+
+        # get previous filter
+        my @PreviousFilter = @{ $Param{ListToAppend}->{ $Param{Attribute} }->{Value} };
+
+        # check if current filter matches previous filter
+        for ( my $i = 0; $i < scalar @PreviousFilter; $i++ ) {
+            my $ID       = $PreviousFilter[$i];
+            my @IDsMatch = grep { $_ == $ID } @IDs;
+
+            # previous filter do not match currect filter
+            if ( !scalar @IDsMatch ) {
+                delete $Param{ListToAppend}->{ $Param{Attribute} }->{Value}->[$i];
+            }
+
+            # otherwise it matches and nothing needs to be done
+        }
+        @{ $Param{ListToAppend}->{ $Param{Attribute} }->{Value} }
+            = grep {$_} @{ $Param{ListToAppend}->{ $Param{Attribute} }->{Value} };
+    }
+
+    $Param{ListToAppend}->{ $Param{Attribute} } = {
+        Operator   => "=",
+        Value      => \@IDs,
+        ReturnType => 'SCALAR',
+        Type       => 'Integer',
+    };
+
+    return 1;
 }
 
 1;

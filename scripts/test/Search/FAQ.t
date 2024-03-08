@@ -179,8 +179,6 @@ my $QueueDeleteSuccess = $SearchChildObject->IndexObjectQueueDelete(
     Index => 'FAQ',
 );
 
-# TODO
-
 # add category
 my $CategoryName = $Object->{Basic}->{Category}->{Name};
 my $CategoryID   = $FAQObject->CategoryAdd(
@@ -859,4 +857,41 @@ $Self->IsDeeply(
     $ExpectedResult,
     "FAQ dynamic field delete response check, engine",
 );
+
+# test lookup mechanism parameters:
+# CategoryShortName
+# Language
+# Valid
+# State
+
+my $FAQLanguage = $Object->{Basic}->{Language}->{Name};
+my $FAQState    = $Object->{Basic}->{State}->{Name};
+
+$Search = $SearchObject->Search(
+    Objects     => ["FAQ"],
+    QueryParams => {
+        ItemID            => $ItemID,
+        Language          => [ $FAQLanguage, 1, 2 ],
+        CategoryShortName => [ $CategoryName, 1, 2 ],
+        State             => [ $FAQState, 1, 2 ],
+        Valid             => [ 'valid', 'invalid', 1, 2 ],
+        UserID            => $UserIDWithGrantedAccess,
+    },
+    Fields => [ [ 'FAQ_ItemID', "FAQ_DynamicField_$NewTestDFName" ] ]
+);
+
+my $ExpectedData = {
+    FAQ => [
+        {
+            ItemID => $ItemID,
+        }
+    ]
+};
+
+$Self->IsDeeply(
+    $Search,
+    $ExpectedResult,
+    "FAQ lookup mechanism response check, engine",
+);
+
 1;
