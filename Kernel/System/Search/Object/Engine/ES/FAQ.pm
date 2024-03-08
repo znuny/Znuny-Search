@@ -479,7 +479,7 @@ sub ExecuteSearch {
                 Nested           => 1,
             },
         },
-        DefaultFields => {},
+        DefaultFields => $ConfigObject->Get('SearchEngine::ES::FAQSearchFields')->{Fulltext},
         Simple        => 0,
     );
 
