@@ -315,7 +315,7 @@ On executing FAQ search by Kernel::System::Search:
             # operators syntax is not supported on those fields
             CategoryShortName          => ['CategoryShortName1'],
             Language        => ['en'],
-            Valid         => ['Valid', 'Invalid'],
+            Valid         => ['valid', 'invalid'],
             State         => ['State1', 'State2'],
 
             # fulltext parameter can be used to search by properties specified
@@ -479,7 +479,7 @@ sub ExecuteSearch {
                 Nested           => 1,
             },
         },
-        DefaultFields => {},
+        DefaultFields => $ConfigObject->Get('SearchEngine::ES::FAQSearchFields')->{Fulltext},
         Simple        => 0,
     );
 
@@ -568,7 +568,7 @@ sub ExecuteSearch {
 
 execute fallback for searching FAQs
 
-notice: fall-back does not support searching by dynamic fields/articles
+notice: fall-back is not supported
 
     my $FunctionResult = $SearchFAQESObject->FallbackExecuteSearch(
         %Params,
