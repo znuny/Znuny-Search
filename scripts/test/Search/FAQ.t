@@ -37,7 +37,7 @@ if ( !$SearchObject->{ConnectObject} ) {
     return 1;
 }
 
-my $FAQObject                 = $Kernel::OM->Get('Kernel::System::FAQ');
+my $FAQObject = $Kernel::OM->Get('Kernel::System::FAQ');
 
 my $IndexName = 'FAQ';
 
