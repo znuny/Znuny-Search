@@ -750,7 +750,7 @@ my @Tests = (
                                         ContentID          => '',
                                         ContentAlternative => '',
                                         Disposition        => 'attachment',
-                                        Content            => '123'
+                                        Content            => 'MTIz'
                                     },
                                     {
                                         ID                 => '2',
@@ -760,7 +760,7 @@ my @Tests = (
                                         ContentID          => '',
                                         ContentAlternative => '',
                                         Disposition        => 'attachment',
-                                        Content            => 'empty'
+                                        Content            => 'ZW1wdHk='
                                     }
                                 ]
                             }
