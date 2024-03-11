@@ -171,6 +171,164 @@ sub new {
     return $Self;
 }
 
+sub Search {
+    my ( $Self, %Param ) = @_;
+
+    my $Data = $Self->PreSearch(%Param);
+    return $Self->SearchEmptyResponse(%Param) if !IsHashRefWithData($Data);
+    return $Self->ExecuteSearch( %{$Data} );
+}
+
+=head2 ExecuteSearch()
+
+perform actual search
+
+    my $Result = $SearchTicketHistoryESObject->ExecuteSearch(
+        %Param,
+        Limit          => $Limit,
+        Fields         => $Fields,
+        QueryParams    => $Param{QueryParams},
+        SortBy         => $SortBy,
+        OrderBy        => $OrderBy,
+        RealIndexName  => $Self->{Config}->{IndexRealName},
+        ResultType     => $ValidResultType,
+    );
+
+=cut
+
+sub ExecuteSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( $Param{UseSQLSearch} || $SearchObject->{Fallback} ) {
+        return $Self->FallbackExecuteSearch(%Param);
+    }
+
+    my $IndexName = $Self->{Config}->{IndexName};
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$IndexName");
+    my $QueryParams      = $Param{QueryParams};
+    my $Fulltext         = delete $QueryParams->{Fulltext};
+
+    # filter & prepare correct parameters
+    my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
+        QueryParams   => $QueryParams,
+        NoPermissions => $Param{NoPermissions},
+        QueryFor      => 'Engine',
+        Strict        => 1,
+    );
+
+    return $Self->SearchEmptyResponse(%Param)
+        if ref $SearchParams eq 'HASH' && $SearchParams->{Error};
+
+    my $Fields = $Param{Fields} || {};
+
+    # build standard article query
+    my $Query = $Param{MappingObject}->Search(
+        %Param,
+        Fields      => $Fields,
+        QueryParams => $SearchParams,
+        Object      => $Self->{Config}->{IndexName},
+        _Source     => 1,
+    );
+
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $FulltextQuery = $Self->DefaultFulltextQueryBuild(
+        Query               => $Query,
+        AppendIntoQuery     => 1,
+        EngineObject        => $Param{EngineObject},
+        MappingObject       => $Param{MappingObject},
+        Fulltext            => $Fulltext,
+        EntitiesPathMapping => {
+            Article => {
+                Path             => '',
+                FieldBuildPrefix => '',
+                Nested           => 0,
+            },
+        },
+        DefaultFields => {},
+        Simple        => 1,
+    );
+
+    return $Self->SearchEmptyResponse(%Param) if !$FulltextQuery->{Success};
+
+    my $RetrieveHighlightData = IsHashRefWithData( $Query->{Body}->{highlight} )
+        && IsArrayRefWithData( $Query->{Body}->{highlight}->{fields} );
+
+    # execute query
+    my $Response = $Param{EngineObject}->QueryExecute(
+        Query         => $Query,
+        Operation     => 'Search',
+        ConnectObject => $Param{ConnectObject},
+        Config        => $Param{GlobalConfig},
+        Silent        => $Param{Silent},
+    );
+
+    # format query
+    my $FormattedResult = $SearchObject->SearchFormat(
+        %Param,
+        Fields     => $Fields,
+        Result     => $Response,
+        IndexName  => $IndexName,
+        ResultType => $Param{ResultType} || 'ARRAY',
+        QueryData  => {
+            Query                 => $Query,
+            RetrieveHighlightData => $RetrieveHighlightData,
+        },
+    );
+
+    return $FormattedResult;
+}
+
+=head2 FallbackExecuteSearch()
+
+execute fallback
+
+notice: fall-back does not support searching by fulltext
+
+    my $FunctionResult = $SearchTicketHistoryESObject->FallbackExecuteSearch(
+        %Params,
+    );
+
+=cut
+
+sub FallbackExecuteSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( $Param{QueryParams}->{Fulltext} && !$Param{Force} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Fulltext parameter is not supported for SQL search!"
+        );
+        return $Self->SearchEmptyResponse(%Param);
+    }
+
+    my $IndexName = $Self->{Config}->{IndexName};
+
+    my $Result = {
+        $IndexName => $Self->Fallback(%Param) // []
+    };
+
+    # format reponse per index
+    my $FormattedResult = $SearchObject->SearchFormat(
+        Result     => $Result,
+        Config     => $Param{GlobalConfig},
+        IndexName  => $IndexName,
+        ResultType => $Param{ResultType} || 'ARRAY',
+        Fallback   => 1,
+        Silent     => $Param{Silent},
+        Fields     => $Param{Fields},
+    );
+
+    return $FormattedResult || { $IndexName => [] };
+}
+
 sub ObjectIndexAdd() {
     my ( $Self, %Param ) = @_;
 
@@ -467,7 +625,7 @@ sub _PostValidFieldsPrepare {
 
     FIELD:
     for my $Field ( sort keys %ValidFields ) {
-        $ValidFields{$Field} = $Self->{Fields}->{$Field};
+        $ValidFields{$Field} = $Self->{Fields}->{$Field} || $Self->{ExternalFields}->{$Field};
         $ValidFields{$Field}->{ReturnType} = 'SCALAR' if !$ValidFields{$Field}->{ReturnType};
     }
 
