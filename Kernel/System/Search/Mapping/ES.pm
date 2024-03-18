@@ -888,9 +888,10 @@ sub IndexMappingSet {
     my ( $Self, %Param ) = @_;
 
     my %Body;
-    my $Fields         = $Param{Fields};
-    my $ExternalFields = $Param{ExternalFields};
-    my $IndexConfig    = $Param{IndexConfig};
+    my $Fields           = $Param{Fields};
+    my $ExternalFields   = $Param{ExternalFields};
+    my $AdditionalFields = $Param{AdditionalFields};
+    my $IndexConfig      = $Param{IndexConfig};
 
     my $DataTypes = $Self->MappingDataTypesGet();
 
@@ -934,6 +935,26 @@ sub IndexMappingSet {
         }
         else {
             $Body{$FieldName} = $DataTypes->{ $ExternalFields->{$FieldName}->{Type} };
+        }
+    }
+
+    # set custom aliases & mapping for permission fields
+    ADDITIONAL_FIELD:
+    for my $FieldName ( sort keys %{$AdditionalFields} ) {
+        next ADDITIONAL_FIELD if $Fields->{$FieldName};
+
+        if ( $AdditionalFields->{$FieldName}->{Alias} ) {
+            $Body{$FieldName} = {
+                type => 'alias',
+                path => $AdditionalFields->{$FieldName}->{ColumnName},
+            };
+
+            $Body{ $AdditionalFields->{$FieldName}->{ColumnName} }
+                = $DataTypes->{ $AdditionalFields->{$FieldName}->{Type} };
+
+        }
+        else {
+            $Body{$FieldName} = $DataTypes->{ $AdditionalFields->{$FieldName}->{Type} };
         }
     }
 

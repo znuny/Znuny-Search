@@ -1442,6 +1442,7 @@ sub ObjectIndexQueueAddRule {
 
         if ($QueuedOperation) {
             return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                %{ $Param{QueueToAdd} },
                 ID    => $QueuedOperation->{ID},
                 Order => $Param{Order},
             );
@@ -1540,6 +1541,7 @@ sub ObjectIndexQueueSetRule {
 
         if ($QueuedOperation) {
             return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                %{ $Param{QueueToAdd} },
                 ID    => $QueuedOperation->{ID},
                 Order => $Param{Order},
             );
@@ -1612,6 +1614,7 @@ sub ObjectIndexQueueUpdateRule {
 
         if ($QueuedOperation) {
             return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                %{ $Param{QueueToAdd} },
                 ID    => $QueuedOperation->{ID},
                 Order => $Param{Order},
             );
@@ -1712,6 +1715,7 @@ sub ObjectIndexQueueRemoveRule {
 
         if ($QueuedOperation) {
             return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                %{ $Param{QueueToAdd} },
                 ID    => $QueuedOperation->{ID},
                 Order => $Param{Order},
             );

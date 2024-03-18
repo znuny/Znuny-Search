@@ -110,6 +110,7 @@
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/TestPerformance.pm"/>
         <File Permission="660" Location="scripts/test/Search/Ticket.t"/>
         <File Permission="660" Location="scripts/test/Search/FAQ.t"/>
+        <File Permission="660" Location="scripts/test/Search/Article.t"/>
         <File Permission="660" Location="scripts/test/Search/Reindex.t"/>
         <File Permission="660" Location="scripts/test/Search/IndexingQueue.t"/>
         <File Permission="660" Location="scripts/test/Search/APIParameters.t"/>

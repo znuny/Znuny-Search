@@ -425,7 +425,7 @@ On executing ticket search by Kernel::System::Search:
             # - article dynamic fields (all): [['Article_DynamicField_*']]
             # - article dynamic field (specified): [['Article_DynamicField_Body']]
             # - attachment (all standard fields + AttachmentContent): [['Attachment_*']]
-            # - attachment (specified): [['Attachment_ContentID']]
+            # - attachment (specified): [['Attachment_ContentID']],
     );
 
     Parameter "AdvancedSearchQuery" is not supported on this object.
@@ -924,7 +924,8 @@ update tickets group id, do not use nested objects as query params
 sub ObjectIndexUpdateGroupID {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
     for my $Needed (qw( ConnectObject EngineObject MappingObject)) {
         if ( !$Param{$Needed} ) {
@@ -975,6 +976,7 @@ sub ObjectIndexUpdateGroupID {
             wait_for_completion => 'true',
             timeout             => '30s',
             refresh             => 'true',
+            conflicts           => 'proceed',
         }
     };
 
@@ -984,9 +986,70 @@ sub ObjectIndexUpdateGroupID {
         ConnectObject => $Param{ConnectObject},
     );
 
-    return $Param{MappingObject}->ResponseIsSuccess(
+    my $Success = $Param{MappingObject}->ResponseIsSuccess(
         Response => $Response,
     );
+
+    if ( $Success && $Param{Params}->{UpdateArticleIndex} ) {
+        my $Search = $SearchObject->Search(
+            Objects       => ['Ticket'],
+            QueryParams   => $Param{QueryParams},
+            NoPermissions => 1,
+            Fields        => [ ['Ticket_TicketID'] ],
+            ResultType    => 'ARRAY_SIMPLE',
+        );
+
+        if ( IsArrayRefWithData( $Search->{Ticket} ) ) {
+
+            # filter & prepare correct parameters
+            my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
+                QueryParams => {
+                    TicketID => $Search->{Ticket},
+                },
+                NoPermissions => 1,
+                QueryFor      => 'Engine',
+            );
+
+            # build article body
+            my %ArticleBody = $Param{MappingObject}->_BuildQueryBodyFromParams(
+                QueryParams => $SearchParams,
+                Object      => 'Article',
+            );
+
+            my $Query = {
+                Method => 'POST',
+                Path   => "article/_update_by_query",
+                Body   => {
+                    %ArticleBody,
+                    script => {
+                        params => {
+                            value => $Param{Params}->{NewGroupID},
+                        },
+                        source => "ctx._source.GroupID = params.value",
+                    },
+                },
+                QS => {
+                    wait_for_completion => 'true',
+                    timeout             => '30s',
+                    refresh             => 'true',
+                    conflicts           => 'proceed',
+                }
+            };
+
+            my $Response = $Param{EngineObject}->QueryExecute(
+                Operation     => 'Generic',
+                Query         => $Query,
+                ConnectObject => $Param{ConnectObject},
+            );
+
+            $Success = $Param{MappingObject}->ResponseIsSuccess(
+                Response => $Response,
+            ) if $Success;
+        }
+
+    }
+
+    return $Success;
 }
 
 =head2 ObjectIndexUpdateDFChanged()
@@ -1197,6 +1260,7 @@ sub ObjectIndexUpdateDFChanged {
             wait_for_completion => 'true',
             timeout             => '30s',
             refresh             => 'true',
+            conflicts           => 'proceed',
         }
     };
 
@@ -1366,7 +1430,8 @@ sub ObjectIndexGeneric {
                         },
                     },
                     QS => {
-                        pipeline => 'attachment_nested',
+                        pipeline  => 'attachment_nested',
+                        conflicts => 'proceed',
 
                         # pipeline can be timed out on very large data
                         # to prevent it make a task inside
@@ -2288,6 +2353,7 @@ sub ObjectIndexQueueUpdateRule {
 
         if ($QueuedOperation) {
             return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                %{ $Param{QueueToAdd} },
                 ID    => $QueuedOperation->{ID},
                 Order => $Param{Order},
             );
