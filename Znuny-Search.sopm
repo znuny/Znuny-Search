@@ -40,6 +40,7 @@
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/CustomerUser.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/FAQ.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
@@ -50,6 +51,7 @@
         <File Permission="660" Location="Kernel/System/CustomerUser/Elasticsearch.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Article.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/ArticleTicketQueueChange.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Attachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicField.pm"/>
@@ -102,6 +104,7 @@
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/TestPerformance.pm"/>
         <File Permission="660" Location="scripts/test/Search/Ticket.t"/>
+        <File Permission="660" Location="scripts/test/Search/Article.t"/>
         <File Permission="660" Location="scripts/test/Search/Reindex.t"/>
         <File Permission="660" Location="scripts/test/Search/IndexingQueue.t"/>
         <File Permission="660" Location="scripts/test/Search/APIParameters.t"/>

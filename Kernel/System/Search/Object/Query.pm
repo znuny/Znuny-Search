@@ -430,10 +430,11 @@ sub IndexAdd {
     # build and return query
     return $Param{MappingObject}->IndexAdd(
         %Param,
-        IndexRealName  => $Self->{IndexConfig}->{IndexRealName},
-        Fields         => $Self->{IndexFields},
-        IndexConfig    => $Self->{IndexConfig},
-        ExternalFields => $Self->{IndexExternalFields},
+        IndexRealName    => $Self->{IndexConfig}->{IndexRealName},
+        Fields           => $Self->{IndexFields},
+        IndexConfig      => $Self->{IndexConfig},
+        ExternalFields   => $Self->{IndexExternalFields},
+        AdditionalFields => $Self->{IndexAdditionalFields},
     );
 }
 
@@ -565,9 +566,10 @@ sub IndexMappingSet {
     # returns the query
     return $Param{MappingObject}->IndexMappingSet(
         %Param,
-        Fields         => $Self->{IndexFields},
-        IndexConfig    => $Self->{IndexConfig},
-        ExternalFields => $Self->{IndexExternalFields},
+        Fields           => $Self->{IndexFields},
+        IndexConfig      => $Self->{IndexConfig},
+        ExternalFields   => $Self->{IndexExternalFields},
+        AdditionalFields => $Self->{IndexAdditionalFields},
     );
 }
 
@@ -589,9 +591,10 @@ sub IndexBaseInit {
     # returns the query
     return $Param{MappingObject}->IndexBaseInit(
         %Param,
-        Fields         => $Self->{IndexFields},
-        IndexConfig    => $Self->{IndexConfig},
-        ExternalFields => $Self->{IndexExternalFields},
+        Fields           => $Self->{IndexFields},
+        IndexConfig      => $Self->{IndexConfig},
+        ExternalFields   => $Self->{IndexExternalFields},
+        AdditionalFields => $Self->{IndexAdditionalFields},
     );
 }
 
@@ -954,6 +957,13 @@ sub _QueryFieldDataSet {
         for my $Property (qw(Type ReturnType)) {
             if ( $Self->{IndexExternalFields}->{ $Param{Name} }->{$Property} ) {
                 $Data->{$Property} = $Self->{IndexExternalFields}->{ $Param{Name} }->{$Property};
+            }
+        }
+    }
+    elsif ( $Self->{IndexAdditionalFields}->{ $Param{Name} } ) {
+        for my $Property (qw(Type ReturnType)) {
+            if ( $Self->{IndexAdditionalFields}->{ $Param{Name} }->{$Property} ) {
+                $Data->{$Property} = $Self->{IndexAdditionalFields}->{ $Param{Name} }->{$Property};
             }
         }
     }

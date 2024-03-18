@@ -90,6 +90,16 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="Ticket::EventModulePost###002-Article-ObjectIndex" Required="0" Valid="1">
+        <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
+        <Navigation>Core::Event::Ticket</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Module">Kernel::System::Search::Event::ObjectIndex::ArticleTicketQueueChange</Item>
+                <Item Key="Event">TicketQueueUpdate</Item>
+            </Hash>
+        </Value>
+    </Setting>
     <Setting Name="Ticket::EventModulePost###001-Attachment-ObjectIndex" Required="0" Valid="1">
         <Description Translatable="1">Adds index object data of specified operation to search engine indexing queue.</Description>
         <Navigation>Core::Event::Ticket</Navigation>
@@ -369,6 +379,42 @@
                         <Item>AttachmentContent</Item>
                         <Item>Filename</Item>
                         <Item>ContentSize</Item>
+                    </Array>
+                </Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="SearchEngine::ES::ArticleSearchFields###Fulltext" Required="0" Valid="1">
+        <Description Translatable="1">Searchable fields of "Article" index for full-text search. Use the field name of an article. Dynamic fields or attachments not supported.</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Article">
+                    <Array>
+                        <Item>Body</Item>
+                        <Item>Subject</Item>
+                        <Item>From</Item>
+                        <Item>To</Item>
+                        <Item>Cc</Item>
+                        <Item>Bcc</Item>
+                    </Array>
+                </Item>
+            </Hash>
+        </Value>
+    </Setting>
+    <Setting Name="SearchEngine::ES::FAQSearchFields###Fulltext" Required="0" Valid="1">
+        <Description Translatable="1">Searchable fields of "FAQ" index for full-text search. Use the field name of a faq or attachment. Dynamic fields can be specified for FAQ by setting a value in key "FAQ" with the pattern "DynamicField_NameOfDynamicField".</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Article">
+                    <Array>
+                        <Item>Body</Item>
+                        <Item>Subject</Item>
+                        <Item>From</Item>
+                        <Item>To</Item>
+                        <Item>Cc</Item>
+                        <Item>Bcc</Item>
                     </Array>
                 </Item>
             </Hash>

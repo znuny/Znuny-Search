@@ -35,6 +35,9 @@ sub QueryBuild {
         $Param{Value} = [ $Param{Value} ];
     }
 
+    # ignore empty array
+    return { Ignore => 1 } if !defined $Param{Value}->[0];
+
     my $FieldName = $SearchMappingESObject->QueryFieldNameBuild(
         Type => $Param{FieldType},
         Name => $Param{Field},

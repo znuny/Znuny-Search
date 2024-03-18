@@ -50,16 +50,26 @@ sub Run {
 
     for my $Ticket (qw(TicketID MainTicketID)) {
 
+        my $TicketID = $Param{Data}->{$Ticket};
+
         # update articles of changed tickets
         $SearchChildObject->IndexObjectQueueEntry(
             Index => 'Article',
             Value => {
                 Operation   => 'ObjectIndexSet',
                 QueryParams => {
-                    TicketID => $Param{Data}->{$Ticket},
+                    TicketID => $TicketID,
                 },
-                Context => "ObjectIndexSet_TicketMerge_$Param{Data}->{$Ticket}",
+                Context => "ObjectIndexSet_TicketMerge_$TicketID",
             },
+        );
+
+        # delete queued article permission change operation
+        # as previous one will still update ticket articles
+        $SearchChildObject->IndexObjectQueueDelete(
+            Index     => 'Article',
+            Operation => 'ObjectIndexSet',
+            Context   => "ObjectIndexSet_ArticlesPermissionChange_$TicketID",
         );
 
         # update tickets that contains changed articles
@@ -67,7 +77,7 @@ sub Run {
             Index => 'Ticket',
             Value => {
                 Operation => 'ObjectIndexSet',
-                ObjectID  => $Param{Data}->{$Ticket},
+                ObjectID  => $TicketID,
             },
         );
     }
