@@ -438,6 +438,101 @@ my %Tests = (
                 ]
             },
         },
+        {
+            Name       => "(Custom engine) Ticket search with offset: 1, limit 1. ",
+            Parameters => {
+                Objects     => ['Ticket'],
+                QueryParams => {
+                    UserID   => 1,
+                    TicketID => \@TicketQueueIDs,
+                },
+                SortBy     => ['TicketID'],
+                OrderBy    => ['Up'],
+                Fields     => [ ['Ticket_TicketID'] ],
+                ResultType => 'ARRAY',
+                Offset     => 1,
+                Limit      => 1,
+            },
+            ExpectedResult => {
+                Ticket => [
+                    {
+                        TicketID => $TicketQueueIDs[1]
+                    },
+                ]
+            },
+        },
+        {
+            Name       => "(Custom engine) Ticket search with RetrieveEngineData parameter: TotalHits set to 'All'. ",
+            Parameters => {
+                Objects     => ['Ticket'],
+                QueryParams => {
+                    UserID   => 1,
+                    TicketID => \@TicketQueueIDs,
+                },
+                SortBy             => ['TicketID'],
+                OrderBy            => ['Up'],
+                Fields             => [ ['Ticket_TicketID'] ],
+                ResultType         => 'ARRAY',
+                RetrieveEngineData => {
+                    TotalHits => 'All',
+                },
+            },
+            ExpectedResult => {
+                Ticket => {
+                    EngineData => {
+                        TotalHits         => 3,
+                        TotalHitsRelation => 'eq',
+                    },
+                    ObjectData => [
+                        {
+                            TicketID => $TicketQueueIDs[0]
+                        },
+                        {
+                            TicketID => $TicketQueueIDs[1]
+                        },
+                        {
+                            TicketID => $TicketQueueIDs[2]
+                        },
+                    ]
+                }
+            },
+        },
+        {
+            Name       => "(Custom engine) Ticket search with RetrieveEngineData parameter: TotalHits set to 2. ",
+            Parameters => {
+                Objects     => ['Ticket'],
+                QueryParams => {
+                    UserID   => 1,
+                    TicketID => \@TicketQueueIDs,
+                },
+                SortBy             => ['TicketID'],
+                OrderBy            => ['Up'],
+                Fields             => [ ['Ticket_TicketID'] ],
+                ResultType         => 'ARRAY',
+                RetrieveEngineData => {
+                    TotalHits => 2,
+                },
+            },
+            ExpectedResult => {
+                Ticket => {
+                    EngineData => {
+                        TotalHits         => 2,
+                        TotalHitsRelation => 'gte',
+                    },
+                    ObjectData => [
+                        {
+                            TicketID => $TicketQueueIDs[0]
+                        },
+                        {
+                            TicketID => $TicketQueueIDs[1]
+                        },
+                        {
+                            TicketID => $TicketQueueIDs[2]
+                        },
+                    ]
+                }
+            },
+        },
     ],
     TicketHistory => [
         {

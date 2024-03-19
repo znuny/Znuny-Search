@@ -150,6 +150,7 @@ sub _ResponseDataFormat {
                 }
             }
             else {
+
                 if ($SimpleArray) {
                     for my $Hit ( @{$Hits} ) {
                         for my $Field ( sort keys %{ $Hit->{_source} } ) {
@@ -169,9 +170,22 @@ sub _ResponseDataFormat {
                 }
 
                 else {
-                    for my $Hit ( @{$Hits} ) {
-                        push @{$Objects}, $Hit->{_source};
+                    if ( $Param{QueryData}->{RetrieveHighlightData} ) {
+                        for my $Hit ( @{$Hits} ) {
+                            my $Data = $Hit->{_source};
+
+                            if ( $Hit->{highlight} ) {
+                                $Data->{_Highlight} = $Hit->{highlight};
+                            }
+                            push @{$Objects}, $Data;
+                        }
                     }
+                    else {
+                        for my $Hit ( @{$Hits} ) {
+                            push @{$Objects}, $Hit->{_source};
+                        }
+                    }
+
                 }
             }
         }

@@ -760,14 +760,20 @@ sub SearchFormat {
     my $IndexName               = $Self->{Config}->{IndexName};
     my $GloballyFormattedResult = $Param{GloballyFormattedResult};
 
+    my $IndexResponse;
+
     # return only number of records without formatting its attribute
     if ( $Param{ResultType} eq "COUNT" ) {
-        return {
-            $IndexName => $GloballyFormattedResult->{$IndexName}->{ObjectData} // 0,
-        };
-    }
+        if ( $Param{RetrieveEngineData} ) {
+            $IndexResponse->{"$IndexName"}->{EngineData} = $GloballyFormattedResult->{$IndexName}->{EngineData};
+            $IndexResponse->{"$IndexName"}->{ObjectData} = $GloballyFormattedResult->{$IndexName}->{ObjectData} // 0;
+        }
+        else {
+            $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData} // 0;
+        }
 
-    my $IndexResponse;
+        return $IndexResponse;
+    }
 
     if ( $Param{ResultType} eq 'ARRAY' || $Param{ResultType} eq 'ARRAY_SIMPLE' ) {
         $IndexResponse->{$IndexName} = $GloballyFormattedResult->{$IndexName}->{ObjectData} // [];
@@ -788,8 +794,7 @@ sub SearchFormat {
             return;
         }
 
-        $IndexResponse = { $IndexName => {} };
-
+        $IndexResponse->{$IndexName} = {};
         DATA:
         for my $Data ( @{ $GloballyFormattedResult->{$IndexName}->{ObjectData} } ) {
             if ( !$Data->{$Identifier} ) {
@@ -805,6 +810,11 @@ sub SearchFormat {
 
             $IndexResponse->{$IndexName}->{ $Data->{$Identifier} } = $Data // {};
         }
+    }
+
+    if ( $Param{RetrieveEngineData} ) {
+        $IndexResponse->{"$IndexName"}->{ObjectData} = delete $IndexResponse->{"$IndexName"};
+        $IndexResponse->{"$IndexName"}->{EngineData} = $GloballyFormattedResult->{$IndexName}->{EngineData};
     }
 
     return $IndexResponse;
@@ -1819,6 +1829,66 @@ sub LoadSettings {
     }
 
     return $IndexSettings;
+}
+
+=head2 PreSearch()
+
+execute pre-search instructions, useful when overriding Search function by custom module
+
+    my $Result = $SearchBaseObject->PreSearch(
+        %Param,
+    );
+
+=cut
+
+sub PreSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my %Params     = %Param;
+    my $IndexName  = $Self->{Config}->{IndexName};
+    my $ObjectData = $Params{Objects}->{$IndexName};
+
+    my $Loaded = $SearchChildObject->_LoadModule(
+        Module => "Kernel::System::Search::Object::Query::${IndexName}",
+    );
+
+    return if !$Loaded;
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::${IndexName}");
+
+    # check/set valid result type
+    my $ValidResultType = $SearchChildObject->ValidResultType(
+        SupportedResultTypes => $IndexQueryObject->{IndexSupportedResultTypes},
+        ResultType           => $Param{ResultType},
+    );
+
+    # do not build query for objects
+    # with not valid result type
+    return if !$ValidResultType;
+
+    my $OrderBy = $ObjectData->{OrderBy};
+    my $Limit   = $ObjectData->{Limit};
+    my $Fields  = $ObjectData->{Fields};
+
+    my $SortBy = $Self->SortParamApply(
+        %Param,
+        SortBy     => $ObjectData->{SortBy},
+        ResultType => $ValidResultType,
+        OrderBy    => $OrderBy,
+    );
+
+    return {
+        %Param,
+        Limit => $Limit
+            || $IndexQueryObject->{IndexDefaultSearchLimit},    # default limit or override with limit from param
+        Fields        => $Fields,
+        QueryParams   => $Param{QueryParams},
+        SortBy        => $SortBy,
+        RealIndexName => $Self->{Config}->{IndexRealName},
+        ResultType    => $ValidResultType,
+    };
 }
 
 =head2 _Load()
