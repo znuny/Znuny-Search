@@ -13,7 +13,8 @@ use warnings;
 
 use Kernel::System::VariableCheck qw(:all);
 
-use parent qw( Kernel::System::Search::Object::Default::TicketHistory );
+use parent qw( Kernel::System::Search::Object::Default::TicketHistory
+    Kernel::System::Search::Object::Engine::ES );
 
 our @ObjectDependencies = (
     'Kernel::System::Main',
@@ -197,106 +198,24 @@ sub ExecuteSearch {
 
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
-    if ( defined $Fulltext ) {
-        my $FulltextValue;
-        my $FulltextQueryOperator = 'AND';
-        my $StatementOperator     = 'OR';
-        if ( ref $Fulltext eq 'HASH' && $Fulltext->{Text} ) {
-            $FulltextValue         = $Fulltext->{Text};
-            $FulltextQueryOperator = $Fulltext->{QueryOperator}
-                if $Fulltext->{QueryOperator};
-            $StatementOperator = $Fulltext->{StatementOperator}
-                if $Fulltext->{StatementOperator};
-        }
-        else {
-            $FulltextValue = $Fulltext;
-        }
-        if ( IsArrayRefWithData($FulltextValue) ) {
-            $FulltextValue = join " $StatementOperator ", @{$FulltextValue};
-        }
-        if ( defined $FulltextValue && $Fulltext->{Fields} )
-        {
-            my @FulltextQuery;
+    my $FulltextQuery = $Self->DefaultFulltextQueryBuild(
+        Query               => $Query,
+        AppendIntoQuery     => 1,
+        EngineObject        => $Param{EngineObject},
+        MappingObject       => $Param{MappingObject},
+        Fulltext            => $Fulltext,
+        EntitiesPathMapping => {
+            TicketHistory => {
+                Path             => '',
+                FieldBuildPrefix => '',
+                Nested           => 0,
+            },
+        },
+        DefaultFields => {},
+        Simple        => 1,
+    );
 
-            my $FulltextHighlight = $Fulltext->{Highlight};
-            my @FulltextHighlightFieldsValid;
-
-            # check validity of highlight fields
-            if ( IsArrayRefWithData($FulltextHighlight) ) {
-                for my $Property ( @{$FulltextHighlight} ) {
-                    my %Field = $SearchChildObject->ValidFieldsPrepare(
-                        Fields => [$Property],
-                        Object => $IndexName,
-                    );
-
-                    FIELD:
-                    for my $Entity ( sort keys %Field ) {
-                        next FIELD if !IsHashRefWithData( $Field{$Entity} );
-                        push @FulltextHighlightFieldsValid, $Property;
-                        last FIELD;
-                    }
-                }
-            }
-
-            # get fields to search
-            my $FulltextSearchFields = $Fulltext->{Fields};
-            my @FulltextFields;
-            my %FulltextFieldsValid;
-
-            if ( IsArrayRefWithData( $FulltextSearchFields->{$IndexName} ) ) {
-                for my $Property ( @{ $FulltextSearchFields->{$IndexName} } ) {
-                    my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
-                        Index  => $IndexName,
-                        Entity => $IndexName,
-                        Field  => $Property,
-                        Simple => 1,
-                    );
-
-                    if ($FulltextField) {
-                        my $Field = $FulltextField;
-                        push @FulltextFields, $Field;
-                        $FulltextFieldsValid{"${IndexName}_${Property}"} = $Field;
-                    }
-                }
-            }
-
-            # build highlight query
-            my @HighlightQueryFields;
-            HIGHLIGHT:
-            for my $HighlightField (@FulltextHighlightFieldsValid) {
-                next HIGHLIGHT if !( $FulltextFieldsValid{$HighlightField} );
-                push @HighlightQueryFields, {
-                    $FulltextFieldsValid{$HighlightField} => {},
-                };
-            }
-
-            # clean special characters
-            $FulltextValue = $Param{EngineObject}->QueryStringReservedCharactersClean(
-                String => $FulltextValue,
-            );
-
-            if ( scalar @FulltextFields ) {
-                push @FulltextQuery, {
-                    query_string => {
-                        fields           => \@FulltextFields,
-                        query            => "*$FulltextValue*",
-                        default_operator => $FulltextQueryOperator,
-                    },
-                };
-            }
-
-            if ( scalar @FulltextQuery ) {
-                push @{ $Query->{Body}->{query}->{bool}->{must} }, {
-                    bool => {
-                        should => \@FulltextQuery,
-                    }
-                };
-                if (@HighlightQueryFields) {
-                    $Query->{Body}->{highlight}->{fields} = \@HighlightQueryFields;
-                }
-            }
-        }
-    }
+    return $Self->SearchEmptyResponse(%Param) if !$FulltextQuery->{Success};
 
     my $RetrieveHighlightData = IsHashRefWithData( $Query->{Body}->{highlight} )
         && IsArrayRefWithData( $Query->{Body}->{highlight}->{fields} );

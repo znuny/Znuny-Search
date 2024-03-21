@@ -26,26 +26,29 @@
         <File Permission="660" Location="Kernel/System/Search/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Mapping/ES.pm"/>
-        <File Permission="660" Location="Kernel/System/Search/Mapping/ES/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/Ticket.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Default/FAQ.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Extensions/Ticket/CustomPackage.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Default/CustomerUser.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/CustomerUser.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/TicketHistory.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Engine/ES/FAQ.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Ticket.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/Article.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/DynamicField.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Query/CustomerUser.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Object/Query/FAQ.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/EngineQueryHelper/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/Reindex.pm"/>
         <File Permission="660" Location="Kernel/System/CustomerUser/Elasticsearch.pm"/>
@@ -59,6 +62,8 @@
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketDelete.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketMerge.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/CustomerUser.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/FAQAttachment.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/FAQCategory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Engine/ES.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Object/Operators/IsNotEmpty/Fallback/Default.pm"/>
@@ -92,6 +97,7 @@
         <File Permission="660" Location="Kernel/System/Search/Admin/Reindexation.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Plugins/Base.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Plugins/ES/Ingest.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Plugins/ES/IngestFAQ.pm"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch/ES.tt"/>
         <File Permission="660" Location="Kernel/Output/HTML/Templates/Standard/AdminSearch.tt"/>
@@ -103,6 +109,7 @@
         <File Permission="660" Location="var/packagesetup/ZnunySearch.pm"/>
         <File Permission="660" Location="Kernel/System/Console/Command/Maint/Search/TestPerformance.pm"/>
         <File Permission="660" Location="scripts/test/Search/Ticket.t"/>
+        <File Permission="660" Location="scripts/test/Search/FAQ.t"/>
         <File Permission="660" Location="scripts/test/Search/Reindex.t"/>
         <File Permission="660" Location="scripts/test/Search/IndexingQueue.t"/>
         <File Permission="660" Location="scripts/test/Search/APIParameters.t"/>

@@ -10,7 +10,6 @@ package Kernel::System::Console::Command::Maint::Search::ES::IndexQueueDataProce
 
 use strict;
 use warnings;
-use Kernel::System::VariableCheck qw(:all);
 
 use parent qw(Kernel::System::Console::BaseCommand);
 

@@ -11,7 +11,7 @@ package Kernel::System::Search::Object::Engine::ES::CustomerUser;
 use strict;
 use warnings;
 
-use parent qw( Kernel::System::Search::Object::Default::CustomerUser );
+use parent qw( Kernel::System::Search::Object::Default::CustomerUser Kernel::System::Search::Object::Engine::ES );
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
@@ -282,17 +282,6 @@ sub Search {
 sub ObjectIndexAdd() {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    my $IndexCheck = $Self->IndexBaseCheck();
-    if ( !$IndexCheck->{Success} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $IndexCheck->{Message},
-        );
-        return;
-    }
-
     return $Self->SUPER::ObjectIndexAdd(
         %Param,
     );
@@ -301,17 +290,6 @@ sub ObjectIndexAdd() {
 sub ObjectIndexSet() {
     my ( $Self, %Param ) = @_;
 
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    my $IndexCheck = $Self->IndexBaseCheck();
-    if ( !$IndexCheck->{Success} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $IndexCheck->{Message},
-        );
-        return;
-    }
-
     return $Self->SUPER::ObjectIndexSet(
         %Param,
     );
@@ -319,17 +297,6 @@ sub ObjectIndexSet() {
 
 sub ObjectIndexUpdate() {
     my ( $Self, %Param ) = @_;
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    my $IndexCheck = $Self->IndexBaseCheck();
-    if ( !$IndexCheck->{Success} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $IndexCheck->{Message},
-        );
-        return;
-    }
 
     # custom handling of update
     if ( IsHashRefWithData( $Param{CustomFunction} ) ) {
@@ -344,17 +311,6 @@ sub ObjectIndexUpdate() {
 
 sub ObjectIndexRemove() {
     my ( $Self, %Param ) = @_;
-
-    my $LogObject = $Kernel::OM->Get('Kernel::System::Log');
-
-    my $IndexCheck = $Self->IndexBaseCheck();
-    if ( !$IndexCheck->{Success} ) {
-        $LogObject->Log(
-            Priority => 'error',
-            Message  => $IndexCheck->{Message},
-        );
-        return;
-    }
 
     return if !$Self->{ActiveDBBackend}->{ValidBackend};
 
@@ -475,7 +431,7 @@ sub ExecuteSearch {
 
 execute full fallback for searching CustomerUsers
 
-notice: fall-back does not support searching by dynamic fields yet
+notice: fall-back does not support searching by dynamic fields
 
     my $FunctionResult = $SearchCustomerUserESObject->FallbackExecuteSearch(
         %Params,
@@ -488,7 +444,6 @@ sub FallbackExecuteSearch {
 
     my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
 
-    # TODO: support for fallback
     return $Self->SearchEmptyResponse(%Param)
         if !$Param{ResultType} || ( $Param{ResultType} && $Param{ResultType} ne 'COUNT' ) && !$Param{Force};
 

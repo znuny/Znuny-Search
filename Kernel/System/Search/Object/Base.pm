@@ -106,7 +106,10 @@ sub Fallback {
             ReturnDefaultSQLColumnNames => 0,
         );
 
-        return if !$SQLSearchResult->{Success};
+        return {
+            EngineData => {},
+            ObjectData => {},
+        } if !$SQLSearchResult->{Success};
     }
 
     my $Result = {
@@ -1207,6 +1210,15 @@ sub ObjectIndexQueueHandle {
         Index => $IndexName,
     );
 
+    my $IndexCheck = $Self->IndexBaseCheck();
+    if ( !$IndexCheck->{Success} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Indexation queue can't proceed due to the error: " . $IndexCheck->{Message},
+        );
+        return;
+    }
+
     my @QueuesToExecute = $Self->ObjectIndexQueueFormat(
         Queue => $Queue,
     );
@@ -1905,7 +1917,7 @@ load fields, custom field mapping
 sub _Load {
     my ( $Self, %Param ) = @_;
 
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
     if ( $Param{CustomConfigNotSupported} ) {
         $Self->{Fields} = $Param{Fields};
@@ -1919,7 +1931,7 @@ sub _Load {
         %{ $Self->{Fields} } = ( %{ $Param{Fields} }, %{ $Config->{Fields} } );
     }
 
-    $Self->{OperatorMapping} = $SearchObject->{DefaultOperatorMapping};
+    $Self->{OperatorMapping} = $SearchChildObject->{DefaultOperatorMapping};
 
     return 1;
 }

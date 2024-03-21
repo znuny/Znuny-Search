@@ -12,7 +12,7 @@ use strict;
 use warnings;
 use POSIX qw/ceil/;
 
-use parent qw( Kernel::System::Search::Object::Default::Article );
+use parent qw( Kernel::System::Search::Object::Default::Article Kernel::System::Search::Object::Engine::ES );
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
@@ -278,6 +278,8 @@ sub ObjectIndexGeneric {
             Fields      => [$Identifier],
             Limit       => $IDLimit,
             Offset      => $ArticleOffset,
+            SortBy      => $Identifier,
+            OrderBy     => 'Down',
         );
 
         $DataCount = scalar @{$SQLDataIDs};
@@ -290,6 +292,8 @@ sub ObjectIndexGeneric {
                     QueryParams => {
                         $Identifier => $SQLDataIDs,
                     },
+                    SortBy     => $Identifier,
+                    OrderBy    => 'Down',
                     ResultType => $Param{SQLSearchResultType} || 'ARRAY',
                 );
 
@@ -314,6 +318,8 @@ sub ObjectIndexGeneric {
                         QueryParams => {
                             $Identifier => $SQLDataIDs,
                         },
+                        SortBy     => $Identifier,
+                        OrderBy    => 'Down',
                         ResultType => $Param{SQLSearchResultType} || 'ARRAY',
                         Offset     => $Offset,
                         Limit      => $ReindexationStep,

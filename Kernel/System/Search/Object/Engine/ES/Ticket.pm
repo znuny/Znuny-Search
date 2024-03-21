@@ -15,7 +15,8 @@ use warnings;
 use MIME::Base64;
 use POSIX qw/ceil/;
 
-use parent qw( Kernel::System::Search::Object::Default::Ticket );
+use parent qw( Kernel::System::Search::Object::Default::Ticket
+    Kernel::System::Search::Object::Engine::ES );
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
@@ -388,7 +389,7 @@ On executing ticket search by Kernel::System::Search:
             Fulltext      => ['elasticsearch', 'kibana'],
             #    OR
             Fulltext      => {
-                Highlight => ['Ticket_Title, 'Article_Body'], # support ResultType: "HASH","ARRAY"
+                Highlight => ['Ticket_Title', 'Article_Body'], # support ResultType: "HASH","ARRAY"
                 Fields => {
                     Ticket => [ 'Title' ],
                     Article => [ 'Body' ],
@@ -539,186 +540,34 @@ sub ExecuteSearch {
         _Source     => 1,
     );
 
-    my $FulltextTicketQuery;
-    my $FulltextArticleQuery;
-    my $FulltextAttachmentQuery;
-
-    # fulltext search
-    if ( defined $Fulltext ) {
-        my $FulltextValue;
-        my $FulltextQueryOperator = 'AND';
-        my $StatementOperator     = 'OR';
-        if ( ref $Fulltext eq 'HASH' && $Fulltext->{Text} ) {
-            $FulltextValue         = $Fulltext->{Text};
-            $FulltextQueryOperator = $Fulltext->{QueryOperator}
-                if $Fulltext->{QueryOperator};
-            $StatementOperator = $Fulltext->{StatementOperator}
-                if $Fulltext->{StatementOperator};
-        }
-        else {
-            $FulltextValue = $Fulltext;
-        }
-        if ( IsArrayRefWithData($FulltextValue) ) {
-            $FulltextValue = join " $StatementOperator ", @{$FulltextValue};
-        }
-        if ( defined $FulltextValue )
-        {
-            my @FulltextQuery;
-
-            my $FulltextHighlight = $Fulltext->{Highlight};
-            my @FulltextHighlightFieldsValid;
-
-            # check validity of highlight fields
-            if ( IsArrayRefWithData($FulltextHighlight) ) {
-                for my $Property ( @{$FulltextHighlight} ) {
-                    my %Field = $Self->ValidFieldsPrepare(
-                        Fields => [$Property],
-                        Object => $Self->{Config}->{IndexName},
-                    );
-
-                    FIELD:
-                    for my $Entity ( sort keys %Field ) {
-                        next FIELD if !IsHashRefWithData( $Field{$Entity} );
-                        push @FulltextHighlightFieldsValid, $Property;
-                        last FIELD;
-                    }
-                }
+    my $FulltextQuery = $Self->DefaultFulltextQueryBuild(
+        Query               => $Query,
+        AppendIntoQuery     => 1,
+        EngineObject        => $Param{EngineObject},
+        MappingObject       => $Param{MappingObject},
+        Fulltext            => $Fulltext,
+        EntitiesPathMapping => {
+            Ticket => {
+                Path             => '',
+                FieldBuildPrefix => '',
+                Nested           => 0,
+            },
+            Article => {
+                Path             => 'Articles',
+                FieldBuildPrefix => 'Articles.',
+                Nested           => 1,
+            },
+            Attachment => {
+                Path             => 'Articles.Attachments',
+                FieldBuildPrefix => 'Articles.Attachments.',
+                Nested           => 1,
             }
+        },
+        DefaultFields => $ConfigObject->Get('SearchEngine::ES::TicketSearchFields')->{Fulltext},
+        Simple        => 0,
+    );
 
-            # get fields to search
-            my $ESTicketSearchFieldsConfig = $ConfigObject->Get('SearchEngine::ES::TicketSearchFields');
-            my $FulltextSearchFields       = $Fulltext->{Fields} || $ESTicketSearchFieldsConfig->{Fulltext};
-            my @FulltextTicketFields;
-            my %FulltextFieldsValid;
-
-            if ( IsArrayRefWithData( $FulltextSearchFields->{Ticket} ) ) {
-                for my $Property ( @{ $FulltextSearchFields->{Ticket} } ) {
-                    my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
-                        Index  => 'Ticket',
-                        Entity => 'Ticket',
-                        Field  => $Property,
-                    );
-
-                    if ($FulltextField) {
-                        my $Field = $FulltextField;
-                        push @FulltextTicketFields, $Field;
-                        $FulltextFieldsValid{"Ticket_${Property}"} = $Field;
-                    }
-                }
-            }
-
-            my @FulltextArticleFields;
-            if ( IsArrayRefWithData( $FulltextSearchFields->{Article} ) ) {
-                for my $Property ( @{ $FulltextSearchFields->{Article} } ) {
-                    my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
-                        Index  => 'Ticket',
-                        Entity => 'Article',
-                        Field  => $Property,
-                    );
-
-                    if ($FulltextField) {
-                        my $Field = 'Articles.' . $FulltextField;
-                        push @FulltextArticleFields, $Field;
-                        $FulltextFieldsValid{"Article_${Property}"} = $Field;
-                    }
-                }
-            }
-
-            my @FulltextAttachmentFields;
-            if (
-                IsArrayRefWithData( $FulltextSearchFields->{Attachment} )
-                && $Self->{Config}->{Settings}->{IndexAttachments}
-                )
-            {
-                for my $Property ( @{ $FulltextSearchFields->{Attachment} } ) {
-                    my $FulltextField = $Param{MappingObject}->FulltextSearchableFieldBuild(
-                        Index  => 'Ticket',
-                        Entity => 'Attachment',
-                        Field  => $Property,
-                    );
-
-                    if ($FulltextField) {
-                        my $Field = 'Articles.Attachments.' . $FulltextField;
-                        push @FulltextArticleFields, $Field;
-                        $FulltextFieldsValid{"Attachment_${Property}"} = $Field;
-                    }
-                }
-            }
-
-            # build highlight query
-            my @HighlightQueryFields;
-            HIGHLIGHTFIELD:
-            for my $HighlightField (@FulltextHighlightFieldsValid) {
-                next HIGHLIGHTFIELD if !( $FulltextFieldsValid{$HighlightField} );
-                push @HighlightQueryFields, {
-                    $FulltextFieldsValid{$HighlightField} => {},
-                };
-            }
-
-            # clean special characters
-            $FulltextValue = $Param{EngineObject}->QueryStringReservedCharactersClean(
-                String => $FulltextValue,
-            );
-
-            if ( scalar @FulltextTicketFields ) {
-                $FulltextTicketQuery = {
-                    query_string => {
-                        fields           => \@FulltextTicketFields,
-                        query            => "*$FulltextValue*",
-                        default_operator => $FulltextQueryOperator,
-                    },
-                };
-                push @FulltextQuery, $FulltextTicketQuery;
-            }
-
-            if ( scalar @FulltextArticleFields ) {
-                $FulltextArticleQuery = {
-                    query_string => {
-                        fields           => \@FulltextArticleFields,
-                        query            => "*$FulltextValue*",
-                        default_operator => $FulltextQueryOperator,
-                    },
-                };
-                push @FulltextQuery, {
-                    nested => {
-                        path => [
-                            "Articles"
-                        ],
-                        query => $FulltextArticleQuery,
-                    }
-                };
-            }
-
-            if ( scalar @FulltextAttachmentFields ) {
-                $FulltextAttachmentQuery = {
-                    query_string => {
-                        fields           => \@FulltextAttachmentFields,
-                        query            => "*$FulltextValue*",
-                        default_operator => $FulltextQueryOperator,
-                    },
-                };
-                push @FulltextQuery, {
-                    nested => {
-                        path => [
-                            "Articles.Attachments"
-                        ],
-                        query => $FulltextAttachmentQuery,
-                    }
-                };
-            }
-
-            if ( scalar @FulltextQuery ) {
-                push @{ $Query->{Body}->{query}->{bool}->{must} }, {
-                    bool => {
-                        should => \@FulltextQuery,
-                    }
-                };
-                if (@HighlightQueryFields) {
-                    $Query->{Body}->{highlight}->{fields} = \@HighlightQueryFields;
-                }
-            }
-        }
-    }
+    return $Self->SearchEmptyResponse(%Param) if !$FulltextQuery->{Success};
 
     my $RetrieveHighlightData = IsHashRefWithData( $Query->{Body}->{highlight} )
         && IsArrayRefWithData( $Query->{Body}->{highlight}->{fields} );
@@ -1432,6 +1281,8 @@ sub ObjectIndexGeneric {
             Fields      => [$Identifier],
             Limit       => $IDLimit,
             Offset      => $TicketOffset,
+            SortBy      => $Identifier,
+            OrderBy     => 'Down',
         );
 
         $DataCount = scalar @{$SQLDataIDs};
@@ -1449,6 +1300,8 @@ sub ObjectIndexGeneric {
                     IgnoreArticles   => 1,
                     NoPermissions    => $Param{NoPermissions},
                     SetEmptyArticles => $Param{SetEmptyArticles},
+                    SortBy           => $Identifier,
+                    OrderBy          => 'Down',
                 );
 
                 my $SuccessLocal = $Self->$Function(
@@ -1478,6 +1331,8 @@ sub ObjectIndexGeneric {
                         Limit            => $ReindexationStep,
                         NoPermissions    => $Param{NoPermissions},
                         SetEmptyArticles => $Param{SetEmptyArticles},
+                        SortBy           => $Identifier,
+                        OrderBy          => 'Down',
                     );
 
                     my @ObjectDataIDsToProcess = @{$SQLDataIDs}[ $Offset .. ( $Offset + $ReindexationStep - 1 ) ];
