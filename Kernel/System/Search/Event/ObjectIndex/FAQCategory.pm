@@ -46,11 +46,6 @@ sub Run {
         return;
     }
 
-    my $IsValid = $SearchChildObject->IndexIsValid(
-        IndexName => 'FAQ',
-    );
-
-    return if !$IsValid;
     return if $Param{Event} ne 'FAQSetCategoryGroup';
 
     my $IndexName    = 'FAQ';

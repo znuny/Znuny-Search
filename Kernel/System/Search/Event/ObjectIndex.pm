@@ -35,8 +35,7 @@ sub Run {
     my $LogObject         = $Kernel::OM->Get('Kernel::System::Log');
     my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
     my $JSONObject        = $Kernel::OM->Get('Kernel::System::JSON');
-
-    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
 
     return if $SearchObject->{Fallback};
 

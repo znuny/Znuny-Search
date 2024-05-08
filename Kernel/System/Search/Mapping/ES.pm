@@ -55,6 +55,23 @@ process query data to structure that will be used to execute query
 
     my $Result = $SearchMappingESObject->Search(
         QueryParams   => $QueryParams,
+        Object        => 'Ticket',
+        ResultType    => 'ARRAY',
+        SortBy        => {
+            Properties => {
+                Type => 'String',
+            }
+            Name => 'TicketID',
+            OrderBy => 'Up',
+        },
+        Limit => 10000,
+        _Source => 1,
+        Offset => 10,
+        RetrieveEngineData => {
+            TotalHits => 'All' # count retrieved data for non COUNT result type
+                               # can also use a positive integer to count a maximum of x entries
+        }
+
     );
 
 =cut
@@ -216,8 +233,8 @@ sub SearchFormat {
     my $GloballyFormattedObjData;
     my $EngineData;
 
-    my %RetrieveEngineData = ();
-    my %EngineDataMapping  = ();
+    my %RetrieveEngineData;
+    my %EngineDataMapping;
 
     if ( IsHashRefWithData( $Param{RetrieveEngineData} ) ) {
         %RetrieveEngineData = %{ $Param{RetrieveEngineData} };

@@ -39,8 +39,7 @@ if ( !$SearchObject->{ConnectObject} ) {
 
 my $FAQObject = $Kernel::OM->Get('Kernel::System::FAQ');
 
-my $IndexName = 'FAQ';
-
+my $IndexName    = 'FAQ';
 my $ActiveEngine = $SearchObject->{Config}->{ActiveEngine};
 
 $Self->True(
@@ -93,6 +92,18 @@ $ConfigObject->Set(
         ReindexationStep => $ReindexationStep,
     },
 );
+
+my $RegisteredIndexes = $SearchObject->{Config}->{RegisteredIndexes};
+for my $Index ( sort keys %{$RegisteredIndexes} ) {
+    my $QueueDeleteSuccess = $SearchChildObject->IndexObjectQueueDelete(
+        Index => $Index,
+    );
+
+    $Self->True(
+        $QueueDeleteSuccess,
+        "Deleted queue for index: $Index, search engine."
+    );
+}
 
 my $Object = {
     Basic => {

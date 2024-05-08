@@ -20,12 +20,11 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::Search::Object::Engine::ES - common base backend functions for specified object
+Kernel::System::Search::Object::Engine::ES - common base backend functions for ES engine
 
 =head1 DESCRIPTION
 
-This module defines schema and rules for specified object to be used
-for fallback or separate engine.
+This module defines default functions used across all indexes.
 
 =head1 PUBLIC INTERFACE
 
@@ -36,12 +35,12 @@ for fallback or separate engine.
 builds fulltext query based on specific index parameter
 
     my $Query = $SearchEngineESObject->DefaultFulltextQueryBuild(
-        Query => $Query,                                                                        # target query that appending operation will process
-        AppendIntoQuery => 1,                                                                   # append query that was built into another query
+        Query => $Query,                        # target query that appending operation will process
+        AppendIntoQuery => 1,                   # append query that was built into another query
         EngineObject => $Param{EngineObject},
         MappingObject => $Param{MappingObject},
-        Fulltext => $Fulltext,                                                                  # fulltext parameter
-        EntitiesPathMapping => {                                                                # needed mapping between objects
+        Fulltext => $Fulltext,                  # fulltext parameter
+        EntitiesPathMapping => {                # needed mapping between objects
             Ticket => {
                 Path => '',
                 FieldBuildPrefix => '',
@@ -58,8 +57,9 @@ builds fulltext query based on specific index parameter
                 Nested => 1,
             }
         },
-        DefaultFields => $ConfigObject->Get('SearchEngine::ES::TicketSearchFields')->{Fulltext}, # default fields if not present in Fulltext parameter
-        Simple => 0,                                                                             # decide if index is one or multi leveled (regarding nesting of objects)
+        # default fields if not present in Fulltext parameter
+        DefaultFields => $ConfigObject->Get('SearchEngine::ES::TicketSearchFields')->{Fulltext},
+        Simple => 0, # decide if index is one or multi leveled (regarding nesting of objects)
     );
 
 =cut

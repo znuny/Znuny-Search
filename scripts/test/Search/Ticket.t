@@ -118,6 +118,18 @@ my $TicketNumber = $TicketObject->TicketCreateNumber();
 my %QueryParams;
 my %LookupQueryParams;
 
+my $RegisteredIndexes = $SearchObject->{Config}->{RegisteredIndexes};
+for my $Index ( sort keys %{$RegisteredIndexes} ) {
+    my $QueueDeleteSuccess = $SearchChildObject->IndexObjectQueueDelete(
+        Index => $Index,
+    );
+
+    $Self->True(
+        $QueueDeleteSuccess,
+        "Deleted queue for index: $Index, search engine."
+    );
+}
+
 my $Object = {
     Basic => {
         User => {

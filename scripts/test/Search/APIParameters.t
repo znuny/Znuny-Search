@@ -22,14 +22,15 @@ $Kernel::OM->ObjectParamAdd(
     },
 );
 
-my $StateObject    = $Kernel::OM->Get('Kernel::System::State');
-my $PriorityObject = $Kernel::OM->Get('Kernel::System::Priority');
-my $HelperObject   = $Kernel::OM->Get('Kernel::System::UnitTest::Helper');
-my $SearchObject   = $Kernel::OM->Get('Kernel::System::Search');
-my $ConfigObject   = $Kernel::OM->Get('Kernel::Config');
-my $UserObject     = $Kernel::OM->Get('Kernel::System::User');
-my $TypeObject     = $Kernel::OM->Get('Kernel::System::Type');
-my $QueueObject    = $Kernel::OM->Get('Kernel::System::Queue');
+my $StateObject       = $Kernel::OM->Get('Kernel::System::State');
+my $PriorityObject    = $Kernel::OM->Get('Kernel::System::Priority');
+my $HelperObject      = $Kernel::OM->Get('Kernel::System::UnitTest::Helper');
+my $SearchObject      = $Kernel::OM->Get('Kernel::System::Search');
+my $ConfigObject      = $Kernel::OM->Get('Kernel::Config');
+my $UserObject        = $Kernel::OM->Get('Kernel::System::User');
+my $TypeObject        = $Kernel::OM->Get('Kernel::System::Type');
+my $QueueObject       = $Kernel::OM->Get('Kernel::System::Queue');
+my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
 
 # just for gitlab pipeline to pass this test
 if ( !$SearchObject->{ConnectObject} ) {
@@ -68,7 +69,18 @@ $ConfigObject->Set(
     Value => 1,
 );
 
-my $RegisteredIndexes    = $SearchObject->{Config}->{RegisteredIndexes};
+my $RegisteredIndexes = $SearchObject->{Config}->{RegisteredIndexes};
+for my $Index ( sort keys %{$RegisteredIndexes} ) {
+    my $QueueDeleteSuccess = $SearchChildObject->IndexObjectQueueDelete(
+        Index => $Index,
+    );
+
+    $Self->True(
+        $QueueDeleteSuccess,
+        "Deleted queue for index: $Index, search engine."
+    );
+}
+
 my $AnyIndexIsRegistered = IsHashRefWithData($RegisteredIndexes);
 
 $Self->True(
@@ -436,6 +448,101 @@ my %Tests = (
                         TicketID => $TicketQueueIDs[2]
                     },
                 ]
+            },
+        },
+        {
+            Name       => "(Custom engine) Ticket search with offset: 1, limit 1. ",
+            Parameters => {
+                Objects     => ['Ticket'],
+                QueryParams => {
+                    UserID   => 1,
+                    TicketID => \@TicketQueueIDs,
+                },
+                SortBy     => ['TicketID'],
+                OrderBy    => ['Up'],
+                Fields     => [ ['Ticket_TicketID'] ],
+                ResultType => 'ARRAY',
+                Offset     => 1,
+                Limit      => 1,
+            },
+            ExpectedResult => {
+                Ticket => [
+                    {
+                        TicketID => $TicketQueueIDs[1]
+                    },
+                ]
+            },
+        },
+        {
+            Name       => "(Custom engine) Ticket search with RetrieveEngineData parameter: TotalHits set to 'All'. ",
+            Parameters => {
+                Objects     => ['Ticket'],
+                QueryParams => {
+                    UserID   => 1,
+                    TicketID => \@TicketQueueIDs,
+                },
+                SortBy             => ['TicketID'],
+                OrderBy            => ['Up'],
+                Fields             => [ ['Ticket_TicketID'] ],
+                ResultType         => 'ARRAY',
+                RetrieveEngineData => {
+                    TotalHits => 'All',
+                },
+            },
+            ExpectedResult => {
+                Ticket => {
+                    EngineData => {
+                        TotalHits         => 3,
+                        TotalHitsRelation => 'eq',
+                    },
+                    ObjectData => [
+                        {
+                            TicketID => $TicketQueueIDs[0]
+                        },
+                        {
+                            TicketID => $TicketQueueIDs[1]
+                        },
+                        {
+                            TicketID => $TicketQueueIDs[2]
+                        },
+                    ]
+                }
+            },
+        },
+        {
+            Name       => "(Custom engine) Ticket search with RetrieveEngineData parameter: TotalHits set to 2. ",
+            Parameters => {
+                Objects     => ['Ticket'],
+                QueryParams => {
+                    UserID   => 1,
+                    TicketID => \@TicketQueueIDs,
+                },
+                SortBy             => ['TicketID'],
+                OrderBy            => ['Up'],
+                Fields             => [ ['Ticket_TicketID'] ],
+                ResultType         => 'ARRAY',
+                RetrieveEngineData => {
+                    TotalHits => 2,
+                },
+            },
+            ExpectedResult => {
+                Ticket => {
+                    EngineData => {
+                        TotalHits         => 2,
+                        TotalHitsRelation => 'gte',
+                    },
+                    ObjectData => [
+                        {
+                            TicketID => $TicketQueueIDs[0]
+                        },
+                        {
+                            TicketID => $TicketQueueIDs[1]
+                        },
+                        {
+                            TicketID => $TicketQueueIDs[2]
+                        },
+                    ]
+                }
             },
         },
     ],

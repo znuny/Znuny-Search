@@ -73,7 +73,7 @@ sub new {
 
     # define schema for data
     my $FieldMapping = {
-        ID => {
+        ItemID => {
             ColumnName => 'id',
             Type       => 'Integer'
         },

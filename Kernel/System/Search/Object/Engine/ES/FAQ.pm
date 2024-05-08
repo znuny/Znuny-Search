@@ -6,8 +6,6 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-## nofilter(TidyAll::Plugin::Znuny4OTRS::Perl::ObjectManagerDirectCall)
-
 package Kernel::System::Search::Object::Engine::ES::FAQ;
 
 use strict;
@@ -247,33 +245,33 @@ then execute search.
 
 On executing FAQ search by Kernel::System::Search:
     my $Result = $Kernel::OM->Get('Kernel::System::Search')->Search(
-        Objects => ["FAQ"],
+        Objects     => ["FAQ"],
         QueryParams => {
             # standard FAQ fields
-            ItemID => 1,
-            Number => 2022101276000016,
-            Title => 'some-title',
-            Name => 'faq-name',
-            LanguageID => 1,
-            StateID => 1,
-            CategoryID => 1,
-            Approved => 1,
-            ValidID => 1,
+            ItemID      => 1,
+            Number      => 2022101276000016,
+            Title       => 'some-title',
+            Name        => 'faq-name',
+            LanguageID  => 1,
+            StateID     => 1,
+            CategoryID  => 1,
+            Approved    => 1,
+            ValidID     => 1,
             ContentType => 'text/html',
-            Keywords => 'some keywords here',
-            Field1 => 'field1',
-            Field2 => 'field2',
-            Field3 => 'field3',
-            Field4 => 'field4',
-            Field5 => 'field5',
-            Field6 => 'field6',
-            Created => "2022-08-17 13:13:23",
-            CreateBy => 1,
-            Changed => "2022-08-17 13:13:39",
-            ChangeBy => 1,
+            Keywords    => 'some keywords here',
+            Field1      => 'field1',
+            Field2      => 'field2',
+            Field3      => 'field3',
+            Field4      => 'field4',
+            Field5      => 'field5',
+            Field6      => 'field6',
+            Created     => "2022-08-17 13:13:23",
+            CreateBy    => 1,
+            Changed     => "2022-08-17 13:13:39",
+            ChangeBy    => 1,
 
             # FAQ dynamic fields
-            DynamicField_Text => 'TextValue',
+            DynamicField_Text        => 'TextValue',
             DynamicField_Multiselect => [1,2,3],
 
             # attachments
@@ -294,7 +292,7 @@ On executing FAQ search by Kernel::System::Search:
             Attachment_AttachmentContent => {
                 Operator => 'FULLTEXT', Value => {
                     OperatorQuery => 'AND',
-                    Text => 'value',
+                    Text          => 'value',
                 }
             },
 
@@ -304,7 +302,7 @@ On executing FAQ search by Kernel::System::Search:
             # when combined witch UserID, there is used "OR" match
             # meaning groups for specified user including groups from
             # "GroupID" will match FAQs
-            UserID => 1, # no operators support
+            UserID      => 1, # no operators support
             Permissions => 'ro' # no operators support, by default "ro" value will be used
                                 # permissions for user, therefore should be combined with UserID param
 
@@ -313,10 +311,10 @@ On executing FAQ search by Kernel::System::Search:
             # can be combined with its IDs alternative (will match
             # by "AND" operator as any other fields)
             # operators syntax is not supported on those fields
-            CategoryShortName          => ['CategoryShortName1'],
-            Language        => ['en'],
-            Valid         => ['valid', 'invalid'],
-            State         => ['State1', 'State2'],
+            CategoryShortName => ['CategoryShortName1'],
+            Language          => ['en'],
+            Valid             => ['valid', 'invalid'],
+            State             => ['State1', 'State2'],
 
             # fulltext parameter can be used to search by properties specified
             # in sysconfig "SearchEngine::ES::FAQSearchFields###Fulltext"
@@ -325,8 +323,8 @@ On executing FAQ search by Kernel::System::Search:
             Fulltext      => ['elasticsearch', 'kibana'],
             #    OR
             Fulltext      => {
-                Fields => {             # or specify fields yourselves
-                   FAQ => ['Name', 'Title'],
+                Fields => {             # or optionally specify fields yourselves
+                   FAQ        => ['Name', 'Title'],
                    Attachment => ['Filename', 'Filesize']
                 },
                 Highlight => ['FAQ_Name', 'FAQ_Title', 'Attachment_Filename'],
@@ -352,7 +350,7 @@ On executing FAQ search by Kernel::System::Search:
         Fields => [['FAQ_FAQID', 'FAQ_FAQNumber']] # specify field from field mapping
             # to get:
             # - FAQ fields (all): [['FAQ_*']]
-            # - FAQ field (specified): [['FAQ_FAQID', 'FAQ_Title']]
+            # - FAQ field (specified): [['FAQ_ItemID', 'FAQ_Title']]
             # - FAQ dynamic fields (all): [['FAQ_DynamicField_*']]
             # - FAQ dynamic fields (specified): [['FAQ_DynamicField_multiselect', 'FAQ_DynamicField_dropdown']]
             # - FAQ "GroupID" field (external field): [['FAQ_GroupID']]
@@ -1795,7 +1793,7 @@ sub ObjectIndexQueueUpdateRule {
 
 =head2 IndexBaseCheck()
 
-Checks index for specific base conditions to determine if it can be used.
+checks index for specific base conditions to determine if it can be used.
 
     my $Result = $SearchFAQESObject->IndexBaseCheck();
 
@@ -1912,7 +1910,7 @@ sub _ObjectIndexSetAction {
 add or delete specified attachment ids for faq
 
     my $Success = $SearchFAQESObject->_AttachmentsIndex(
-        ItemID            => 1,
+        ItemID            => 1, # mandatory
         AddAttachment    => [1,2,3],
         DeleteAttachment => [4,5,6],
     );
@@ -2044,7 +2042,7 @@ for(int i=0;i<AttachmentsToDelete.size();i++){
         );
     }
 
-    return;
+    return $Success;
 }
 
 =head2 _AttachmentsGet()
@@ -2052,9 +2050,10 @@ for(int i=0;i<AttachmentsToDelete.size();i++){
 get attachments for faq item
 
     my @Attachments = $SearchFAQESObject->_AttachmentsGet(
-        ItemID => 1,
-        FilesID => [1,2,3],
-        ShowInline => 1,
+        ItemID => 1,        # mandatory, faq item id that contains attachments
+        UserID => 1,        # mandatory, permission user
+        FilesID => [1,2,3], # optional, use to filter through specified FileID's
+        ShowInline => 1,    # optional, inline attachments filter
     );
 
 =cut
