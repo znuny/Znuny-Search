@@ -12,7 +12,6 @@ use strict;
 use warnings;
 
 use parent qw( Kernel::System::Search::Object::Base );
-use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
     'Kernel::System::Main',

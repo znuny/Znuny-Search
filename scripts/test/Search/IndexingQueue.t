@@ -40,6 +40,18 @@ $Self->True(
     "Connection to engine - Exists"
 );
 
+my $RegisteredIndexes = $SearchObject->{Config}->{RegisteredIndexes};
+for my $Index ( sort keys %{$RegisteredIndexes} ) {
+    my $QueueDeleteSuccess = $SearchChildObject->IndexObjectQueueDelete(
+        Index => $Index,
+    );
+
+    $Self->True(
+        $QueueDeleteSuccess,
+        "Deleted queue for index: $Index, search engine."
+    );
+}
+
 # create test objects for indexes: Ticket, Article, TicketHistory
 for my $Counter ( 1 .. 5 ) {
     my $TicketID = $HelperObject->TicketCreate();

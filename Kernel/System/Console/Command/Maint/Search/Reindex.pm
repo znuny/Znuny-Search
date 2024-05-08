@@ -24,6 +24,7 @@ our @ObjectDependencies = (
     'Kernel::System::JSON',,
     'Kernel::System::Search::Admin::Reindexation',
     'Kernel::System::Search::Cluster',
+    'Kernel::System::Log',
 );
 
 sub Configure {

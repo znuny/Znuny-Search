@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Plugins::ES::Ingest;
+package Kernel::System::Search::Plugins::ES::IngestFAQ;
 
 use strict;
 use warnings;
@@ -18,15 +18,16 @@ use parent qw( Kernel::System::Search::Plugins::Base );
 
 our @ObjectDependencies = (
     'Kernel::System::Search',
+    'Kernel::System::Log',
 );
 
 =head1 NAME
 
-Kernel::System::Search::Plugins::ES::Ingest - Elasticsearch ingest plugin backend functions
+Kernel::System::Search::Plugins::ES::IngestFAQ - Elasticsearch IngestFAQ plugin backend functions
 
 =head1 DESCRIPTION
 
-Main Elasticsearch ingest plugin functions.
+Main Elasticsearch IngestFAQ plugin functions.
 
 =head1 PUBLIC INTERFACE
 
@@ -34,7 +35,7 @@ Main Elasticsearch ingest plugin functions.
 
 Don't use the constructor directly, use the ObjectManager instead:
 
-    my $SearchESIngestPluginObject = $Kernel::OM->Get('Kernel::System::Search::Plugins::ES::Ingest');
+    my $SearchESIngestFAQPluginObject = $Kernel::OM->Get('Kernel::System::Search::Plugins::ES::IngestFAQ');
 
 =cut
 
@@ -44,7 +45,7 @@ sub new {
     my $Self = {};
     bless( $Self, $Type );
 
-    $Self->{PluginName} = "Ingest";
+    $Self->{PluginName} = "IngestFAQ";
 
     return $Self;
 }
@@ -53,7 +54,7 @@ sub new {
 
 initialize pipeline config
 
-    my $ClusterInit = $SearchESIngestPluginObject->ClusterInit()
+    my $ClusterInit = $SearchESIngestFAQPluginObject->ClusterInit()
 
 =cut
 
@@ -68,24 +69,24 @@ sub ClusterInit {
 
     eval {
         $Response = $ConnectObject->transport()->perform_request(
-            method => "PUT",
-            path   => "_ingest/pipeline/attachment_nested",
+            method => 'PUT',
+            path   => '_ingest/pipeline/attachment_nested_faq',
             body   => {
-                description => "Process with ingest attachment",
+                description => 'Process with ingest attachment for FAQ',
                 processors  => [
                     {
                         "foreach" => {
-                            field     => "AttachmentStorageTemp",
+                            field     => 'AttachmentStorageTemp',
                             if        => "ctx['AttachmentStorageTemp'] != null",
                             processor => {
                                 attachment => {
-                                    target_field   => "_ingest._value.attachment",
-                                    field          => "_ingest._value.Content",
+                                    target_field   => '_ingest._value.attachment',
+                                    field          => '_ingest._value.Content',
                                     properties     => ['content'],
                                     ignore_missing => JSON::PP::true(),
                                 }
                             }
-                        }
+                        },
                     },
                     {
                         script => {
@@ -93,8 +94,9 @@ sub ClusterInit {
                             description => "Set attachment content to clear temporary field",
                             lang        => "painless",
                             source      => "
+
                                 for(int i=0;i<ctx.AttachmentStorageTemp.size();i++){
-                                    ctx.AttachmentStorageClearTemp[ctx.AttachmentStorageTemp[i].ArticleID + '_' + ctx.AttachmentStorageTemp[i].ID] = ctx.AttachmentStorageTemp[i].attachment.content
+                                    ctx.AttachmentStorageClearTemp[Integer.toString(ctx.AttachmentStorageTemp[i].FileID)] = ctx.AttachmentStorageTemp[i].attachment.content
                                 }
                           "
                         }
@@ -115,18 +117,11 @@ sub ClusterInit {
                             description => "Set content type to attachment",
                             lang        => "painless",
                             source      => "
-                                ArrayList Articles = ctx.Articles;
-                                for(int i=0;i<Articles.size();i++){
-                                    long ArticleID = Articles.get(i).ArticleID;
-                                    ArrayList Attachments = Articles.get(i).Attachments;
-                                    for(int j=0; j<Attachments.size();j++){
-                                        String AttachmentID = Attachments.get(j).ID;
-                                        for(int k=0; k<ctx.AttachmentStorageClearTemp.size();k++){
-                                            String Key = ArticleID + '_' + AttachmentID;
-                                            if(ctx.AttachmentStorageClearTemp[Key] !== null){
-                                                Attachments[j].AttachmentContent = ctx.AttachmentStorageClearTemp[Key];
-                                            }
-                                        }
+                                ArrayList Attachments = ctx.Attachments;
+                                for(int i=0; i<Attachments.size();i++){
+                                    long AttachmentID = Attachments.get(i).FileID;
+                                    if(ctx.AttachmentStorageClearTemp[''+AttachmentID] !== null){
+                                        Attachments[i].AttachmentContent = ctx.AttachmentStorageClearTemp[''+AttachmentID];
                                     }
                                 }
                           "
@@ -138,7 +133,7 @@ sub ClusterInit {
                             description => "Remove temporary attribute",
                             lang        => "painless",
                             source      => "
-                                ctx.AttachmentStorageClearTemp = null;
+                                ctx.AttachmentStorageClearTemp = null
                           "
                         }
                     }
@@ -148,11 +143,10 @@ sub ClusterInit {
     };
 
     my $Success = 0;
-
     if ($@) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "Could not set pipeline \"attachment_nested\" correctly! Error: $@",
+            Message  => "Could not set pipeline \"attachment_nested_faq\" correctly! Error: $@",
         );
         return {
             PluginName => $Self->{PluginName},

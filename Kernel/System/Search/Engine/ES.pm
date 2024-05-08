@@ -208,8 +208,9 @@ sub QueryExecute {
     }
 
     return {
-        __Error  => 1,
-        Response => $Result,
+        __Error      => 1,
+        Response     => $Result,
+        ErrorMessage => $ErrorMessage,
     };
 }
 

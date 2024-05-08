@@ -46,6 +46,15 @@ if ( !$SearchObject->{ConnectObject} ) {
     return 1;
 }
 
+my $ActiveEngine = $SearchObject->{Config}->{ActiveEngine};
+
+$Self->True(
+    $ActiveEngine,
+    "Active engine ($SearchObject->{Config}->{ActiveEngine}) exists, search engine.",
+);
+
+return if !$ActiveEngine;
+
 my $StartQueuedIndexation = sub {
     my ( $Self, %Param ) = @_;
 
@@ -83,15 +92,6 @@ $ConfigObject->Set(
     Value => 1,
 );
 
-my $ActiveEngine = $SearchObject->{Config}->{ActiveEngine};
-
-$Self->True(
-    $ActiveEngine,
-    "Active engine ($SearchObject->{Config}->{ActiveEngine}) exists, search engine.",
-);
-
-return if !$ActiveEngine;
-
 # enable attachment indexation if for some reason it was disabled
 $ConfigObject->Set(
     Key   => "SearchEngine::Settings::Index::${ActiveEngine}::Ticket",
@@ -117,6 +117,18 @@ $ConfigObject->Set(
 my $TicketNumber = $TicketObject->TicketCreateNumber();
 my %QueryParams;
 my %LookupQueryParams;
+
+my $RegisteredIndexes = $SearchObject->{Config}->{RegisteredIndexes};
+for my $Index ( sort keys %{$RegisteredIndexes} ) {
+    my $QueueDeleteSuccess = $SearchChildObject->IndexObjectQueueDelete(
+        Index => $Index,
+    );
+
+    $Self->True(
+        $QueueDeleteSuccess,
+        "Deleted queue for index: $Index, search engine."
+    );
+}
 
 my $Object = {
     Basic => {
@@ -750,7 +762,7 @@ my @Tests = (
                                         ContentID          => '',
                                         ContentAlternative => '',
                                         Disposition        => 'attachment',
-                                        Content            => '123'
+                                        Content            => 'MTIz'
                                     },
                                     {
                                         ID                 => '2',
@@ -760,7 +772,7 @@ my @Tests = (
                                         ContentID          => '',
                                         ContentAlternative => '',
                                         Disposition        => 'attachment',
-                                        Content            => 'empty'
+                                        Content            => 'ZW1wdHk='
                                     }
                                 ]
                             }

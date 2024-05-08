@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Event::ObjectIndex::Article;
+package Kernel::System::Search::Event::ObjectIndex::FAQAttachment;
 
 use strict;
 use warnings;
@@ -46,47 +46,40 @@ sub Run {
         return;
     }
 
-    NEEDED:
-    for my $Needed (qw(FunctionName)) {
-        next NEEDED if $Param{Config}->{$Needed};
+    my $IndexName              = 'FAQ';
+    my $IndexSearchObject      = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
+    my $ObjectIdentifierColumn = $IndexSearchObject->{Config}->{Identifier};
+    my $ObjectID               = $Param{Data}->{$ObjectIdentifierColumn};
 
+    return if !$IndexSearchObject->{Config}->{Settings}->{IndexAttachments};
+
+    if ( !$ObjectID ) {
         $LogObject->Log(
             Priority => 'error',
-            Message  => "Need $Needed in Config!"
+            Message  => "Need ObjectID ($ObjectIdentifierColumn) in event Data!"
         );
         return;
     }
 
-    my $IndexName         = 'Article';
-    my $IndexSearchObject = $Kernel::OM->Get("Kernel::System::Search::Object::Default::$IndexName");
-
-    my $ObjectIdentifierColumn = $IndexSearchObject->{Config}->{Identifier};
-    my $FunctionName           = $Param{Config}->{FunctionName};
-    my $ObjectID               = $Param{Data}->{$ObjectIdentifierColumn};
-
-    $SearchChildObject->IndexObjectQueueEntry(
-        Index => 'Article',
-        Value => {
-            Operation => $FunctionName,
-            ObjectID  => $Param{Data}->{ArticleID},
-        },
-    );
-
-    my $Event = $Param{Event};
-    my $AdditionalParams;
-    if ( $Event eq 'ArticleCreate' ) {
-        $AdditionalParams = { AddArticle => [ $Param{Data}->{ArticleID} ] };
+    my $Key;
+    if ( $Param{Event} eq 'FAQAttachmentAdd' ) {
+        $Key = 'AddAttachment';
     }
-    elsif ( $Event eq 'ArticleUpdate' ) {
-        $AdditionalParams = { UpdateArticle => [ $Param{Data}->{ArticleID} ] };
+    elsif ( $Param{Event} eq 'FAQAttachmentDelete' ) {
+        $Key = 'DeleteAttachment';
     }
 
-    # update tickets that contains changed article
+    return 1 if !$Key;
+
+    my $AdditionalParams = {
+        $Key => [ $Param{Data}->{FileID} ]
+    };
+
     $SearchChildObject->IndexObjectQueueEntry(
-        Index => 'Ticket',
+        Index => $IndexName,
         Value => {
             Operation => 'ObjectIndexUpdate',
-            ObjectID  => $Param{Data}->{TicketID},
+            ObjectID  => $ObjectID,
             Data      => $AdditionalParams,
         },
     );
