@@ -54,6 +54,7 @@
         <File Permission="660" Location="Kernel/System/CustomerUser/Elasticsearch.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Article.pm"/>
+        <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/ArticleTicketQueueChange.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/Attachment.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/TicketHistory.pm"/>
         <File Permission="660" Location="Kernel/System/Search/Event/ObjectIndex/DynamicField.pm"/>
