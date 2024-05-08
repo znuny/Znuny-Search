@@ -9,6 +9,10 @@
     <URL>http://znuny.com/</URL>
     <License>GNU AFFERO GENERAL PUBLIC LICENSE Version 3, November 2007</License>
     <Description Lang="en">Functionality related to search engines.</Description>
+    <ChangeLog Version="6.5.3" Date="2024-05-08 12:36:10 +0200">- Updated attachment handling&#13;
+- Added base checks for indexation&#13;
+- Added possibility to disable indexing of attachemts&#13;
+- Bugfixes in general to reduce logging</ChangeLog>
     <ChangeLog Version="6.5.2" Date="2023-12-29 12:47:28 +0100">Several bugfixes.</ChangeLog>
     <ChangeLog Version="6.5.1" Date="2023-03-24 15:31:30 +0100">Initial release for Znuny 6.5.</ChangeLog>
     <Filelist>
