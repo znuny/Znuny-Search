@@ -1771,6 +1771,7 @@ sub ObjectIndexQueueUpdateRule {
 
         if ($QueuedOperation) {
             return 2 if $SearchChildObject->IndexObjectQueueUpdate(
+                %{ $Param{QueueToAdd} },
                 ID    => $QueuedOperation->{ID},
                 Order => $Param{Order},
             );

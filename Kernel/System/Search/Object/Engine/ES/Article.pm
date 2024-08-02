@@ -100,6 +100,14 @@ sub new {
         },
     };
 
+    $Self->{AdditionalFields} = {
+        GroupID => {
+            ColumnName => 'group_id',
+            Type       => 'Integer',
+            Alias      => 0,
+        },
+    };
+
     $Self->{ExternalFields} = {
         From => {
             ColumnName => 'a_from',
@@ -171,6 +179,255 @@ sub new {
     return $Self;
 }
 
+=head2 Search()
+
+Prepare data and parameters for engine or fallback search,
+then execute search.
+
+    my $Result = $SearchArticleESObject->Search(
+        Objects       => ['Article'],
+        Counter       => $Counter,
+        MappingObject => $MappingObject},
+        EngineObject  => $EngineObject},
+        ConnectObject => $ConnectObject},
+        GlobalConfig  => $Config},
+    );
+
+On executing article search by Kernel::System::Search:
+    my $Result = $Kernel::OM->Get('Kernel::System::Search')->Search(
+        Objects => ["Article"],
+        QueryParams => {
+            # standard article fields
+            ArticleID              => 'value',
+            TicketID               => 'value',
+            SenderTypeID           => 'value',
+            CommunicationChannelID => 'value',
+            IsVisibleForCustomer   => '1' # or '0',
+            CreateTime             => 'value',
+            CreateBy               => 'value',
+            ChangeTime             => 'value',
+            ChangeBy               => 'value',
+
+            # additional article fields (denormalized)
+            From                   => 'value',
+            ReplyTo                => 'value',
+            To                     => 'value',
+            Cc                     => 'value',
+            Bcc                    => 'value'
+            Subject                => 'value',
+            MessageID              => 'value',
+            InReplyTo              => 'value',
+            References             => 'value',
+            ContentType            => 'value',
+            Body                   => 'value',
+            IncomingTime           => 'value',
+
+            # permission parameters
+            # required either group id or UserID
+            GroupID => [1,2,3],
+            # when combined witch UserID, there is used "OR" match
+            # meaning groups for specified user including groups from
+            # "GroupID" will match articles
+            UserID => 1, # no operators support
+            Permissions => 'ro' # no operators support, by default "ro" value will be used
+                                # permissions for user, therefore should be combined with UserID param
+
+            # fulltext parameter can be used to search by properties specified
+            # in sysconfig "SearchEngine::ES::ArticleSearchFields###Fulltext"
+            Fulltext      => 'elasticsearch',
+            #    OR
+            Fulltext      => ['elasticsearch', 'kibana'],
+            #    OR
+            Fulltext      => {
+                Highlight => ['Article_Subject', 'Article_Body'], # support ResultType: "HASH","ARRAY"
+                Fields => {
+                    Article => [ 'Body', 'Subject' ],
+                }, # optional
+                Text => ['elasticsearch', 'kibana'],
+                QueryOperator => 'AND', # determine if all words from specified
+                                        # value needs to match
+                                        # optional, default: "AND"
+                                        # possible: "OR" - only single word needs to match
+                                        #           "AND" - all words needs to match
+                                        # example: 'elasticsearch is super fast'
+                                        # each of those are separate words, decide here if
+                                        # all of them needs to be matched or only one
+                StatementOperator => 'OR', # determine if all values from specified ones
+                                           # in an array needs to match
+                                           # optional, default: "OR"
+                                           # possible: "OR" - single value from an array needs to match
+                                           #           "AND" - all values from an array needs to match
+                                           # use only when specifying multiple values to search by
+                                           # example: ['elasticsearch is super fast', 'sql search is slower for fulltext search']
+                                           # decide here if both of these values needs to matched or only one
+            }
+        },
+        Fields => [['Article_ArticleID', 'Article_Subject']] # specify field from field mapping
+            # to get:
+            # - article fields (all): [['Article_*']]
+            # - article field (specified): [['Article_Body']]
+    );
+
+=cut
+
+sub Search {
+    my ( $Self, %Param ) = @_;
+
+    my $Data = $Self->PreSearch(%Param);
+    return $Self->SearchEmptyResponse(%Param) if !IsHashRefWithData($Data);
+    return $Self->ExecuteSearch( %{$Data} );
+}
+
+=head2 ExecuteSearch()
+
+perform actual search
+
+    my $Result = $SearchArticleESObject->ExecuteSearch(
+        %Param,
+        Limit          => $Limit,
+        Fields         => $Fields,
+        QueryParams    => $Param{QueryParams},
+        SortBy         => $SortBy,
+        OrderBy        => $OrderBy,
+        RealIndexName  => $Self->{Config}->{IndexRealName},
+        ResultType     => $ValidResultType,
+    );
+
+=cut
+
+sub ExecuteSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( $Param{UseSQLSearch} || $SearchObject->{Fallback} ) {
+        return $Self->FallbackExecuteSearch(%Param);
+    }
+
+    my $IndexName = $Self->{Config}->{IndexName};
+
+    my $IndexQueryObject = $Kernel::OM->Get("Kernel::System::Search::Object::Query::$IndexName");
+    my $QueryParams      = $Param{QueryParams};
+    my $Fulltext         = delete $QueryParams->{Fulltext};
+
+    # filter & prepare correct parameters
+    my $SearchParams = $IndexQueryObject->_QueryParamsPrepare(
+        QueryParams   => $QueryParams,
+        NoPermissions => $Param{NoPermissions},
+        QueryFor      => 'Engine',
+        Strict        => 1,
+    );
+
+    return $Self->SearchEmptyResponse(%Param)
+        if ref $SearchParams eq 'HASH' && $SearchParams->{Error};
+
+    my $Fields = $Param{Fields} || {};
+
+    # build standard article query
+    my $Query = $Param{MappingObject}->Search(
+        %Param,
+        Fields      => $Fields,
+        QueryParams => $SearchParams,
+        Object      => $Self->{Config}->{IndexName},
+        _Source     => 1,
+    );
+
+    my $SearchChildObject = $Kernel::OM->Get('Kernel::System::Search::Object');
+
+    my $FulltextQuery = $Self->DefaultFulltextQueryBuild(
+        Query               => $Query,
+        AppendIntoQuery     => 1,
+        EngineObject        => $Param{EngineObject},
+        MappingObject       => $Param{MappingObject},
+        Fulltext            => $Fulltext,
+        EntitiesPathMapping => {
+            Article => {
+                Path             => '',
+                FieldBuildPrefix => '',
+                Nested           => 0,
+            },
+        },
+        DefaultFields => {},
+        Simple        => 1,
+    );
+
+    return $Self->SearchEmptyResponse(%Param) if !$FulltextQuery->{Success};
+
+    my $RetrieveHighlightData = IsHashRefWithData( $Query->{Body}->{highlight} )
+        && IsArrayRefWithData( $Query->{Body}->{highlight}->{fields} );
+
+    # execute query
+    my $Response = $Param{EngineObject}->QueryExecute(
+        Query         => $Query,
+        Operation     => 'Search',
+        ConnectObject => $Param{ConnectObject},
+        Config        => $Param{GlobalConfig},
+        Silent        => $Param{Silent},
+    );
+
+    # format query
+    my $FormattedResult = $SearchObject->SearchFormat(
+        %Param,
+        Fields     => $Fields,
+        Result     => $Response,
+        IndexName  => $IndexName,
+        ResultType => $Param{ResultType} || 'ARRAY',
+        QueryData  => {
+            Query                 => $Query,
+            RetrieveHighlightData => $RetrieveHighlightData,
+        },
+    );
+
+    return $FormattedResult;
+}
+
+=head2 FallbackExecuteSearch()
+
+execute fallback
+
+notice: fall-back does not support searching by fulltext
+
+    my $FunctionResult = $SearchArticleESObject->FallbackExecuteSearch(
+        %Params,
+    );
+
+=cut
+
+sub FallbackExecuteSearch {
+    my ( $Self, %Param ) = @_;
+
+    my $SearchObject = $Kernel::OM->Get('Kernel::System::Search');
+    my $LogObject    = $Kernel::OM->Get('Kernel::System::Log');
+
+    if ( $Param{QueryParams}->{Fulltext} && !$Param{Force} ) {
+        $LogObject->Log(
+            Priority => 'error',
+            Message  => "Fulltext parameter is not supported for SQL search!"
+        );
+        return $Self->SearchEmptyResponse(%Param);
+    }
+
+    my $IndexName = $Self->{Config}->{IndexName};
+
+    my $Result = {
+        $IndexName => $Self->Fallback(%Param) // []
+    };
+
+    # format reponse per index
+    my $FormattedResult = $SearchObject->SearchFormat(
+        Result     => $Result,
+        Config     => $Param{GlobalConfig},
+        IndexName  => $IndexName,
+        ResultType => $Param{ResultType} || 'ARRAY',
+        Fallback   => 1,
+        Silent     => $Param{Silent},
+        Fields     => $Param{Fields},
+    );
+
+    return $FormattedResult || { $IndexName => [] };
+}
+
 sub ObjectIndexAdd() {
     my ( $Self, %Param ) = @_;
 
@@ -212,7 +469,7 @@ sub ObjectIndexUpdateTicketArticles() {
 search for articles with restrictions, then perform specified operation
 
     my $Success = $SearchArticleObject->ObjectIndexGeneric(
-        Index    => 'Ticket',
+        Index    => 'Article',
         Refresh  => 1, # optional, define if indexed data needs
                        # to be refreshed for search call
                        # not refreshed data could not be found right after
@@ -295,6 +552,7 @@ sub ObjectIndexGeneric {
                     SortBy     => $Identifier,
                     OrderBy    => 'Down',
                     ResultType => $Param{SQLSearchResultType} || 'ARRAY',
+                    IndexInto  => $IndexInto,
                 );
 
                 my $SuccessLocal = $Self->$Function(
@@ -323,6 +581,7 @@ sub ObjectIndexGeneric {
                         ResultType => $Param{SQLSearchResultType} || 'ARRAY',
                         Offset     => $Offset,
                         Limit      => $ReindexationStep,
+                        IndexInto  => $IndexInto,
                     );
 
                     my $PartSuccess = $Self->$Function(
@@ -357,6 +616,8 @@ Search for article data.
 
 sub SQLObjectSearch {
     my ( $Self, %Param ) = @_;
+
+    my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
 
     my $ExternalFields;
     my $Join = {
@@ -398,7 +659,26 @@ sub SQLObjectSearch {
         Join              => $Join,
         Fields            => $Fields,
         CustomIndexFields => \%CustomIndexFields,
+        NoPermissions     => 1,
     );
+
+    if ( $Param{IndexInto} && $Param{IndexInto} eq 'Article' ) {
+        my $GroupField = $Self->{AdditionalFields}->{GroupID};
+
+        if ( IsArrayRefWithData( $ArticleData->{Data} ) ) {
+            for my $Article ( @{ $ArticleData->{Data} } ) {
+                my $TicketID = $Article->{TicketID};
+
+                my %Ticket = $TicketObject->TicketGet(
+                    TicketID      => $TicketID,
+                    DynamicFields => 0,
+                    UserID        => 1,
+                );
+
+                $Article->{GroupID} = $Ticket{GroupID};
+            }
+        }
+    }
 
     return $ArticleData;
 }
@@ -418,13 +698,15 @@ sub ValidFieldsPrepare {
     my ( $Self, %Param ) = @_;
 
     my $Fields;
-    my $ArticleBasicFields    = $Self->{Fields};
-    my $ArticleExternalFields = $Self->{ExternalFields};
+    my $ArticleBasicFields      = $Self->{Fields};
+    my $ArticleExternalFields   = $Self->{ExternalFields};
+    my $ArticleAdditionalFields = $Self->{AdditionalFields};
 
-    my %AllArticleFields = ( %{$ArticleBasicFields}, %{$ArticleExternalFields} );
+    my %InternalExternalArticleFields = ( %{$ArticleBasicFields}, %{$ArticleExternalFields} );
+    my %AllArticleFields              = ( %InternalExternalArticleFields, %{$ArticleAdditionalFields} );
 
     if ( !IsArrayRefWithData( $Param{Fields} ) ) {
-        $Fields = \%AllArticleFields;
+        $Fields = \%InternalExternalArticleFields;
     }
     else {
         for my $ParamField ( @{ $Param{Fields} } ) {
@@ -467,7 +749,8 @@ sub _PostValidFieldsPrepare {
 
     FIELD:
     for my $Field ( sort keys %ValidFields ) {
-        $ValidFields{$Field} = $Self->{Fields}->{$Field};
+        $ValidFields{$Field}
+            = $Self->{Fields}->{$Field} || $Self->{ExternalFields}->{$Field} || $Self->{AdditionalFields}->{$Field};
         $ValidFields{$Field}->{ReturnType} = 'SCALAR' if !$ValidFields{$Field}->{ReturnType};
     }
 

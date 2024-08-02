@@ -6,7 +6,7 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-package Kernel::System::Search::Event::ObjectIndex::QueueUpdate;
+package Kernel::System::Search::Event::ObjectIndex::ArticleTicketQueueChange;
 
 use strict;
 use warnings;
@@ -45,38 +45,17 @@ sub Run {
         );
         return;
     }
-
-    my $IsValid = $SearchChildObject->IndexIsValid(
-        IndexName => 'Ticket',
-    );
-
-    return if !$IsValid;
-
-    my $OldGroupID = $Param{Data}->{OldQueue}->{GroupID};
-    my $NewGroupID = $Param{Data}->{Queue}->{GroupID};
-
-    # execute only on group change
-    return 1 if $OldGroupID == $NewGroupID;
-
-    my $QueueID = $Param{Data}->{OldQueue}->{QueueID};
+    my $IndexName = 'Article';
+    my $TicketID  = $Param{Data}->{TicketID};
 
     $SearchChildObject->IndexObjectQueueEntry(
-        Index => 'Ticket',
+        Index => $IndexName,
         Value => {
-            Operation   => 'ObjectIndexUpdate',
+            Operation   => 'ObjectIndexSet',
             QueryParams => {
-                QueueID => $QueueID,
+                TicketID => $TicketID,
             },
-            Data => {
-                CustomFunction => {
-                    Name   => 'ObjectIndexUpdateGroupID',
-                    Params => {
-                        NewGroupID         => $NewGroupID,
-                        UpdateArticleIndex => 1,
-                    }
-                },
-            },
-            Context => "ObjectIndexUpdate_GroupChange_${QueueID}",
+            Context => "ObjectIndexSet_ArticlesPermissionChange_${TicketID}",
         },
     );
 
