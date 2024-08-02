@@ -130,18 +130,6 @@ sub PreRun {
         return 1;
     }
 
-    if (
-        $Self->{SearchObject}
-        && $Self->{SearchObject}->{Error}
-        &&
-        $Self->{SearchObject}->{Error}->{Configuration}->{Disabled}
-        )
-    {
-        $Self->Print("<yellow>Search configuration is disabled. Exiting.\n</yellow>");
-        $Self->{Exit} = 1;
-        return 1;
-    }
-
     if ( !$Self->{SearchObject} || $Self->{SearchObject}->{Error} ) {
         my $Message = "Errors occured. Exiting.";
         if ( !$Self->{SearchObject}->{ConnectObject} ) {
