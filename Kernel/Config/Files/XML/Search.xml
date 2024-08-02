@@ -475,6 +475,15 @@
             </Hash>
         </Value>
     </Setting>
+    <Setting Name="SearchEngine::ES::TicketSearchFields###FulltextSettings" Required="0" Valid="1">
+        <Description Translatable="1">Settings for ticket index fulltext search. "TicketNumberSearchByPrefix" determines if search by "TicketNumber" attribute used by "SearchEngine::ES::TicketSearchFields###Fulltext" should also work with prefix determined in options "Ticket::Hook" and "Ticket::HookDivider" by selected module in "Ticket::NumberGenerator".</Description>
+        <Navigation>Core::Search</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="TicketNumberSearchByPrefix">1</Item>
+            </Hash>
+        </Value>
+    </Setting>
     <Setting Name="SearchEngine::ES::ArticleSearchFields###Fulltext" Required="0" Valid="1">
         <Description Translatable="1">Searchable fields of "Article" index for full-text search. Use the field name of an article. Dynamic fields or attachments not supported.</Description>
         <Navigation>Core::Search</Navigation>
