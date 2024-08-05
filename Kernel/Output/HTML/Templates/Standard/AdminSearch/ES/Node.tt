@@ -189,18 +189,22 @@
                                 <div class="field-wrapper form-button-actions">
                                     <div class="Field buttons-field">
                                     [% IF Data.Action == 'NodeChange' %]
-                                        <button class="CallForAction Primary btn-primary btn-main btn-width-md" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
-
-
-                                        <button class="btn-primary-ghost btn-main  btn-width-md btn-primary-ghost btn-main btn-width-md" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save and finish") | html %]</span></button>
-
-
-                                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]" class="btn-cancel-ghost btn-main btn-width-md" class="btn-cancel-ghost btn-main btn-width-md"><span>[% Translate("Cancel") | html %]</span></a>
+                                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]" class="btn-cancel-ghost btn-main btn-width-md">
+                                            <span>[% Translate("Cancel") | html %]</span>
+                                        </a>
+                                        <button class="btn-primary-ghost btn-main btn-width-md" id="Submit" type="submit" value="[% Translate("Save") | html %]">
+                                            <span>[% Translate("Save and finish") | html %]</span>
+                                        </button>
+                                        <button class="btn-primary btn-main btn-width-md" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]">
+                                            <span>[% Translate("Save") | html %]</span>
+                                        </button>
                                     [% ELSE %]
-                                        <button class="btn-primary btn-main btn-width-md btn-primary btn-main btn-width-md" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
-
-
-                                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]" class="btn-cancel-ghost btn-main btn-width-md" class="btn-cancel-ghost btn-main btn-width-md"><span>[% Translate("Cancel") | html %]</span></a>
+                                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]" class="btn-cancel-ghost btn-main btn-width-md">
+                                            <span>[% Translate("Cancel") | html %]</span>
+                                        </a>
+                                        <button class="btn-primary btn-main btn-width-md" id="SubmitAndContinue" type="submit" value="[% Translate("Save") | html %]">
+                                            <span>[% Translate("Save") | html %]</span>
+                                        </button>
                                     [% END %]
                                     </div>
                                 </div>

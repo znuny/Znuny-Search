@@ -353,13 +353,13 @@
                     <fieldset class="TableLike">
                         <div class="field-wrapper form-button-actions">
                             <div class="Field buttons-field">
-                                <a href="[% Env("Baselink") %]Action=[% Env("Action") %]" class="btn-cancel-ghost btn-main btn-width-md" class="btn-cancel-ghost btn-main btn-width-md" class="btn-cancel-ghost btn-main btn-width-md"><span>[% Translate("Cancel") | html %]</span></a>
+                                <a href="[% Env("Baselink") %]Action=[% Env("Action") %]" class="btn-cancel-ghost btn-main btn-width-md"><span>[% Translate("Cancel") | html %]</span></a>
 
                                 [% IF Data.Action == 'Change' %]
-                                    <button class="CallForAction Primary btn-primary-ghost btn-main  btn-width-md btn-primary-ghost btn-main btn-width-md btn-primary-ghost btn-main btn-width-md" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save and finish") | html %]</span></button>
-                                    <button class="CallForAction Primary btn-primary btn-main  btn-width-md btn-primary btn-main btn-width-md btn-primary btn-main btn-width-md" id="SubmitAndContinue" type="button" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                                    <button class="btn-primary-ghost btn-main  btn-width-md" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save and finish") | html %]</span></button>
+                                    <button class="btn-primary btn-main  btn-width-md" id="SubmitAndContinue" type="button" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
                                 [% ELSE %]
-                                    <button class="CallForAction Primary btn-primary btn-main  btn-width-md btn-primary-ghost btn-main btn-width-md btn-primary-ghost btn-main btn-width-md" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
+                                    <button class="btn-primary btn-main  btn-width-md btn-primary-ghost" id="Submit" type="submit" value="[% Translate("Save") | html %]"><span>[% Translate("Save") | html %]</span></button>
                                 [% END %]
                             </div>
                         </div>

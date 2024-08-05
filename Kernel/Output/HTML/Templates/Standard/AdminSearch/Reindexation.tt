@@ -6,21 +6,8 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 
-<div class="MainBox ARIARoleMain LayoutFixedSidebar SidebarFirst">
-    <h1 class="InvisibleText">[% Translate("Re-indexation Management") | html %]</h1>
-
-    [% BreadcrumbPath = [
-            {
-                Name => Translate('Search Engine Management'),
-                Link => Env("Action"),
-            },
-        ]
-    %]
-
-    [% INCLUDE "Breadcrumb.tt" Path = BreadcrumbPath %]
-
-
-    <div class="SidebarColumn">
+<div class="MainBox ARIARoleMain LayoutFixedSidebar SidebarFirst ActionsSideBar AdminManagement">
+    <div class="SidebarColumn ActionsSideBarComp">
         <div class="WidgetSimple">
             <div class="Header">
                 <h2>[% Translate("Actions") | html %]</h2>
@@ -28,7 +15,7 @@
             <div class="Content">
                 <ul class="ActionList">
                     <li>
-                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID | uri %];Nav=[% Data.Nav | uri %]" class="CallForAction Fullsize Center"><span><i class="fa fa-caret-left"></i>[% Translate("Go to overview") | html %]</span></a>
+                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID | uri %];Nav=[% Data.Nav | uri %]" class="CallForAction btn-main btn-primary-ghost"><span><i class="fa fa-caret-left"></i>[% Translate("Go to overview") | html %]</span></a>
                     </li>
                 </ul>
             </div>
@@ -43,6 +30,18 @@
         </div>
     </div>
     <div class="ContentColumn">
+        <h1 class="InvisibleText">[% Translate("Re-indexation Management") | html %]</h1>
+
+        [% BreadcrumbPath = [
+                {
+                    Name => Translate('Search Engine Management'),
+                    Link => Env("Action"),
+                },
+            ]
+        %]
+
+        [% INCLUDE "Breadcrumb.tt" Path = BreadcrumbPath %]
+
         <form id="CommunicationNode" action="[% Env("CGIHandle") %]" method="post" class="Validate PreventMultipleSubmits">
             <input type="hidden" name="Action" value="[% Env("Action") %]"/>
             <input type="hidden" name="ClusterID" value="[% Data.ClusterID | html %]" id="ClusterID"/>
@@ -86,47 +85,51 @@
                     <div class="Header">
                         <h2>[% Translate(Data.ActionLabel) | html %]</h2>
                     </div>
-                    <div class="Content" style="height:100px">
-                        <fieldset class="TableLike">
-                            <div class="Field SpacingTop">
+                    <div class="Content">
+                        <fieldset class="card">
+                            <div class="field-wrapper form-button-actions">
+                                <div class="Field">
 [% IF !Data.ReindexingOngoing && Data.ActiveCluster && Data.EngineConnection %]
-                            <div class="ActionButtons" style="margin-top:20px">
-                                <button class="CallForAction Primary" id="Reindex" type="submit" value="[% Translate("Re-index") | html %]"><span>[% Translate("Re-index") | html %]</span></button>
-
-
-                                <button class="CallForAction Primary" id="CheckEquality" type="submit" value="[% Translate("CheckEquality") | html %]"><span>[% Translate("Check Data Equality") | html %]</span></button>
-
-
-                                <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]" class="btn-cancel-ghost btn-main btn-width-md"><span>[% Translate("Cancel") | html %]</span></a>
-                            </div>
-[% ELSIF !Data.ActiveCluster %]
-                                [% Translate("Cluster is not active. Cannot perform any action on invalid cluster.") | html %]
-[% ELSIF !Data.EngineConnection %]
-                                [% Translate("Cannot connect to search engine. Please check your connection.") | html %]
-[% ELSE %]
-                                <div id="ReindexationProcessContainer">
-[% IF Data.SynchronizationEnabled %]
-                                    [% Translate("Synchronization is already ongoing. Please wait for the end of the process.") | html %]
-[% ELSE %]
-                                    [% Translate("Re-indexation is already ongoing. Please wait for the end of the process.") | html %]
-                                    <fieldset class="GridTable">
-[% RenderBlockStart("ProgressBar") %]
-                                        <div style="height:10px;width:380px;background-color:#d9d7d7;text-align:center">
-                                            <div id="ProgressBarFill" style="height:10px;width:[% Data.InitialWidth %]px;background-color:[% Data.ProgressBarColor %];"></div>
-                                            <div style="width:380px;text-align:center;display:inline-block" id="PercentageDescription">
-[% IF Data.Percentage %]
-                                            [% Data.Percentage | html %]%
-[% ELSE %]
-                                            [% Translate("Preparing...") | html %]
-[% END %]
-                                            </div>
-                                        <button class="CallForAction Primary" id="StopReindexation" type="submit" style="text-align:center"><span>[% Translate("Stop reindexation") |html %]</span></button>
+                                    <div class="ActionButtons" style="margin-top:20px">
+                                        <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]" class="btn-cancel-ghost btn-main btn-width-md">
+                                            <span>[% Translate("Cancel") | html %]
+                                        </span></a>
+                                        <button class="btn-primary-ghost btn-main  btn-width-md" id="Reindex" type="submit" value="[% Translate("Re-index") | html %]">
+                                            <span>[% Translate("Re-index") | html %]</span>
+                                        </button>
+                                        <button class="btn-primary btn-main btn-width-md" id="CheckEquality" type="submit" value="[% Translate("CheckEquality") | html %]">
+                                            <span>[% Translate("Check Data Equality") | html %]</span>
+                                        </button>
                                     </div>
+[% ELSIF !Data.ActiveCluster %]
+                                    [% Translate("Cluster is not active. Cannot perform any action on invalid cluster.") | html %]
+[% ELSIF !Data.EngineConnection %]
+                                    [% Translate("Cannot connect to search engine. Please check your connection.") | html %]
+[% ELSE %]
+                                    <div id="ReindexationProcessContainer">
+[% IF Data.SynchronizationEnabled %]
+                                        [% Translate("Synchronization is already ongoing. Please wait for the end of the process.") | html %]
+[% ELSE %]
+                                        [% Translate("Re-indexation is already ongoing. Please wait for the end of the process.") | html %]
+                                        <fieldset class="GridTable">
+[% RenderBlockStart("ProgressBar") %]
+                                            <div style="height:10px;width:380px;background-color:#d9d7d7;text-align:center">
+                                                <div id="ProgressBarFill" style="height:10px;width:[% Data.InitialWidth %]px;background-color:[% Data.ProgressBarColor %];"></div>
+                                                <div style="width:380px;text-align:center;display:inline-block" id="PercentageDescription">
+[% IF Data.Percentage %]
+                                                    [% Data.Percentage | html %]%
+[% ELSE %]
+                                                    [% Translate("Preparing...") | html %]
+[% END %]
+                                                </div>
+                                                <button class="CallForAction Primary" id="StopReindexation" type="submit" style="text-align:center"><span>[% Translate("Stop reindexation") |html %]</span></button>
+                                            </div>
 [% RenderBlockEnd("ProgressBar") %]
-                                </fieldset>
+                                        </fieldset>
+[% END %]
+                                    </div>
 [% END %]
                                 </div>
-[% END %]
                             </div>
                         </fieldset>
                     </div>
