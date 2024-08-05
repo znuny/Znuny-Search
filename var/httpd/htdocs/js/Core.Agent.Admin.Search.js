@@ -249,14 +249,14 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             ErrorBox             = $('#TestError'),
 
             // node connection data
-            Protocol  = $('.CommunicationNode #Protocol').val(),
-            Host      = $('.CommunicationNode #Host').val(),
-            Port      = $('.CommunicationNode #Port').val(),
-            Path      = $('.CommunicationNode #Path').val(),
-            Login     = $('.CommunicationNode #LoginFieldNodeAuth').val(),
-            Password  = $('.CommunicationNode #PasswordFieldNodeAuth').val(),
+            Protocol  = $('#CommunicationNode #Protocol').val(),
+            Host      = $('#CommunicationNode #Host').val(),
+            Port      = $('#CommunicationNode #Port').val(),
+            Path      = $('#CommunicationNode #Path').val(),
+            Login     = $('#CommunicationNode #LoginFieldNodeAuth').val(),
+            Password  = $('#CommunicationNode #PasswordFieldNodeAuth').val(),
             NodeID       = $('form#CommunicationNode > #NodeID').val(),
-            AuthRequired = $('.CommunicationNode #CommunicationNodeAuthRequired').is(":checked") ? 1 : 0,
+            AuthRequired = $('#CommunicationNode #CommunicationNodeAuthRequired').is(":checked") ? 1 : 0,
             URL       = Core.Config.Get('Baselink'),
 
             Data = {
