@@ -60,12 +60,6 @@ If it's not enabled/connected it will fallback to DB module.
 
 Standard Search API (Kernel::System::Search->Search(..)) for CustomerUser also needs this configuration.
 
-### CustomerUser configuration - syn external DB sources
-If external DB sources are used and therefore the CustomerUser management is not done in Znuny,
-it is possible to synchronize thos external data with a daemon task: `Daemon::SchedulerCronTaskManager::Task###CustomEngineSynchronizeData`\
-which is disabled by default.
-
-
 ## Znuny-Search settings
 
 ### Admin system configuration (Overview)
@@ -74,14 +68,14 @@ which is disabled by default.
 - "SearchEngine::Loader::Engine", register Search engines,
 - "SearchEngine::Loader::Index::ES", register indexes for Elasticsearch engine,
 - "..EventModulePost..ObjectIndex", all event listeners for default indexes,
-- "SearchEngine::Loader::Fields::Ticket", extension config to define new Fields into the index,
-- "Daemon::SchedulerCronTaskManager::Task###SearchEngineReindex", cron task which re-indexes data at specified time when there is a mismatch between sql and elasticsearch object count,
-- "Daemon::SchedulerCronTaskManager::Task###ES-IndexQueueDataProcess", cron task that checks (by default every 1 minute) cached queue of data to index,
-- "Daemon::SchedulerCronTaskManager::Task###CustomEngineSynchronizeData", cron task that synchronizes "CustomerUser" index data with SQL data (turned off by default),
+- "SearchEngine::Loader::Fields::Ticket", extension config to define new Fields into the index (experimental),
+- "Daemon::SchedulerCronTaskManager::Task###CustomEngineSynchronizeData", cron task which synchronizes data at specified time when there is a mismatch between sql and elasticsearch objects count. It paginates through all ids of SQL and search engine data, then checks if specified data needs to be added, deleted or changed (based on "ChangeTime"/"Changed" field),
+- "Daemon::SchedulerCronTaskManager::Task###ES-IndexQueueDataProcess", cron task that checks (by default every 1 minute) cached queue of data to index. In short cached indexation queue is a queue of operations stored for each index to be executed. For example if there will be a ticket update event, then new entry will be added to the indexation queue with an operation to update ticket on the search engine side, this daemon will execute stored operations in order for search engine data to be consistent over time,
 - "SearchEngine::IndexationQueue###Settings", contains any settings for cached indexation queue,
-- "SearchEngine::Reindexation###Settings", contains any settings for reindexation,
+- "SearchEngine::Reindexation###Settings", contains any settings for reindexation. "ReindexationStep" is used as a parameter to define number of objects that can be indexed at one request. Setting this higher will make re-indexation and indexation of multiple objects much faster, but it will also increase memory used to get objects data, which could lead to memory exceptions. The default value is considered to be optimal in terms of performance and stability,
 - "SearchEngine::Loader::Index::ES::Plugins###000-Framework", registers "Ingest" plugin for Elasticsearch,
-- "SearchEngine::ES::TicketSearchFields###Fulltext", list of ticket properties that fulltext search will use. Ticket, article, attachment and dynamic fields columns can be used as a fields,
+- "SearchEngine::ES::TicketSearchFields###Fulltext", list of ticket properties that fulltext search will use. Ticket, article, attachment and dynamic fields columns can be used as a fields. Optionally there is a possibility to define fields search within the layer of an API, so it may not always reflect changes, it's all depending on the API usage,
+- "SearchEngine::Settings::Index::ES::Ticket###000-Framework", contains settings for Ticket index registered for Elasticsearch engine. "IndexAttachments" key define if attachments should be indexed alongside with tickets data.
 
 ### Adding a custom index
 
@@ -116,22 +110,23 @@ You will find all parameter and small examples like this:
 
     # more complex call
     my $Search = $SearchObject->Search(
-        Objects => ["Ticket", "TicketHistory"],
+        Objects => ["Ticket"],
         QueryParams => {
             TicketID => [1,2,3],
             SLAID => {
                 Operator => 'IS NOT EMPTY'
             },
-            TicketHistoryID => {
-                Operator => '>=', Value => 1000,
-            },
         },
         ResultType => "ARRAY",
-        SortBy => ['TicketID', 'TicketHistoryID'],
-        OrderBy => ['Down', 'Up'],
+        SortBy => ['TicketID'],
+        OrderBy => ['Down'],
         Limit => ['', 10],
-        Fields => [["Ticket_TicketID", "Ticket_SLAID"],["TicketHistory_TicketHistoryID", "TicketHistory_Name"]],
+        Fields => [["Ticket_TicketID", "Ticket_SLAID"]],
     );
+
+    # custom handling of objects contain better description of Search usage and usually have more features
+    # those can be found here: Kernel/System/Search/Object/Engine/*ActiveEngine*/*IndexName*.pm
+    # implementation of custom object with it's description usage can be found as an example in a module: Kernel::System::Search::Object::Engine::ES::Ticket, function Search contains description of it's usage.
 ```
 
 #### Rules
