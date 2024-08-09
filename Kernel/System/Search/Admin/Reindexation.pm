@@ -154,6 +154,7 @@ sub BuildReindexationSection {
             EngineConnection       => $SearchObject->{ConnectObject} ? 1 : 0,
             ActionLabel            => $IsReindexingOngoing ? 'Status' : 'Actions',
             SynchronizationEnabled => $SynchronizationEnabled,
+            ClusterConfig          => $ClusterConfig,
         },
     );
 

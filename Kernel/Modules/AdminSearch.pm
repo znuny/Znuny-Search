@@ -1081,11 +1081,12 @@ sub _ShowNodeSection {
 
     my $NodeAddView = $CommunicationNodeObject->BuildNodeSection(
         %Param,
-        ClusterID => $Param{ClusterID},
-        UserID    => $Self->{UserID},
-        NodeID    => $Param{NodeID},
-        EngineID  => $Cluster->{EngineID},
-        Action    => $Param{Action},
+        ClusterID   => $Param{ClusterID},
+        ClusterName => $Cluster->{Name},
+        UserID      => $Self->{UserID},
+        NodeID      => $Param{NodeID},
+        EngineID    => $Cluster->{EngineID},
+        Action      => $Param{Action},
     );
 
     return $NodeAddView;

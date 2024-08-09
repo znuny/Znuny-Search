@@ -37,8 +37,15 @@
                     Name => Translate('Search Engine Management'),
                     Link => Env("Action"),
                 },
+                {
+                    Name => Translate("Edit Cluster Settings: %s", Data.ClusterConfig.Name),
+                    Link => ReplacePlaceholders("%s;%s%s;",Env("Action"), "Subaction=Change;ClusterID=", Data.ClusterConfig.ClusterID)
+                },
             ]
         %]
+
+        [% USE SubactionTitle = String(Translate("Re-indexation")) %]
+        [% BreadcrumbPath.push({ Name => SubactionTitle }) %]
 
         [% INCLUDE "Breadcrumb.tt" Path = BreadcrumbPath %]
 
