@@ -2,7 +2,7 @@
 # Copyright (C) 2001-2021 OTRS AG, https://otrs.com/
 # Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
-# $origin: znuny - 460ef44565300c6b979b0743833e3800fdbebf81 - Kernel/System/Ticket/Article/Backend/MIMEBase/Base.pm
+# $origin: znuny - b55a8a49ca1b814779c346897ed783208ec1f0b0 - Kernel/System/Ticket/Article/Backend/MIMEBase/Base.pm
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (GPL). If you
@@ -122,7 +122,7 @@ Returns:
             FilesizeRaw        => 183,
             Disposition        => 'attachment',
         },
-        ...
+        # ...
     };
 
 =cut
@@ -305,7 +305,7 @@ sub _ArticleDeleteDirectory {
 
 Get the stored content path of an article.
 
-    my $Path = $BackendObject->_ArticleContentPatGeth(
+    my $Path = $BackendObject->_ArticleContentPathGet(
         ArticleID => 123,
     );
 

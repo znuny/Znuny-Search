@@ -2,7 +2,7 @@
 # Copyright (C) 2001-2021 OTRS AG, https://otrs.com/
 # Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
-# $origin: znuny - 460ef44565300c6b979b0743833e3800fdbebf81 - Kernel/System/Ticket/Article/Backend/MIMEBase/ArticleStorageFS.pm
+# $origin: znuny - 7775216b80452a6ce2267812a25bf23ae786ae57 - Kernel/System/Ticket/Article/Backend/MIMEBase/ArticleStorageFS.pm
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (GPL). If you
@@ -73,9 +73,9 @@ sub new {
 
         $Kernel::OM->Get('Kernel::System::Log')->Log(
             Priority => 'notice',
-            Message  => "Can't write $ArticleDir! try: \$OTRS_HOME/bin/otrs.SetPermissions.pl!",
+            Message  => "Can't write $ArticleDir! try: \$OTRS_HOME/bin/znuny.SetPermissions.pl!",
         );
-        die "Can't write $ArticleDir! try: \$OTRS_HOME/bin/otrs.SetPermissions.pl!";
+        die "Can't write $ArticleDir! try: \$OTRS_HOME/bin/znuny.SetPermissions.pl!";
     }
 
     # Get activated cache backend configuration.

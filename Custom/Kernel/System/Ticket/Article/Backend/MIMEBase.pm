@@ -2,7 +2,7 @@
 # Copyright (C) 2001-2021 OTRS AG, https://otrs.com/
 # Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
-# $origin: Znuny - 460ef44565300c6b979b0743833e3800fdbebf81 - Kernel/System/Ticket/Article/Backend/MIMEBase.pm
+# $origin: Znuny - 552a782d093f4e1e1cf920787eb246443778ba9a - Kernel/System/Ticket/Article/Backend/MIMEBase.pm
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (GPL). If you
@@ -116,10 +116,10 @@ Create a MIME article.
             },
         ],
         NoAgentNotify    => 0,                                      # if you don't want to send agent notifications
-        AutoResponseType => 'auto reply'                            # auto reject|auto follow up|auto reply/new ticket|auto remove
+        AutoResponseType => 'auto reply',                           # auto reject|auto follow up|auto reply/new ticket|auto remove
 
         ForceNotificationToUserID   => [ 1, 43, 56 ],               # if you want to force somebody
-        ExcludeNotificationToUserID => [ 43,56 ],                   # if you want full exclude somebody from notfications,
+        ExcludeNotificationToUserID => [ 43,56 ],                   # if you want full exclude somebody from notifications,
                                                                     # will also be removed in To: line of article,
                                                                     # higher prio as ForceNotificationToUserID
         ExcludeMuteNotificationToUserID => [ 43,56 ],               # the same as ExcludeNotificationToUserID but only the
@@ -217,9 +217,9 @@ sub ArticleCreate {
             }
         }
         $Param{Charset} = '';
-        if ( $Param{ContentType} =~ /charset=/i ) {
+        if ( $Param{ContentType} =~ /charset\s*=\s*/i ) {
             $Param{Charset} = $Param{ContentType};
-            $Param{Charset} =~ s/.+?charset=("|'|)(\w+)/$2/gi;
+            $Param{Charset} =~ s/.+?charset\s*=\s*("|'|)(\w+)/$2/gi;
             $Param{Charset} =~ s/"|'//g;
             $Param{Charset} =~ s/(.+?);.*/$1/g;
 
@@ -442,7 +442,7 @@ sub ArticleCreate {
     for my $Attachment (@AttachmentConvert) {
 
         if (
-            $Attachment->{ContentType} eq "text/html; charset=\"$Param{Charset}\""
+            $Attachment->{ContentType} =~ /^text\/html; charset\s*=\s*"$Param{Charset}"$/i
             && $Attachment->{Filename} eq 'file-2'
             )
         {
@@ -816,9 +816,9 @@ sub ArticleGet {
         );
 
         # Determine charset.
-        if ( $Data{ContentType} && $Data{ContentType} =~ /charset=/i ) {
+        if ( $Data{ContentType} && $Data{ContentType} =~ /charset\s*=\s*/i ) {
             $Data{Charset} = $Data{ContentType};
-            $Data{Charset} =~ s/.+?charset=("|'|)(\w+)/$2/gi;
+            $Data{Charset} =~ s/.+?charset\s*=\s*("|'|)(\w+)/$2/gi;
             $Data{Charset} =~ s/"|'//g;
             $Data{Charset} =~ s/(.+?);.*/$1/g;
         }
@@ -1088,7 +1088,7 @@ Returns:
         Content-Transfer-Encoding: 8bit
 
         Welcome to OTRS!
-        ...
+        # ...
     ';
 
 =cut
@@ -1235,7 +1235,7 @@ Returns:
             FilesizeRaw        => 183,
             Disposition        => 'attachment',
         },
-        ...
+        # ...
     };
 
 =cut
