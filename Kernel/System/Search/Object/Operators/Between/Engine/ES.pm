@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::Operators::Between::Engine::ES;
 
 use strict;
 use warnings;
+use utf8;
 use Kernel::System::VariableCheck qw(IsHashRefWithData);
 
 our @ObjectDependencies = ();

@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::Engine::ES::TicketHistory;
 
 use strict;
 use warnings;
+use utf8;
 
 use Kernel::System::VariableCheck qw(:all);
 
@@ -17,7 +18,8 @@ use parent qw( Kernel::System::Search::Object::Default::TicketHistory
     Kernel::System::Search::Object::Engine::ES );
 
 our @ObjectDependencies = (
-    'Kernel::System::Main',
+    'Kernel::System::Log',
+    'Kernel::System::Search::Object',
     'Kernel::System::Search',
 );
 

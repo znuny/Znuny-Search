@@ -20,6 +20,7 @@ our @ObjectDependencies = (
     'Kernel::System::Search::Object::Default::Article',
     'Kernel::System::Main',
     'Kernel::System::Search',
+    'Kernel::System::Group',
 );
 
 =head1 NAME

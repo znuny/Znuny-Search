@@ -18,6 +18,7 @@ package Kernel::System::Ticket::Article::Backend::MIMEBase::ArticleStorageFS;
 
 use strict;
 use warnings;
+use utf8;
 
 use File::Path qw();
 use MIME::Base64 qw();

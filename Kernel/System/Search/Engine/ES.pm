@@ -10,6 +10,7 @@ package Kernel::System::Search::Engine::ES;
 
 use strict;
 use warnings;
+use utf8;
 use Search::Elasticsearch;
 
 use parent qw( Kernel::System::Search::Engine );

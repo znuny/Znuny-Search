@@ -10,6 +10,7 @@ package Kernel::System::Search::Event::ObjectIndex::FAQCategory;
 
 use strict;
 use warnings;
+use utf8;
 
 our @ObjectDependencies = (
     'Kernel::System::Log',

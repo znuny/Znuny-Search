@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::Operators::IsDefined::Fallback::Default;
 
 use strict;
 use warnings;
+use utf8;
 
 our @ObjectDependencies = ();
 

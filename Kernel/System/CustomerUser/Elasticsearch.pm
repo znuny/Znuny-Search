@@ -11,6 +11,7 @@ package Kernel::System::CustomerUser::Elasticsearch;
 
 use strict;
 use warnings;
+use utf8;
 
 use Kernel::System::VariableCheck qw(:all);
 

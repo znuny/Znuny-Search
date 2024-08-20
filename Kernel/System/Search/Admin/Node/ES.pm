@@ -12,6 +12,7 @@ use parent qw( Kernel::System::Search::Admin::Node );
 
 use strict;
 use warnings;
+use utf8;
 
 our @ObjectDependencies = ();
 

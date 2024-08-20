@@ -10,6 +10,7 @@ package Kernel::System::Search::Event::ObjectIndex::DynamicFieldValue;
 
 use strict;
 use warnings;
+use utf8;
 
 use Kernel::System::VariableCheck qw(:all);
 

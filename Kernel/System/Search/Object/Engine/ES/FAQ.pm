@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::Engine::ES::FAQ;
 
 use strict;
 use warnings;
+use utf8;
 use MIME::Base64;
 use POSIX qw/ceil/;
 
@@ -17,7 +18,18 @@ use parent qw( Kernel::System::Search::Object::Default::FAQ Kernel::System::Sear
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
-
+    'Kernel::Config',
+    'Kernel::System::DB',
+    'Kernel::System::DynamicField',
+    'Kernel::System::DynamicField::Backend',
+    'Kernel::System::Encode',
+    'Kernel::System::FAQ',
+    'Kernel::System::Group',
+    'Kernel::System::Log',
+    'Kernel::System::Search',
+    'Kernel::System::Search::Object',
+    'Kernel::System::Search::Object::Operators',
+    'Kernel::System::Search::Object::Query::FAQ'
 );
 
 =head1 NAME

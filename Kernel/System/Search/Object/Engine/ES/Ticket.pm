@@ -12,6 +12,7 @@ package Kernel::System::Search::Object::Engine::ES::Ticket;
 
 use strict;
 use warnings;
+use utf8;
 use MIME::Base64;
 use POSIX qw/ceil/;
 
@@ -27,7 +28,6 @@ our @ObjectDependencies = (
     'Kernel::System::DynamicField::Backend',
     'Kernel::System::Group',
     'Kernel::System::Queue',
-    'Kernel::System::User',
     'Kernel::System::Search::Object::Query::Ticket',
     'Kernel::System::DB',
     'Kernel::System::Search::Object::Default::Article',
@@ -35,6 +35,7 @@ our @ObjectDependencies = (
     'Kernel::System::Ticket::Article',
     'Kernel::System::Search::Object::Operators',
     'Kernel::System::Encode',
+    'Kernel::System::Ticket',
 );
 
 =head1 NAME

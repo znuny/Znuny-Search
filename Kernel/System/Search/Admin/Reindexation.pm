@@ -12,6 +12,7 @@ package Kernel::System::Search::Admin::Reindexation;
 
 use strict;
 use warnings;
+use utf8;
 use Proc::Find qw(find_proc proc_exists);
 
 use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);

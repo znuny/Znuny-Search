@@ -10,6 +10,7 @@ package Kernel::System::Console::Command::Maint::Search::Reindex;
 
 use strict;
 use warnings;
+use utf8;
 
 use parent qw(Kernel::System::Console::BaseCommand);
 
@@ -21,7 +22,7 @@ our @ObjectDependencies = (
     'Kernel::System::Search::Object',
     'Kernel::System::PID',
     'Kernel::System::Cache',
-    'Kernel::System::JSON',,
+    'Kernel::System::JSON',
     'Kernel::System::Search::Admin::Reindexation',
     'Kernel::System::Search::Cluster',
     'Kernel::System::Log',
