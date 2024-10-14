@@ -24,6 +24,7 @@ our @ObjectDependencies = (
     'Kernel::System::Group',
     'Kernel::System::Main',
     'Kernel::System::Search',
+    'Kernel::System::State',
 );
 
 =head1 NAME

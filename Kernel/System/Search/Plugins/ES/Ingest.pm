@@ -10,6 +10,7 @@ package Kernel::System::Search::Plugins::ES::Ingest;
 
 use strict;
 use warnings;
+use utf8;
 
 use JSON::PP;
 use Kernel::System::VariableCheck qw(IsHashRefWithData);
@@ -18,6 +19,7 @@ use parent qw( Kernel::System::Search::Plugins::Base );
 
 our @ObjectDependencies = (
     'Kernel::System::Search',
+    'Kernel::System::Log',
 );
 
 =head1 NAME

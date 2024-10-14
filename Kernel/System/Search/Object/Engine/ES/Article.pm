@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::Engine::ES::Article;
 
 use strict;
 use warnings;
+use utf8;
 use POSIX qw/ceil/;
 
 use parent qw( Kernel::System::Search::Object::Default::Article Kernel::System::Search::Object::Engine::ES );
@@ -18,6 +19,10 @@ use Kernel::System::VariableCheck qw(:all);
 our @ObjectDependencies = (
     'Kernel::Config',
     'Kernel::System::Search::Object::Default::Ticket',
+    'Kernel::System::Log',
+    'Kernel::System::Search',
+    'Kernel::System::Search::Object',
+    'Kernel::System::Ticket'
 );
 
 =head1 NAME

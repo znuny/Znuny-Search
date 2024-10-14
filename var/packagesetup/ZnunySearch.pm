@@ -12,8 +12,12 @@ package var::packagesetup::ZnunySearch;    ## no critic
 
 use strict;
 use warnings;
+use utf8;
 
 our @ObjectDependencies = (
+    'Kernel::System::Log',
+    'Kernel::System::Search',
+    'Kernel::System::Search::Plugins::ES::Ingest',
 );
 
 =head1 NAME

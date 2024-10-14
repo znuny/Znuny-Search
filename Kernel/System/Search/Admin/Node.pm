@@ -12,6 +12,7 @@ package Kernel::System::Search::Admin::Node;
 
 use strict;
 use warnings;
+use utf8;
 
 use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
 

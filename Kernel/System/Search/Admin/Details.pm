@@ -12,6 +12,7 @@ package Kernel::System::Search::Admin::Details;
 
 use strict;
 use warnings;
+use utf8;
 
 use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
 

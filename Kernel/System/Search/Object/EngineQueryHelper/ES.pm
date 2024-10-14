@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::EngineQueryHelper::ES;
 
 use strict;
 use warnings;
+use utf8;
 
 use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
 

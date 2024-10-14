@@ -10,6 +10,7 @@ package Kernel::System::Search::Cluster;
 
 use strict;
 use warnings;
+use utf8;
 
 use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
 

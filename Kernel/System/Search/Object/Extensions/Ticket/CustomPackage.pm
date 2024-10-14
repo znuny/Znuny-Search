@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::Extensions::Ticket::CustomPackage;
 
 use strict;
 use warnings;
+use utf8;
 
 our @ObjectDependencies = (
 );

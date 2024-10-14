@@ -13,6 +13,7 @@ package Kernel::System::Ticket::Article::Backend::MIMEBase;
 
 use strict;
 use warnings;
+use utf8;
 
 use parent 'Kernel::System::Ticket::Article::Backend::Base';
 

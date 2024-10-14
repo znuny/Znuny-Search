@@ -10,6 +10,7 @@ package Kernel::System::Search::Plugins::ES::IngestFAQ;
 
 use strict;
 use warnings;
+use utf8;
 
 use JSON::PP;
 use Kernel::System::VariableCheck qw(IsHashRefWithData);

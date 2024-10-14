@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::Default::Ticket;
 
 use strict;
 use warnings;
+use utf8;
 
 use parent qw( Kernel::System::Search::Object::Base );
 

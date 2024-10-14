@@ -19,6 +19,7 @@ use parent qw(Kernel::System::EventHandler);
 
 use strict;
 use warnings;
+use utf8;
 
 our $ObjectManagerDisabled = 1;
 

@@ -10,6 +10,7 @@ package Kernel::System::Search::Object::Query;
 
 use strict;
 use warnings;
+use utf8;
 
 use Kernel::System::VariableCheck qw(IsHashRefWithData IsArrayRefWithData);
 
@@ -19,6 +20,7 @@ our @ObjectDependencies = (
     'Kernel::System::Search::Object::Operators',
     'Kernel::System::DynamicField',
     'Kernel::System::DynamicField::Backend',
+    'Kernel::System::Search',
 );
 
 =head1 NAME
