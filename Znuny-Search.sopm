@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <otrs_package version="1.0">
     <Name>Znuny-Search</Name>
-    <Version>6.5.4</Version>
+    <Version>6.5.5</Version>
     <Framework>6.5.x</Framework>
     <ModuleRequired Version="8.00">Search::Elasticsearch</ModuleRequired>
     <ModuleRequired Version="0.051">Proc::Find</ModuleRequired>
@@ -9,6 +9,7 @@
     <URL>http://znuny.com/</URL>
     <License>GNU AFFERO GENERAL PUBLIC LICENSE Version 3, November 2007</License>
     <Description Lang="en">Functionality related to search engines.</Description>
+    <ChangeLog Version="6.5.5" Date="2025-10-09 09:35:40 +0200">Appliedy CodePolicy</ChangeLog>
     <ChangeLog Version="6.5.4" Date="2025-10-09 09:27:35 +0200">Fixed breadcrumbs in search re-indexation, node views: added working nested breadcrumbs.
 Added a feature to search "Ticket" index attribute "TicketNumber" by prefix determined by module selected in config option "Ticket::NumberGenerator".</ChangeLog>
     <ChangeLog Version="6.5.3" Date="2024-05-08 12:36:10 +0200">- Updated attachment handling&#13;
