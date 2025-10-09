@@ -139,7 +139,7 @@ sub BuildReindexationSection {
                 ? $Percentage < 30
                         ? 'red'
                         : $Percentage < 50 ? 'yellow'
-                    : 'green'
+                        : 'green'
                 : undef,
             }
         );
@@ -150,9 +150,9 @@ sub BuildReindexationSection {
         Data         => {
             %Param,
             ReindexingOngoing      => $IsReindexingOngoing,
-            ActiveCluster          => $ClusterConfig->{ClusterID} == $Param{ClusterID} ? 1 : 0,
-            EngineConnection       => $SearchObject->{ConnectObject} ? 1 : 0,
-            ActionLabel            => $IsReindexingOngoing ? 'Status' : 'Actions',
+            ActiveCluster          => $ClusterConfig->{ClusterID} == $Param{ClusterID} ? 1        : 0,
+            EngineConnection       => $SearchObject->{ConnectObject}                   ? 1        : 0,
+            ActionLabel            => $IsReindexingOngoing                             ? 'Status' : 'Actions',
             SynchronizationEnabled => $SynchronizationEnabled,
         },
     );

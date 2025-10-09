@@ -92,14 +92,14 @@ sub Fallback {
 
     if ( IsHashRefWithData( $Param{Fields} ) ) {
         $SQLSearchResult = $Self->SQLObjectSearch(
-            QueryParams         => $Param{QueryParams},
-            AdvancedQueryParams => $Param{AdvancedQueryParams},
-            Limit               => $Param{Limit} || $Self->{DefaultSearchLimit},
-            OrderBy             => $Param{OrderBy},
-            SortBy              => $Param{SortBy},
-            ResultType          => $Param{ResultType},
-            Fields              => $Param{Fields},
-            Silent              => $Param{Silent},
+            QueryParams                 => $Param{QueryParams},
+            AdvancedQueryParams         => $Param{AdvancedQueryParams},
+            Limit                       => $Param{Limit} || $Self->{DefaultSearchLimit},
+            OrderBy                     => $Param{OrderBy},
+            SortBy                      => $Param{SortBy},
+            ResultType                  => $Param{ResultType},
+            Fields                      => $Param{Fields},
+            Silent                      => $Param{Silent},
             IgnoreDynamicFields         => $Param{IgnoreDynamicFields},    # Ticket/CustomerUser index compatibility
             IgnoreArticles              => $Param{IgnoreArticles},         # Ticket index compatibility
             NoPermissions               => $Param{NoPermissions},
@@ -573,7 +573,7 @@ sub SQLObjectSearch {
                 if ( !$Fields->{$FieldName}->{ColumnName} ) {
                     $LogObject->Log(
                         Priority => 'error',
-                        Message =>
+                        Message  =>
                             "Fallback SQL search does not support searching by $FieldName column in $Table table!"
                     );
                     return {
@@ -644,8 +644,8 @@ sub SQLObjectSearch {
     }
 
     my $SQLSortQuery = $Self->SQLSortQueryGet(
-        OrderBy => $Param{OrderBy} // '',
-        SortBy  => $Param{SortBy}  // '',
+        OrderBy       => $Param{OrderBy} // '',
+        SortBy        => $Param{SortBy}  // '',
         ResultType    => $Param{ResultType},
         Silent        => 1,
         SelectAliases => $Param{SelectAliases}
@@ -752,7 +752,7 @@ sub SearchFormat {
     if ( !$SupportedResultTypes->{ $Param{ResultType} } ) {
         $LogObject->Log(
             Priority => 'error',
-            Message =>
+            Message  =>
                 "Specified result type: $Param{ResultType} isn't supported! Default value: \"ARRAY\" will be used instead.",
         );
 
@@ -804,7 +804,7 @@ sub SearchFormat {
                 if ( !$Param{Silent} ) {
                     $LogObject->Log(
                         Priority => 'error',
-                        Message =>
+                        Message  =>
                             "Could not get object identifier $Identifier for $IndexName index in the response!",
                     );
                 }

@@ -112,7 +112,7 @@ sub CustomerSearch {
         if ( !$Self->{CustomerUserMap}->{CustomerUserSearchFields} ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message =>
+                Message  =>
                     "Need CustomerUserSearchFields in CustomerUser config, unable to search for '$Param{Search}'!",
             );
             return;
@@ -816,8 +816,8 @@ sub CustomerUserDataGet {
 
     my @FieldsMapWithoutDynamicFields   = grep { $_->[5] ne 'dynamic_field' } @{ $Self->{CustomerUserMap}->{Map} };
     my @FieldsNamesWithoutDynamicFields = map  { $_->[0] } @FieldsMapWithoutDynamicFields;
-    my @AdditionalFields = $Self->{ForeignDB} ? () : qw(CreateTime CreateBy ChangeTime ChangeBy);
-    my @FieldsToRetrieve = ( @FieldsNamesWithoutDynamicFields, @AdditionalFields );
+    my @AdditionalFields                = $Self->{ForeignDB} ? () : qw(CreateTime CreateBy ChangeTime ChangeBy);
+    my @FieldsToRetrieve                = ( @FieldsNamesWithoutDynamicFields, @AdditionalFields );
 
     # use query builder
     my $EngineQueryHelperObj = $SearchQueryCustomerUserObject->EngineQueryHelperObjCreate(

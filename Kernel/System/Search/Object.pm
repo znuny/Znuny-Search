@@ -192,7 +192,7 @@ sub IndexIsValid {
     }
 
     my %RegisteredIndexes = %{ $SearchObject->{Config}->{RegisteredIndexes} };
-    my $IndexName = $Param{IndexName};    # this variable will hold friendly name of index (raw/not real)
+    my $IndexName         = $Param{IndexName};    # this variable will hold friendly name of index (raw/not real)
 
     if ( $Param{RealName} ) {
         my %ReverseRegisteredIndexes = reverse %{ $SearchObject->{Config}->{RegisteredIndexes} };
@@ -247,7 +247,7 @@ sub ValidResultType {
     if ( !$Param{SupportedResultTypes}->{$ResultType} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message =>
+            Message  =>
                 "Specified result type: $Param{ResultType} isn't supported!",
         );
         return;

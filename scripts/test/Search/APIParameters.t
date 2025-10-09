@@ -557,7 +557,7 @@ my %Tests = (
                 },
                 ResultType => 'ARRAY',
                 SortBy     => [ 'TicketID', 'TicketID' ],
-                OrderBy    => [ 'Down', 'Down' ],
+                OrderBy    => [ 'Down',     'Down' ],
                 Fields     => [
                     [
                         'TicketHistory_TicketID',

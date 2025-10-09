@@ -906,9 +906,9 @@ sub ClusterCommunicationNodesImport {
 
     return {
         Success      => 1,
-        AddedNodes   => join( ', ', @AddedNodes ) || '',
+        AddedNodes   => join( ', ', @AddedNodes )   || '',
         UpdatedNodes => join( ', ', @UpdatedNodes ) || '',
-        NodesErrors  => join( ', ', @NodesErrors ) || '',
+        NodesErrors  => join( ', ', @NodesErrors )  || '',
     };
 }
 

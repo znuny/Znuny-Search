@@ -839,7 +839,7 @@ sub DiagnosticDataGetFormat {
 
     my $DiagnosisResult = $Param{Response};
     my $ReceivedNodes   = $DiagnosisResult->{Nodes}->{nodes} || {};
-    my $ReceivedIndexes = $DiagnosisResult->{Indexes} || [];
+    my $ReceivedIndexes = $DiagnosisResult->{Indexes}        || [];
 
     my %Nodes;
     for my $Node ( sort keys %{$ReceivedNodes} ) {

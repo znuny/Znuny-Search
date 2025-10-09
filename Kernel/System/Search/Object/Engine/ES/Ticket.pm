@@ -527,8 +527,8 @@ sub ExecuteSearch {
     my $ArticleDynamicFields = $Fields->{Article_DynamicField} || {};
     my $AttachmentFields     = $Fields->{Attachment}           || {};
 
-    my %TicketFields  = ( %{$TicketFields},  %{$TicketDynamicFields} );
-    my %ArticleFields = ( %{$ArticleFields}, %{$ArticleDynamicFields} );
+    my %TicketFields     = ( %{$TicketFields},  %{$TicketDynamicFields} );
+    my %ArticleFields    = ( %{$ArticleFields}, %{$ArticleDynamicFields} );
     my %AttachmentFields = %{$AttachmentFields};
 
     # build standard ticket query
@@ -1540,8 +1540,8 @@ ctx._source.AttachmentStorageTemp = params.AttachmentStorageTemp;
                 script => {
                     source => $QuerySource,
                     params => {
-                        Articles              => $ArticlesToIndex{$TicketID}    || [],
-                        AttachmentStorageTemp => $AttachmentsToIndex{$TicketID} || [],
+                        Articles                   => $ArticlesToIndex{$TicketID}    || [],
+                        AttachmentStorageTemp      => $AttachmentsToIndex{$TicketID} || [],
                         AttachmentStorageClearTemp => {},
                     }
                 },

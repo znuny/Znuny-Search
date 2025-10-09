@@ -134,7 +134,7 @@ sub _ClusterCommunicationNodeSetPassword {
     if ( $Param{PasswordClear} && $Param{Password} && $Param{Login} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message =>
+            Message  =>
                 "Can't proceed with all parameters specified. Either PasswordClear or Password and Login is required!"
         );
         return;
@@ -193,7 +193,7 @@ sub _ClusterCommunicationNodeSetPassword {
         # log notice
         $LogObject->Log(
             Priority => 'notice',
-            Message =>
+            Message  =>
                 "Cluster communication node name $ClusterCommunicationNode->{Name}, login '$Login' changed password successfully!",
         );
     }

@@ -829,7 +829,7 @@ sub _QueryParamSet {
         if ( $Param{SimplifiedMode} ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message =>
+                Message  =>
                     "Query parameter $Name is specified in a hash which is not allowed for index $Self->{IndexConfig}->{IndexName}!",
             );
             return { Error => 1 };
@@ -853,7 +853,7 @@ sub _QueryParamSet {
         if ( $Param{SimplifiedMode} ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message =>
+                Message  =>
                     "Query parameter $Name is specified in an array of hashes which is not allowed for index $Self->{IndexConfig}->{IndexName}!",
             );
             return { Error => 1 };
