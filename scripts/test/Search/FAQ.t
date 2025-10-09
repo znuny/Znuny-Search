@@ -870,10 +870,10 @@ $Search = $SearchObject->Search(
     Objects     => ["FAQ"],
     QueryParams => {
         ItemID            => $ItemID,
-        Language          => [ $FAQLanguage, 1, 2 ],
-        CategoryShortName => [ $CategoryName, 1, 2 ],
-        State             => [ $FAQState, 1, 2 ],
-        Valid             => [ 'valid', 'invalid', 1, 2 ],
+        Language          => [ $FAQLanguage,  1,         2 ],
+        CategoryShortName => [ $CategoryName, 1,         2 ],
+        State             => [ $FAQState,     1,         2 ],
+        Valid             => [ 'valid',       'invalid', 1, 2 ],
         UserID            => $UserIDWithGrantedAccess,
     },
     Fields => [ [ 'FAQ_ItemID', "FAQ_DynamicField_$NewTestDFName" ] ]

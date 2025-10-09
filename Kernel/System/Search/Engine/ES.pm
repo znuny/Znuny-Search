@@ -106,10 +106,10 @@ sub Connect {
         );
 
         push @Nodes, {
-            scheme => $Node->{Protocol} // '',
-            host   => $Node->{Host}     // '',
-            port   => $Node->{Port}     // '',
-            path   => $Node->{Path}     // '',
+            scheme   => $Node->{Protocol} // '',
+            host     => $Node->{Host}     // '',
+            port     => $Node->{Port}     // '',
+            path     => $Node->{Path}     // '',
             userinfo => $UserInfo,
         };
     }
@@ -246,10 +246,10 @@ sub CheckNodeConnection {
         sniff_request_timeout => 0.5,
         nodes                 => [
             {
-                scheme => $Param{Protocol} // '',
-                host   => $Param{Host}     // '',
-                port   => $Param{Port}     // '',
-                path   => $Param{Path}     // '',
+                scheme   => $Param{Protocol} // '',
+                host     => $Param{Host}     // '',
+                port     => $Param{Port}     // '',
+                path     => $Param{Path}     // '',
                 userinfo => $UserInfo,
             },
         ],
@@ -266,7 +266,7 @@ sub CheckNodeConnection {
     if ( !$Param{Silent} ) {
         $LogObject->Log(
             Priority => 'error',
-            Message =>
+            Message  =>
                 "Communication node authentication failed for node connection check. Login:$Param{Login}. Message: $@"
         );
     }

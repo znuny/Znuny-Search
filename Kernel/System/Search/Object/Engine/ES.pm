@@ -141,7 +141,7 @@ sub DefaultFulltextQueryBuild {
         if ( !IsHashRefWithData($FulltextSearchFields) ) {
             $LogObject->Log(
                 Priority => 'error',
-                Message =>
+                Message  =>
                     "No fulltext search fields specified to search inside index: \"$Self->{Config}->{IndexName}\"!",
             );
 
@@ -171,7 +171,7 @@ sub DefaultFulltextQueryBuild {
                     else {
                         $LogObject->Log(
                             Priority => 'error',
-                            Message =>
+                            Message  =>
                                 "Invalid fulltext search field: \"${Entity}_${Property}\" specified! (index: \"$Self->{Config}->{IndexName}\"!)",
                         );
                         return {
@@ -188,7 +188,7 @@ sub DefaultFulltextQueryBuild {
             if ( !$FulltextFieldsValid{$HighlightField} ) {
                 $LogObject->Log(
                     Priority => 'error',
-                    Message =>
+                    Message  =>
                         "Invalid fulltext highlight search field: \"$HighlightField\" specified! (index: \"$Self->{Config}->{IndexName}\"!)",
                 );
                 return {
