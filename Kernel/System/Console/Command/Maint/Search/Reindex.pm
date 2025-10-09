@@ -49,7 +49,7 @@ sub Configure {
         HasValue    => 0,
     );
     $Self->AddOption(
-        Name => 'recreate',
+        Name        => 'recreate',
         Description =>
             "(default|latest) Before re-indexing, delete and add all specified indexes again with default or latest settings instead of clearing their data.",
         Required   => 0,
@@ -58,7 +58,7 @@ sub Configure {
         Multiple   => 0,
     );
     $Self->AddOption(
-        Name => 'check-data-equality',
+        Name        => 'check-data-equality',
         Description =>
             "Before reindexing check if search engine indexes are equal with SQL DB.",
         Required => 0,
@@ -66,7 +66,7 @@ sub Configure {
         Multiple => 0,
     );
     $Self->AddOption(
-        Name => 'cluster-reinitialize',
+        Name        => 'cluster-reinitialize',
         Description =>
             "Run cluster initialization process without checking if cluster was initialized previously.",
         Required => 0,
@@ -74,7 +74,7 @@ sub Configure {
         Multiple => 0,
     );
     $Self->AddOption(
-        Name => 'limit',
+        Name        => 'limit',
         Description =>
             "Limit reindexed data. Used mostly for testing.",
         Required   => 0,
@@ -83,7 +83,7 @@ sub Configure {
         ValueRegex => qr/\A\d+\z/,
     );
     $Self->AddOption(
-        Name => 'start-from',
+        Name        => 'start-from',
         Description =>
             "Start re-indexing from specified object id.",
         Required   => 0,
@@ -92,7 +92,7 @@ sub Configure {
         ValueRegex => qr/\A\d+\z/,
     );
     $Self->AddOption(
-        Name => 'sync',
+        Name        => 'sync',
         Description =>
             "Fully synchronize data between SQL and custom search engine.",
         Required => 0,
@@ -100,7 +100,7 @@ sub Configure {
         Multiple => 0,
     );
     $Self->AddOption(
-        Name => 'from-gui',
+        Name        => 'from-gui',
         Description =>
             "Do not use this flag!",
         Required => 0,
@@ -163,7 +163,7 @@ sub Run {
     my $StartFrom           = $Self->GetOption('start-from');
 
     $Self->{Synchronize} = $Self->GetOption('sync');
-    $Self->{PIDName}     = $Self->{Synchronize} ? 'SearchEngineSync' : 'SearchEngineReindex';
+    $Self->{PIDName}     = $Self->{Synchronize} ? 'SearchEngineSync'    : 'SearchEngineReindex';
     $Self->{PIDNameAlt}  = $Self->{Synchronize} ? 'SearchEngineReindex' : 'SearchEngineSync';
 
     if ( $Self->{Synchronize} && ( defined $StartFrom || $Limit || $Recreate ) ) {
@@ -731,7 +731,7 @@ sub Run {
             }
 
             my $StartID = $LastObjectID->[0];
-            $EndID++ if ( defined $Limit );
+            $EndID++   if ( defined $Limit );
             $EndID = 1 if ( $EndID < 1 );
 
             my $ReindexationRange = $ReindexationStep > $StartID - $EndID ? $StartID - $EndID + 1 : $ReindexationStep;

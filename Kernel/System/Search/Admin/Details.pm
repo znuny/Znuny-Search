@@ -21,7 +21,7 @@ our @ObjectDependencies = (
     'Kernel::System::DB',
     'Kernel::System::JSON',
     'Kernel::System::Log',
-    'Kernel::System::Search',,
+    'Kernel::System::Search',
     'Kernel::System::Search::Object',
 );
 
