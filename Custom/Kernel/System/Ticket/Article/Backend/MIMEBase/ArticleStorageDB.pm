@@ -2,7 +2,7 @@
 # Copyright (C) 2001-2021 OTRS AG, https://otrs.com/
 # Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
-# $origin: znuny - 4e84ea4bb19adae193fe08ab181211d0fc4b8a0a - Kernel/System/Ticket/Article/Backend/MIMEBase/ArticleStorageDB.pm
+# $origin: znuny - bae2fb28ba2e90d82f5f4915b2ef0274cd350138 - Kernel/System/Ticket/Article/Backend/MIMEBase/ArticleStorageDB.pm
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (GPL). If you
@@ -214,7 +214,8 @@ sub ArticleWriteAttachment {
     my $NewFileName = $Param{Filename};
     my %UsedFile;
     my %Index = $Self->ArticleAttachmentIndex(
-        ArticleID => $Param{ArticleID},
+        ArticleID     => $Param{ArticleID},
+        OnlyMyBackend => 1,
     );
 
     for my $IndexFile ( sort keys %Index ) {
@@ -268,9 +269,9 @@ sub ArticleWriteAttachment {
                 change_time, change_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, current_timestamp, ?, current_timestamp, ?)',
         Bind => [
-            \$Param{ArticleID}, \$Param{Filename}, \$Param{ContentType}, \$Param{Filesize},
-            \$Param{Content}, \$Param{ContentID}, \$Param{ContentAlternative},
-            \$Disposition, \$Param{UserID}, \$Param{UserID},
+            \$Param{ArticleID}, \$Param{Filename},  \$Param{ContentType}, \$Param{Filesize},
+            \$Param{Content},   \$Param{ContentID}, \$Param{ContentAlternative},
+            \$Disposition,      \$Param{UserID},    \$Param{UserID},
         ],
     );
 # ---

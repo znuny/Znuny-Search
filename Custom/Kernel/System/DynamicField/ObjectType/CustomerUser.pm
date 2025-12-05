@@ -2,7 +2,7 @@
 # Copyright (C) 2001-2021 OTRS AG, https://otrs.com/
 # Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
-# $origin: znuny - 4e84ea4bb19adae193fe08ab181211d0fc4b8a0a - Kernel/System/DynamicField/ObjectType/CustomerUser.pm
+# $origin: znuny - bae2fb28ba2e90d82f5f4915b2ef0274cd350138 - Kernel/System/DynamicField/ObjectType/CustomerUser.pm
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (GPL). If you
@@ -203,7 +203,7 @@ sub ObjectDataGet {
     if ( !$ObjectID ) {
         $Kernel::OM->Get('Kernel::System::Log')->Log(
             Priority => 'error',
-            Message =>
+            Message  =>
                 "Unable to determine object id for object name $UserID and type $Param{DynamicFieldConfig}->{ObjectType}!"
         );
         return;

@@ -2,7 +2,7 @@
 # Copyright (C) 2001-2021 OTRS AG, https://otrs.com/
 # Copyright (C) 2012 Znuny GmbH, https://znuny.com/
 # --
-# $origin: znuny - 7775216b80452a6ce2267812a25bf23ae786ae57 - Kernel/System/Ticket/Article/Backend/MIMEBase/ArticleStorageFS.pm
+# $origin: znuny - bae2fb28ba2e90d82f5f4915b2ef0274cd350138 - Kernel/System/Ticket/Article/Backend/MIMEBase/ArticleStorageFS.pm
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (GPL). If you
@@ -20,9 +20,9 @@ use strict;
 use warnings;
 use utf8;
 
-use File::Path qw();
-use MIME::Base64 qw();
-use Time::HiRes qw();
+use File::Path         qw();
+use MIME::Base64       qw();
+use Time::HiRes        qw();
 use Unicode::Normalize qw();
 
 use parent qw(Kernel::System::Ticket::Article::Backend::MIMEBase::Base);
@@ -342,7 +342,8 @@ sub ArticleWriteAttachment {
     my $NewFileName = $Param{Filename};
     my %UsedFile;
     my %Index = $Self->ArticleAttachmentIndex(
-        ArticleID => $Param{ArticleID},
+        ArticleID     => $Param{ArticleID},
+        OnlyMyBackend => 1,
     );
 
     # Normalize filenames to find file names which are identical but in a different unicode form.
