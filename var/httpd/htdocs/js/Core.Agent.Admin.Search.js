@@ -318,6 +318,8 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             PositionLeft: 'Center',
             CloseOnEscape: true,
             AllowAutoGrow: true,
+            Width: 'auto',
+            Height: 'auto',
             Buttons: [
                 {
                     Type: 'Close',

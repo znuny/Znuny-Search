@@ -57,29 +57,217 @@ did not receive this file, see https://www.gnu.org/licenses/gpl-3.0.txt.
     margin-left: 4px;
 }
 
-#ClusterStatusContainer .GridTable{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    flex-direction: column;
+/* Cluster Status Dialog Container */
+#ClusterStatusContainer {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
 }
 
-#ClusterStatusContainer .GridTable > label, fieldset.GridTable > .Row > label{
-    display: block;
-    float: left;
-    line-height: 1.9em;
-    text-align: right;
-    color: #929292;
-    min-height: 17px;
-    padding-top: 0.3em;
-    padding-bottom: 1px;
-    text-shadow: 0 1px 0 #fafafa;
+#ClusterStatusContainer .ClusterStatusDialogContent {
+    padding: 1.5em !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+    display: block !important;
 }
 
-#ClusterStatusContainer .GridTable > .Value, fieldset.GridTable > .Row > .Value{
-    margin-left: 2%;
-    padding: 4px 0 3px 8px;
-    line-height: 1.9em;
+/* Cluster Status Table */
+#ClusterStatusContainer .ClusterStatusTable,
+.Dialog #ClusterStatusContainer .ClusterStatusTable,
+.Dialog .Content #ClusterStatusContainer .ClusterStatusTable {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 0 !important;
+    background-color: #fff !important;
+    border: 1px solid #ddd !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+    table-layout: fixed !important;
+    box-sizing: border-box !important;
+    display: table !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable thead,
+.Dialog #ClusterStatusContainer .ClusterStatusTable thead {
+    background-color: #f5f5f5 !important;
+    border-bottom: 2px solid #ddd !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable thead th,
+.Dialog #ClusterStatusContainer .ClusterStatusTable thead th {
+    padding: 1em 1.25em !important;
+    text-align: left !important;
+    font-weight: bold !important;
+    font-size: 1.1em !important;
+    color: #333 !important;
+    border-bottom: 2px solid #ddd !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable thead th.LabelColumn,
+.Dialog #ClusterStatusContainer .ClusterStatusTable thead th.LabelColumn {
+    width: 60% !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable thead th.ValueColumn,
+.Dialog #ClusterStatusContainer .ClusterStatusTable thead th.ValueColumn {
+    width: 40% !important;
+    text-align: right !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody tr,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody tr {
+    border-bottom: 1px solid #eee !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(even),
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(even) {
+    background-color: #f9f9f9 !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(odd),
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(odd) {
+    background-color: #fff !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody tr:last-child,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody tr:last-child {
+    border-bottom: none !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody tr:hover,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody tr:hover,
+table.ClusterStatusTable tbody tr:hover,
+.Dialog table.ClusterStatusTable tbody tr:hover,
+#ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(even):hover,
+#ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(odd):hover,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(even):hover,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(odd):hover {
+    background-color: #d4e8f5 !important;
+    cursor: pointer !important;
+    transition: background-color 0.15s ease !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 123, 255, 0.1) !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody tr:hover td,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody tr:hover td,
+table.ClusterStatusTable tbody tr:hover td,
+.Dialog table.ClusterStatusTable tbody tr:hover td,
+#ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(even):hover td,
+#ClusterStatusContainer .ClusterStatusTable tbody tr:nth-child(odd):hover td {
+    background-color: transparent !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody td:hover,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody td:hover,
+table.ClusterStatusTable tbody td:hover,
+.Dialog table.ClusterStatusTable tbody td:hover {
+    background-color: #c5e0f0 !important;
+    transition: background-color 0.15s ease !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody td,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody td {
+    padding: 0.75em 1.25em !important;
+    line-height: 1.6em !important;
+    vertical-align: middle !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody td.LabelColumn,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody td.LabelColumn {
+    font-weight: bold !important;
+    color: #333 !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+}
+
+#ClusterStatusContainer .ClusterStatusTable tbody td.ValueColumn,
+.Dialog #ClusterStatusContainer .ClusterStatusTable tbody td.ValueColumn {
+    text-align: right !important;
+    color: #333 !important;
+    word-break: break-word !important;
+}
+
+/* Ensure dialog content doesn't create double scrollbars */
+.Dialog #ClusterStatusContainer {
+    overflow: visible;
+    max-height: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.Dialog #ClusterStatusContainer .ClusterStatusDialogContent {
+    overflow: visible;
+    max-height: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Prevent nested scrollbars in dialog */
+.Dialog .InnerContent,
+.Dialog .GenericInterfaceDialog {
+    overflow: visible !important;
+}
+
+/* Ensure dialog body doesn't create unnecessary scrollbars */
+.Dialog:has(#ClusterStatusContainer) .DialogBody {
+    overflow: visible;
+    max-height: none;
+}
+
+/* Ensure dialog content area allows full width */
+.Dialog:has(#ClusterStatusContainer) .Content,
+.Dialog .Content:has(#ClusterStatusContainer) {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.Dialog:has(#ClusterStatusContainer) .Content > div,
+.Dialog .Content:has(#ClusterStatusContainer) > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.Dialog:has(#ClusterStatusContainer) .InnerContent,
+.Dialog .InnerContent:has(#ClusterStatusContainer) {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.Dialog:has(#ClusterStatusContainer) .GenericInterfaceDialog,
+.Dialog .GenericInterfaceDialog:has(#ClusterStatusContainer) {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Direct table targeting for maximum specificity */
+table.ClusterStatusTable {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+}
+
+.Dialog table.ClusterStatusTable {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* Legacy GridTable support (if still used elsewhere) */
+#ClusterStatusContainer fieldset.GridTable {
+    background: transparent;
+    border: none;
+    margin: 0;
+    padding: 0;
 }
 
 .ReindexingStatus.fa-check{

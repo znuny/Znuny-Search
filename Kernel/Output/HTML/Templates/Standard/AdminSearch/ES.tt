@@ -33,16 +33,23 @@
 [% RenderBlockStart("ClusterStatusDetails") %]
                                         <a href="#"><i class="fa fa-info-circle DetailsIcon"></i></a>
                                         <div class="Hidden" id="ClusterStatusContainer">
-                                            <div id="ClusterStatusContainer" class="InnerContent GenericInterfaceDialog">
-                                                <div class="Content" style="width:25vw">
-                                                    <fieldset class="GridTable">
+                                            <div class="ClusterStatusDialogContent">
+                                                <table class="ClusterStatusTable">
+                                                    <thead>
+                                                        <tr>
+                                                            <th class="LabelColumn">[% Translate("Property") | html %]</th>
+                                                            <th class="ValueColumn">[% Translate("Value") | html %]</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
 [% RenderBlockStart("ClusterStatusDetailsRow") %]
-                                                        <label>[% Translate(Data.Label) | html %]:</label>
-                                                        <p class="Value" title="[% Translate(Data.Title) | html %]">[% Translate(Data.Value) | html %]</p>
+                                                        <tr>
+                                                            <td class="LabelColumn" title="[% Translate(Data.Title) | html %]">[% Translate(Data.Label) | html %]</td>
+                                                            <td class="ValueColumn" title="[% Translate(Data.Title) | html %]">[% Translate(Data.Value) | html %]</td>
+                                                        </tr>
 [% RenderBlockEnd("ClusterStatusDetailsRow") %]
-                                                    </fieldset>
-                                                    </div>
-                                                <div class="SpacingTop"></div>
+                                                    </tbody>
+                                                </table>
                                             </div>
                                         </div>
 [% RenderBlockEnd("ClusterStatusDetails") %]
