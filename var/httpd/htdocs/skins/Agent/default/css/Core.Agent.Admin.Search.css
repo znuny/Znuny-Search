@@ -270,15 +270,19 @@ table.ClusterStatusTable {
     padding: 0;
 }
 
-.ReindexingStatus.fa-check{
+.ReindexingStatus.fa-check {
     color: green;
 }
 
-.ReindexingStatus.fa-refresh{
+.ReindexingStatus.fa-refresh {
     color: navy;
 }
 
-i.fa-trash-o.IndexRemove{
+.ActionButtons.StatusInfoContent {
+    justify-content: center;
+}
+
+i.fa-trash-o.IndexRemove {
     cursor:pointer;
 }
 

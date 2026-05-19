@@ -58,56 +58,52 @@
                          <h2>[% Translate("Re-indexation") | html %]</h2>
                     </div>
                     <div class="Content">
-                        <div class="LayoutGrid ColumnsWithSpacing CommunicationNode">
-                            <table class="DataTable VariableWidth" id="ReindexTable">
-                                <thead>
-                                    <th>[% Translate("Index Name") | html %]</th>
-                                    <th>[% Translate("Data Equality") | html %]</th>
-                                    <th>
+                        <table class="DataTable" id="ReindexTable">
+                            <thead>
+                                <th>[% Translate("Index Name") | html %]</th>
+                                <th>[% Translate("Data Equality") | html %]</th>
+                                <th>
 [% IF !Data.ReindexingOngoing && Data.EngineConnection %]
-                                        <input type="checkbox" id="IndexSelectAll" name="IndexSelectAll"/>
+                                    <input type="checkbox" id="IndexSelectAll" name="IndexSelectAll"/>
 [% END %]
-                                    </th>
-                                </thead>
-                                <tbody>
+                                </th>
+                            </thead>
+                            <tbody>
 [% RenderBlockStart("Index") %]
-                                    <tr>
-                                        <td>[% Data.IndexName %]</td>
-                                        <td>[% Data.DisplayData %]</td>
-                                        <td>
+                                <tr>
+                                    <td>[% Data.IndexName %]</td>
+                                    <td>[% Data.DisplayData %]</td>
+                                    <td>
 [% IF !Data.ReindexingOngoing && Data.EngineConnection %]
-                                            <input type="checkbox" class="IndexSelect" name="[% Data.IndexName %]" value="[% Data.IndexName %]"/>
+                                        <input type="checkbox" class="IndexSelect" name="[% Data.IndexName %]" value="[% Data.IndexName %]"/>
 [% ELSE %]
-                                            <i class="ReindexingStatus fa [% Data.Icon %]" value="[% Data.IndexName %]"></i>
+                                        <i class="ReindexingStatus fa [% Data.Icon %]" value="[% Data.IndexName %]"></i>
 [% END %]
-                                        </td>
-                                    </tr>
+                                    </td>
+                                </tr>
 [% RenderBlockEnd("Index") %]
-                                </tbody>
-                            </table>
-                        </div>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="WidgetSimple">
+                <div class="WidgetSimple" class="WidgetSimple SpacingTop">
                     <div class="Header">
                         <h2>[% Translate(Data.ActionLabel) | html %]</h2>
                     </div>
                     <div class="Content">
-                        <fieldset class="card">
+                        <fieldset class="TableLike full-width">
                             <div class="field-wrapper form-button-actions">
-                                <div class="Field">
+                                <div class="Field buttons-field ActionButtons[% IF Data.ReindexingOngoing || !Data.ActiveCluster || !Data.EngineConnection %] StatusInfoContent[% END %]">
 [% IF !Data.ReindexingOngoing && Data.ActiveCluster && Data.EngineConnection %]
-                                    <div class="ActionButtons" style="margin-top:20px">
                                         <a href="[% Env("Baselink") %]Action=[% Env("Action") %];Subaction=Change;ClusterID=[% Data.ClusterID %]" class="btn-cancel-ghost btn-main btn-width-md">
                                             <span>[% Translate("Cancel") | html %]
                                         </span></a>
-                                        <button class="btn-primary-ghost btn-main  btn-width-md" id="Reindex" type="submit" value="[% Translate("Re-index") | html %]">
+                                        <button class="CallForAction Primary btn-primary-ghost btn-main btn-width-md" id="Reindex" type="submit" value="[% Translate("Re-index") | html %]">
                                             <span>[% Translate("Re-index") | html %]</span>
                                         </button>
-                                        <button class="btn-primary btn-main btn-width-md" id="CheckEquality" type="submit" value="[% Translate("CheckEquality") | html %]">
+                                        <button class="CallForAction Primary btn-primary btn-main btn-width-md" id="CheckEquality" type="submit" value="[% Translate("CheckEquality") | html %]">
                                             <span>[% Translate("Check Data Equality") | html %]</span>
                                         </button>
-                                    </div>
 [% ELSIF !Data.ActiveCluster %]
                                     [% Translate("Cluster is not active. Cannot perform any action on invalid cluster.") | html %]
 [% ELSIF !Data.EngineConnection %]

@@ -372,6 +372,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
                                 window.location.reload();
                             });
                             Core.UI.Dialog.CloseDialog($('#ReindexConfirmationContainer'));
+                            $('.ActionButtons').addClass('StatusInfoContent');
                             $('.ActionButtons').html(Core.Language.Translate("Reindexation process initializated, waiting for response from server.."));
 
                             // check every second if reindexation started
@@ -416,6 +417,7 @@ Core.Agent.Admin.Search = (function (TargetNS) {
             }
         })
 
+        $('.ActionButtons').addClass('StatusInfoContent');
         $('.ActionButtons').html(Core.Language.Translate("Checking equality is already ongoing, please wait for the end of the process."));
 
         Core.AJAX.FunctionCall(Core.Config.Get('CGIHandle'), Data, function () {
