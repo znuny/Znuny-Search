@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <otrs_package version="1.0">
     <Name>Znuny-Search</Name>
-    <Version>7.0.1</Version>
+    <Version>7.0.2</Version>
     <Framework>7.0.x</Framework>
     <ModuleRequired Version="8.00">Search::Elasticsearch</ModuleRequired>
     <ModuleRequired Version="0.051">Proc::Find</ModuleRequired>
@@ -9,6 +9,23 @@
     <URL>http://znuny.com/</URL>
     <License>GNU AFFERO GENERAL PUBLIC LICENSE Version 3, November 2007</License>
     <Description Lang="en">Functionality related to search engines.</Description>
+    <ChangeLog Version="7.0.2" Date="2026-10-05 14:04:09 +0200">Feature: added a possibility to retrive ordered highlighted data for Ticket index, full-text search (for ES).
+Feature: added a new Search flag to retrieve Engine Data alongside with object results on Search call.
+Added description for mapping Search function.
+Fixed an issue with wrong Mapping response.
+Fixed an issue with fallback causing critical errors on not success due to invalid structure.
+Changed execution of IndexBaseCheck in CustomerUser index from operation functions into queue handling function due to performance reasons.
+Added another module used across all Elasticsearch indexes to support base functions.
+Deleted not used mapping files.
+Added multiple indexing support for standard events queue module.
+Bug-fix: fixed an issue with offset/limit not being sorted resulting in missing results from postgresql database.
+Deleted indexation queue for registered indexes on all test files. 
+Added: base checks for indexes. Re-indexation for index fails and resets it's data equality to zero if base check is not passing for it.
+Bug-fix: Fixed an issue with displaying last re-indexation time for indexes.
+Bug-fix: fixed an issue with calculating re-indexation equality for the first time for CustomerUser index.
+Replaced Print function with PrintError for error related messages command inside re-indexation command.
+Bugfix: updated "attachment_nested" pipeline and reinitialized it if needed on CodeUpgrade.
+Feature: attachments can be disabled via new settings mechanism (registered for Ticket index and Elasticsearch search engine).</ChangeLog>
     <ChangeLog Version="6.5.1" Date="2023-03-24 15:31:30 +0100">Initial release for Znuny 6.5.</ChangeLog>
     <Filelist>
         <File Permission="660" Location="Kernel/Config/Files/XML/Search.xml"/>
