@@ -9,6 +9,7 @@
     <URL>http://znuny.com/</URL>
     <License>GNU AFFERO GENERAL PUBLIC LICENSE Version 3, November 2007</License>
     <Description Lang="en">Functionality related to search engines.</Description>
+    <Description Lang="hu">Keresőmotorokhoz kapcsolódó funkcionalitás.</Description>
     <ChangeLog Version="6.5.5" Date="2025-10-09 09:35:40 +0200">Appliedy CodePolicy</ChangeLog>
     <ChangeLog Version="6.5.4" Date="2025-10-09 09:27:35 +0200">Fixed breadcrumbs in search re-indexation, node views: added working nested breadcrumbs.
 Added a feature to search "Ticket" index attribute "TicketNumber" by prefix determined by module selected in config option "Ticket::NumberGenerator".</ChangeLog>
