@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<otrs_package version="1.0">
+<package version="1.0">
     <Name>Znuny-Search</Name>
     <Version>7.3.3</Version>
-    <Framework>7.3.x</Framework>
+    <Framework>7.5.x</Framework>
     <ModuleRequired Version="8.00">Search::Elasticsearch</ModuleRequired>
     <ModuleRequired Version="0.051">Proc::Find</ModuleRequired>
     <Vendor>Znuny GmbH</Vendor>
@@ -215,4 +215,4 @@ Fixed admin dialog popup CSS.</ChangeLog>
         <TableDrop Name="search_cluster_data_equality"/>
         <TableDrop Name="search_object_operation_queue"/>
     </DatabaseUninstall>
-</otrs_package>
+</package>

@@ -1,8 +1,8 @@
-image: registry.znuny.com/znuny/internal/docker-znuny-ci:7.3
+image: registry.znuny.com/znuny/internal/docker-znuny-ci:7.5
 
 include:
-  - project: 'Znuny/Internal/Znuny'
-    file: '/templates/gitlab/default/default-db.yml'
+  - project: $INCLUDE_PROJECT
+    file: $INCLUDE_FILE
 
 .before_script:
   commands:
